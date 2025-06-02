@@ -1,9 +1,0 @@
-file(packageName, imports, content) ::= <<
-package <packageName>;
-
-<if(imports)>
-<imports:{i | import <i>;}; separator="\n">
-<endif>
-
-<content>
->>
