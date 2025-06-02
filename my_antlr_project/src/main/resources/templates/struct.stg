@@ -1,0 +1,6 @@
+struct(myStruct, currentPackageName) ::= <<
+package $currentPackageName$;
+public class $myStruct.name$ {
+    public $myStruct.name$() {}
+}
+>>
