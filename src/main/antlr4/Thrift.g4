@@ -1,13 +1,13 @@
 // $antlr-format alignTrailingComments true, columnLimit 150, minEmptyLines 1, maxEmptyLinesToKeep 1, reflowComments false, useTab false
 // $antlr-format allowShortRulesOnASingleLine false, allowShortBlocksOnASingleLine true, alignSemicolons hanging, alignColons hanging
 grammar Thrift;
-@headerNode { package com.github.decster.parser; }
+@header { package com.github.decster.parser; }
 
-documentNode
-    : headerNode* definition* EOF
+document
+    : header* definition* EOF
     ;
 
-headerNode
+header
     : include_
     | namespace_
     | cpp_include
@@ -34,8 +34,8 @@ definition
     | enum_rule
     | struct_
     | union_
-    | exceptionNode
-    | serviceNode
+    | exception
+    | service
     ;
 
 const_rule
@@ -55,22 +55,22 @@ enum_field
     ;
 
 struct_
-    : 'struct' IDENTIFIER '{' fieldNode* '}' type_annotations?
+    : 'struct' IDENTIFIER '{' field* '}' type_annotations?
     ;
 
 union_
-    : 'union' IDENTIFIER '{' fieldNode* '}' type_annotations?
+    : 'union' IDENTIFIER '{' field* '}' type_annotations?
     ;
 
-exceptionNode
-    : 'exceptionNode' IDENTIFIER '{' fieldNode* '}' type_annotations?
+exception
+    : 'exception' IDENTIFIER '{' field* '}' type_annotations?
     ;
 
-serviceNode
-    : 'serviceNode' IDENTIFIER ('extends' IDENTIFIER)? '{' function_* '}' type_annotations?
+service
+    : 'service' IDENTIFIER ('extends' IDENTIFIER)? '{' function_* '}' type_annotations?
     ;
 
-fieldNode
+field
     : field_id? field_req? field_type IDENTIFIER ('=' const_value)? type_annotations? list_separator?
     ;
 
@@ -84,7 +84,7 @@ field_req
     ;
 
 function_
-    : oneway? function_type IDENTIFIER '(' fieldNode* ')' throws_list? type_annotations? list_separator?
+    : oneway? function_type IDENTIFIER '(' field* ')' throws_list? type_annotations? list_separator?
     ;
 
 oneway
@@ -97,7 +97,7 @@ function_type
     ;
 
 throws_list
-    : 'throws' '(' fieldNode* ')'
+    : 'throws' '(' field* ')'
     ;
 
 type_annotations
@@ -272,3 +272,4 @@ SL_COMMENT
 ML_COMMENT
     : '/*' .*? '*/' -> channel(HIDDEN)
     ;
+

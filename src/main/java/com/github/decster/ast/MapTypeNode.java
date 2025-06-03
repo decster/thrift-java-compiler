@@ -30,6 +30,6 @@ public class MapTypeNode extends ContainerTypeNode {
 
     @Override
     public String getName() {
-        return "map<" + keyType.getName() + ", " + valueType.getName() + ">";
+        return "map<" + keyType.getName() + "," + valueType.getName() + ">";
     }
 }
