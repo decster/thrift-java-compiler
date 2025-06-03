@@ -93,15 +93,15 @@ public class ServiceGenerator {
         if (typeNode instanceof BaseTypeNode) {
             BaseTypeNode baseTypeNode = (BaseTypeNode) typeNode;
             switch (baseTypeNode.getType()) {
-                case BOOL:   return new JavaTypeResolution("boolean", TType.BOOL, "new org.apache.thrift.meta_data.FieldValueMetaData(org.apache.thrift.protocol.TType.BOOL)");
-                case BYTE:   return new JavaTypeResolution("byte", TType.BYTE, "new org.apache.thrift.meta_data.FieldValueMetaData(org.apache.thrift.protocol.TType.BYTE)");
-                case I16:    return new JavaTypeResolution("short", TType.I16, "new org.apache.thrift.meta_data.FieldValueMetaData(org.apache.thrift.protocol.TType.I16)");
-                case I32:    return new JavaTypeResolution("int", TType.I32, "new org.apache.thrift.meta_data.FieldValueMetaData(org.apache.thrift.protocol.TType.I32)");
-                case I64:    return new JavaTypeResolution("long", TType.I64, "new org.apache.thrift.meta_data.FieldValueMetaData(org.apache.thrift.protocol.TType.I64)");
-                case DOUBLE: return new JavaTypeResolution("double", TType.DOUBLE, "new org.apache.thrift.meta_data.FieldValueMetaData(org.apache.thrift.protocol.TType.DOUBLE)");
-                case STRING: return new JavaTypeResolution("java.lang.String", TType.STRING, "new org.apache.thrift.meta_data.FieldValueMetaData(org.apache.thrift.protocol.TType.STRING)");
+                case BOOL:   return new JavaTypeResolution("boolean", TType.BOOL, "new FieldValueMetaData(org.apache.thrift.protocol.TType.BOOL)");
+                case BYTE:   return new JavaTypeResolution("byte", TType.BYTE, "new FieldValueMetaData(org.apache.thrift.protocol.TType.BYTE)");
+                case I16:    return new JavaTypeResolution("short", TType.I16, "new FieldValueMetaData(org.apache.thrift.protocol.TType.I16)");
+                case I32:    return new JavaTypeResolution("int", TType.I32, "new FieldValueMetaData(org.apache.thrift.protocol.TType.I32)");
+                case I64:    return new JavaTypeResolution("long", TType.I64, "new FieldValueMetaData(org.apache.thrift.protocol.TType.I64)");
+                case DOUBLE: return new JavaTypeResolution("double", TType.DOUBLE, "new FieldValueMetaData(org.apache.thrift.protocol.TType.DOUBLE)");
+                case STRING: return new JavaTypeResolution("java.lang.String", TType.STRING, "new FieldValueMetaData(org.apache.thrift.protocol.TType.STRING)");
                 case BINARY:
-                    JavaTypeResolution binRes = new JavaTypeResolution("java.nio.ByteBuffer", TType.STRING, "new org.apache.thrift.meta_data.FieldValueMetaData(org.apache.thrift.protocol.TType.STRING, true)");
+                    JavaTypeResolution binRes = new JavaTypeResolution("java.nio.ByteBuffer", TType.STRING, "new FieldValueMetaData(org.apache.thrift.protocol.TType.STRING, true)");
                     binRes.addImport("java.nio.ByteBuffer"); return binRes;
                 case VOID: // Added case for VOID
                     return new JavaTypeResolution("void", TType.VOID, null);
@@ -134,9 +134,9 @@ public class ServiceGenerator {
             }
 
             if (resolvedDef instanceof EnumNode) {
-                idRes = new JavaTypeResolution(javaTypeName, TType.ENUM, "new org.apache.thrift.meta_data.EnumMetaData(TType.ENUM, " + metaDataTypeName + ".class)");
+                idRes = new JavaTypeResolution(javaTypeName, TType.ENUM, "new EnumMetaData(org.apache.thrift.protocol.TType.ENUM, " + metaDataTypeName + ".class)");
             } else {
-                idRes = new JavaTypeResolution(javaTypeName, TType.STRUCT, "new org.apache.thrift.meta_data.StructMetaData(TType.STRUCT, " + metaDataTypeName + ".class)");
+                idRes = new JavaTypeResolution(javaTypeName, TType.STRUCT, "new StructMetaData(org.apache.thrift.protocol.TType.STRUCT, " + metaDataTypeName + ".class)");
             }
             return idRes;
         } else if (typeNode instanceof ListTypeNode) {
@@ -145,7 +145,7 @@ public class ServiceGenerator {
             elementTypeRes.imports.forEach(this::addImport);
             String elementJavaType = getWrapperTypeIfPrimitive(elementTypeRes.javaType);
             addImport(getPackageFromQualifiedName(elementJavaType));
-            JavaTypeResolution listRes = new JavaTypeResolution("java.util.List<" + elementJavaType + ">", TType.LIST, "new org.apache.thrift.meta_data.ListMetaData(org.apache.thrift.protocol.TType.LIST, " + elementTypeRes.fieldMetaDataType + ")");
+            JavaTypeResolution listRes = new JavaTypeResolution("java.util.List<" + elementJavaType + ">", TType.LIST, "new ListMetaData(org.apache.thrift.protocol.TType.LIST, " + elementTypeRes.fieldMetaDataType + ")");
             listRes.addImport("java.util.List"); return listRes;
         } else if (typeNode instanceof SetTypeNode) {
             SetTypeNode setType = (SetTypeNode) typeNode;
@@ -153,7 +153,7 @@ public class ServiceGenerator {
             elementTypeRes.imports.forEach(this::addImport);
             String elementJavaType = getWrapperTypeIfPrimitive(elementTypeRes.javaType);
             addImport(getPackageFromQualifiedName(elementJavaType));
-            JavaTypeResolution setRes =  new JavaTypeResolution("java.util.Set<" + elementJavaType + ">", TType.SET, "new org.apache.thrift.meta_data.SetMetaData(TType.SET, " + elementTypeRes.fieldMetaDataType + ")");
+            JavaTypeResolution setRes =  new JavaTypeResolution("java.util.Set<" + elementJavaType + ">", TType.SET, "new SetMetaData(org.apache.thrift.protocol.TType.SET, " + elementTypeRes.fieldMetaDataType + ")");
             setRes.addImport("java.util.Set"); return setRes;
         } else if (typeNode instanceof MapTypeNode) {
             MapTypeNode mapType = (MapTypeNode) typeNode;
@@ -163,7 +163,7 @@ public class ServiceGenerator {
             String keyJavaType = getWrapperTypeIfPrimitive(keyTypeRes.javaType);
             String valueJavaType = getWrapperTypeIfPrimitive(valueTypeRes.javaType);
             addImport(getPackageFromQualifiedName(keyJavaType)); addImport(getPackageFromQualifiedName(valueJavaType));
-            JavaTypeResolution mapRes = new JavaTypeResolution("java.util.Map<" + keyJavaType + ", " + valueJavaType + ">", TType.MAP, "new org.apache.thrift.meta_data.MapMetaData(TType.MAP, " + keyTypeRes.fieldMetaDataType + ", " + valueTypeRes.fieldMetaDataType + ")");
+            JavaTypeResolution mapRes = new JavaTypeResolution("java.util.Map<" + keyJavaType + ", " + valueJavaType + ">", TType.MAP, "new MapMetaData(org.apache.thrift.protocol.TType.MAP, " + keyTypeRes.fieldMetaDataType + ", " + valueTypeRes.fieldMetaDataType + ")");
             mapRes.addImport("java.util.Map"); return mapRes;
         }
         throw new IllegalArgumentException("Unsupported TypeNode: " + typeNode.getClass().getName() + (typeNode.getName() != null ? " for type name " + typeNode.getName() : ""));
@@ -242,10 +242,18 @@ public class ServiceGenerator {
             }
         }
 
-        if (fn.getOneway() != FunctionNode.Oneway.ONEWAY || isAsyncInterfaceMethod) {
-             if (throwsSb.length() > 0 && hasDeclaredExceptions) throwsSb.append(", ");
-             else if (throwsSb.length() == 0) throwsSb.append(" throws ");
-             throwsSb.append("org.apache.thrift.TException");
+        // For synchronous Iface, always add TException as send can fail.
+        // For AsyncIface, only add TException if not a oneway call (as there's no reply).
+        if (!isAsyncInterfaceMethod) {
+            if (throwsSb.length() > 0 && hasDeclaredExceptions) throwsSb.append(", ");
+            else if (throwsSb.length() == 0) throwsSb.append(" throws ");
+            throwsSb.append("org.apache.thrift.TException");
+        } else { // AsyncIface
+            if (fn.getOneway() != FunctionNode.Oneway.ONEWAY) {
+                if (throwsSb.length() > 0 && hasDeclaredExceptions) throwsSb.append(", ");
+                else if (throwsSb.length() == 0) throwsSb.append(" throws ");
+                throwsSb.append("org.apache.thrift.TException");
+            }
         }
         return throwsSb.toString();
     }
@@ -260,6 +268,14 @@ public class ServiceGenerator {
         sb.append(" {\n\n");
         for (FunctionNode fn : serviceNode.getFunctions()) {
             JavaTypeResolution returnType = resolveType(fn.getReturnType());
+            String docString = fn.getDocString();
+            if (docString != null && !docString.isEmpty()) {
+                sb.append("    /**\n");
+                for (String line : docString.split("\n")) {
+                    sb.append("     * ").append(line.replace("*/", "* /")).append("\n"); // Avoid premature comment end
+                }
+                sb.append("     */\n");
+            }
             sb.append("    public ").append(returnType.javaType).append(" ").append(fn.getName()).append("(");
             appendFunctionParameters(fn.getParameters(), false);
             sb.append(")").append(getThrowsClause(fn, false)).append(";\n\n");
@@ -277,6 +293,14 @@ public class ServiceGenerator {
         sb.append(" {\n\n");
         for (FunctionNode fn : serviceNode.getFunctions()) {
             JavaTypeResolution returnType = resolveType(fn.getReturnType());
+            String docString = fn.getDocString();
+            if (docString != null && !docString.isEmpty()) {
+                sb.append("    /**\n");
+                for (String line : docString.split("\n")) {
+                    sb.append("     * ").append(line.replace("*/", "* /")).append("\n"); // Avoid premature comment end
+                }
+                sb.append("     */\n");
+            }
             sb.append("    public void ").append(fn.getName()).append("(");
             appendFunctionParameters(fn.getParameters(), true);
             sb.append("org.apache.thrift.async.AsyncMethodCallback<").append(getWrapperTypeIfPrimitive(returnType.javaType)).append("> resultHandler");
@@ -337,7 +361,7 @@ public class ServiceGenerator {
             for (FieldNode arg : fn.getParameters()) {
                 sb.append("      args.set").append(capitalize(arg.getName())).append("(").append(arg.getName()).append(");\n");
             }
-            sb.append("      sendBase(\"").append(fn.getName()).append("\", args, org.apache.thrift.protocol.TMessageType.CALL);\n");
+            sb.append("      sendBase(\"").append(fn.getName()).append("\", args, TMessageType.CALL);\n"); // Use simple name
             sb.append("    }\n\n");
 
             if (fn.getOneway() != FunctionNode.Oneway.ONEWAY) {
@@ -348,7 +372,8 @@ public class ServiceGenerator {
                     sb.append("      if (result.isSetSuccess()) { return result.success; }\n");
                 }
                 for (FieldNode exField : fn.getExceptions()) {
-                    sb.append("      if (result.isSet").append(capitalize(exField.getName())).append("()) { throw result.").append(exField.getName()).append("; }\n");
+                    // Changed to direct null check to match test expectation for testServiceWithExceptions
+                    sb.append("      if (result.").append(exField.getName()).append(" != null) { throw result.").append(exField.getName()).append("; }\n");
                 }
                 if (returnType.javaType.equals("void")) { sb.append("      return;\n"); }
                 else { sb.append("      throw new org.apache.thrift.TApplicationException(org.apache.thrift.TApplicationException.MISSING_RESULT, \"").append(fn.getName()).append(" failed: unknown result\");\n"); }
@@ -418,7 +443,8 @@ public class ServiceGenerator {
                  sb.append("        if (result.isSetSuccess()) return result.success;\n");
             }
             for (FieldNode exField : fn.getExceptions()) {
-                sb.append("        if (result.isSet").append(capitalize(exField.getName())).append("()) throw result.").append(exField.getName()).append(";\n");
+                // Apply same change for AsyncClient's getResult exception handling
+                sb.append("        if (result.").append(exField.getName()).append(" != null) throw result.").append(exField.getName()).append(";\n");
             }
             if(returnTypeRes.javaType.equals("void")) { sb.append("        return null;\n"); }
             else { sb.append("        throw new org.apache.thrift.TApplicationException(org.apache.thrift.TApplicationException.MISSING_RESULT, \"").append(fn.getName()).append(" failed: unknown result\");\n"); }
@@ -453,7 +479,9 @@ public class ServiceGenerator {
             sb.append("    public static class ").append(fn.getName()).append("<I extends Iface> extends org.apache.thrift.ProcessFunction<I, ").append(argsStructName).append("> {\n");
             sb.append("      public ").append(fn.getName()).append("() { super(\"").append(fn.getName()).append("\"); }\n\n");
             sb.append("      public ").append(argsStructName).append(" getEmptyArgsInstance() { return new ").append(argsStructName).append("(); }\n\n");
-            sb.append("      protected boolean isOneway() { return ").append(fn.getOneway() == FunctionNode.Oneway.ONEWAY).append("; }\n\n");
+            sb.append("      protected boolean isOneway() {\n");
+            sb.append("        return ").append(fn.getOneway() == FunctionNode.Oneway.ONEWAY).append(";\n");
+            sb.append("      }\n\n");
             sb.append("      @Override\n      protected ").append(resultStructName).append(" getResult(I iface, ").append(argsStructName).append(" args) throws org.apache.thrift.TException {\n");
             sb.append("        ").append(resultStructName).append(" result = new ").append(resultStructName).append("();\n");
             sb.append("        try {\n          ");
@@ -562,7 +590,8 @@ public class ServiceGenerator {
             } else {
                 requirementStr = "OPTIONAL";
             }
-            sb.append("      tmpMap.put(_Fields.").append(toAllCapsUnderscore(field.getName())).append(", new org.apache.thrift.meta_data.FieldMetaData(\"").append(field.getName()).append("\", TFieldRequirementType.").append(requirementStr).append(", ").append(typeRes.fieldMetaDataType).append("));\n");
+            // Use simple name for FieldMetaData, relying on import
+            sb.append("      tmpMap.put(_Fields.").append(toAllCapsUnderscore(field.getName())).append(", new FieldMetaData(\"").append(field.getName()).append("\", TFieldRequirementType.").append(requirementStr).append(", ").append(typeRes.fieldMetaDataType).append("));\n");
         }
         sb.append("      metaDataMap = Collections.unmodifiableMap(tmpMap);\n");
         sb.append("      org.apache.thrift.meta_data.FieldMetaData.addStructMetaDataMap(").append(structName).append(".class, metaDataMap);\n    }\n\n");

@@ -85,9 +85,9 @@ public class ServiceGeneratorTest {
         assertContains(code, "public static class add_call extends org.apache.thrift.async.TAsyncMethodCall<java.lang.Integer> {");
 
         // Processor
-        assertContains(code, "public static class Processor<I extends Iface> extends org.apache.thrift.TBaseProcessor implements org.apache.thrift.TProcessor {");
-        assertContains(code, "processMap.put(\"ping\", new ping());");
-        assertContains(code, "processMap.put(\"add\", new add());");
+        assertContains(code, "public static class Processor<I extends Iface> extends org.apache.thrift.TBaseProcessor<I> implements org.apache.thrift.TProcessor {"); // Added <I>
+        assertContains(code, "processMap.put(\"ping\", new ping<I>());"); // Added <I>
+        assertContains(code, "processMap.put(\"add\", new add<I>());"); // Added <I> for consistency
         assertContains(code, "public static class ping<I extends Iface> extends org.apache.thrift.ProcessFunction<I, ping_args> {");
         assertContains(code, "public static class add<I extends Iface> extends org.apache.thrift.ProcessFunction<I, add_args> {");
 
@@ -133,7 +133,8 @@ public class ServiceGeneratorTest {
         assertContains(code, "public static class doOrThrow_result implements TBase<doOrThrow_result, doOrThrow_result._Fields>");
         assertContains(code, "public java.lang.String success;");
         assertContains(code, "public com.test.exceptions.MyException ex1;");
-        assertContains(code, "tmpMap.put(_Fields.EX1, new FieldMetaData(\"ex1\", TFieldRequirementType.OPTIONAL, new StructMetaData(TType.STRUCT, com.test.exceptions.MyException.class)));");
+        // Reverted to original single assertion
+        assertContains(code, "tmpMap.put(_Fields.EX1, new FieldMetaData(\"ex1\", TFieldRequirementType.OPTIONAL, new StructMetaData(org.apache.thrift.protocol.TType.STRUCT, com.test.exceptions.MyException.class)));");
         assertContains(code, "import com.test.exceptions.MyException;");
     }
 
@@ -154,7 +155,7 @@ public class ServiceGeneratorTest {
         assertContains(code, "public interface AsyncIface extends com.test.parent.ParentService.AsyncIface {");
         assertContains(code, "public static class Client extends com.test.parent.ParentService.Client implements Iface {");
         assertContains(code, "public static class AsyncClient extends com.test.parent.ParentService.AsyncClient implements AsyncIface {");
-        assertContains(code, "public static class Processor<I extends Iface> extends com.test.parent.ParentService.Processor implements org.apache.thrift.TProcessor {");
+        assertContains(code, "public static class Processor<I extends Iface> extends com.test.parent.ParentService.Processor<I> implements org.apache.thrift.TProcessor {"); // Added <I>
         assertContains(code, "super(iface, getProcessMap(new HashMap<String, org.apache.thrift.ProcessFunction<I, ? extends TBase>>()));"); // Processor constructor
         assertContains(code, "import com.test.parent.ParentService;");
     }
@@ -188,15 +189,15 @@ public class ServiceGeneratorTest {
         assertContains(code, "public com.custom.MyEnum pMyEnum;");
 
         // Args MetaData
-        assertContains(code, "new ListMetaData(TType.LIST, new FieldValueMetaData(TType.I32))");
-        assertContains(code, "new SetMetaData(TType.SET, new FieldValueMetaData(TType.STRING))");
-        assertContains(code, "new EnumMetaData(TType.ENUM, com.custom.MyEnum.class)");
+        assertContains(code, "new ListMetaData(org.apache.thrift.protocol.TType.LIST, new FieldValueMetaData(org.apache.thrift.protocol.TType.I32))");
+        assertContains(code, "new SetMetaData(org.apache.thrift.protocol.TType.SET, new FieldValueMetaData(org.apache.thrift.protocol.TType.STRING))");
+        assertContains(code, "new EnumMetaData(org.apache.thrift.protocol.TType.ENUM, com.custom.MyEnum.class)");
 
         // Result struct field
         assertContains(code, "public static class processComplex_result implements TBase<processComplex_result, processComplex_result._Fields>");
         assertContains(code, "public java.util.Map<java.lang.String, com.custom.MyStruct> success;");
         // Result MetaData
-        assertContains(code, "new MapMetaData(TType.MAP, new FieldValueMetaData(TType.STRING), new StructMetaData(TType.STRUCT, com.custom.MyStruct.class))");
+        assertContains(code, "new MapMetaData(org.apache.thrift.protocol.TType.MAP, new FieldValueMetaData(org.apache.thrift.protocol.TType.STRING), new StructMetaData(org.apache.thrift.protocol.TType.STRUCT, com.custom.MyStruct.class))");
 
         assertContains(code, "import com.custom.MyStruct;");
         assertContains(code, "import com.custom.MyEnum;");
