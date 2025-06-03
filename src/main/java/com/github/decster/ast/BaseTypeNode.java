@@ -5,7 +5,7 @@ package com.github.decster.ast;
  */
 public class BaseTypeNode extends TypeNode {
     public enum BaseTypeEnum {
-        BOOL, BYTE, I16, I32, I64, DOUBLE, STRING, BINARY
+        BOOL, BYTE, I16, I32, I64, DOUBLE, STRING, BINARY, VOID
     }
 
     private BaseTypeEnum type;

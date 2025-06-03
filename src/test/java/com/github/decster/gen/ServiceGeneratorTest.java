@@ -1,147 +1,37 @@
 package com.github.decster.gen;
 
-import com.github.decster.ast.*; // Assuming these interfaces/classes exist
+import com.github.decster.ast.BaseTypeNode; // Changed from BaseTypeEnum
+import com.github.decster.ast.FieldNode;
+import com.github.decster.ast.FunctionNode;
+import com.github.decster.ast.IdentifierTypeNode;
+import com.github.decster.ast.ServiceNode;
+// It's often better to import specific stub classes if not all are needed or to avoid name clashes.
+// Fixed import to use package wildcard instead of non-existent class AstTestStubs
+import com.github.decster.gen.*;
+
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Collections;
+// Removed java.util.List, ArrayList, Collections as they are likely encapsulated in Stubs or not directly used.
+// Re-add if specific direct usages are found later.
 
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-
-// --- Stub AST Node Implementations (copied/adapted from previous tests for self-containment) ---
-
-interface Node { String getDocString(); }
-interface TypeNode extends Node {}
-
-enum BaseType { BOOL, BYTE, I16, I32, I64, DOUBLE, STRING, BINARY, VOID }
-
-class StubBaseTypeNode implements BaseTypeNode {
-    private BaseType type;
-    public StubBaseTypeNode(BaseType type) { this.type = type; }
-    public BaseType getType() { return type; }
-    @Override public String getDocString() { return null; }
-}
-
-class StubIdentifierTypeNode implements IdentifierTypeNode {
-    private String name;
-    private boolean isEnum;
-    public StubIdentifierTypeNode(String name) { this.name = name; this.isEnum = false; }
-    public StubIdentifierTypeNode(String name, boolean isEnum) { this.name = name; this.isEnum = isEnum; }
-    @Override public String getName() { return name; }
-    @Override public boolean isEnum() { return isEnum; } // Assumed by ServiceGenerator
-    @Override public String getDocString() { return null; }
-}
-
-class StubListTypeNode implements ListTypeNode {
-    private TypeNode elementType;
-    public StubListTypeNode(TypeNode elementType) { this.elementType = elementType; }
-    @Override public TypeNode getElementType() { return elementType; }
-    @Override public String getDocString() { return null; }
-}
-
-class StubSetTypeNode implements SetTypeNode {
-    private TypeNode elementType;
-    public StubSetTypeNode(TypeNode elementType) { this.elementType = elementType; }
-    @Override public TypeNode getElementType() { return elementType; }
-    @Override public String getDocString() { return null; }
-}
-
-class StubMapTypeNode implements MapTypeNode {
-    private TypeNode keyType;
-    private TypeNode valueType;
-    public StubMapTypeNode(TypeNode keyType, TypeNode valueType) { this.keyType = keyType; this.valueType = valueType; }
-    @Override public TypeNode getKeyType() { return keyType; }
-    @Override public TypeNode getValueType() { return valueType; }
-    @Override public String getDocString() { return null; }
-}
-
-class StubFieldNode implements FieldNode {
-    private short id;
-    private String name;
-    private TypeNode type;
-    private Requirement requirement = Requirement.DEFAULT;
-    private String docString;
-
-    public StubFieldNode(short id, String name, TypeNode type) { this.id = id; this.name = name; this.type = type; }
-    @Override public short getId() { return id; }
-    @Override public String getName() { return name; }
-    @Override public TypeNode getType() { return type; }
-    @Override public Requirement getRequirement() { return requirement; }
-    public void setRequirement(Requirement req) { this.requirement = req; }
-    @Override public String getDocString() { return docString; }
-    public void setDocString(String doc) { this.docString = doc; }
-}
-
-class StubFunctionNode implements FunctionNode {
-    private String name;
-    private TypeNode returnType;
-    private boolean isOneway;
-    private List<FieldNode> arguments = new ArrayList<>();
-    private List<FieldNode> exceptions = new ArrayList<>();
-    private String docString;
-
-    public StubFunctionNode(String name, TypeNode returnType, boolean isOneway) {
-        this.name = name;
-        this.returnType = returnType;
-        this.isOneway = isOneway;
-    }
-    @Override public String getName() { return name; }
-    @Override public TypeNode getReturnType() { return returnType; }
-    @Override public boolean isOneway() { return isOneway; }
-    @Override public List<FieldNode> getArguments() { return arguments; }
-    public void addArgument(FieldNode arg) { this.arguments.add(arg); }
-    @Override public List<FieldNode> getExceptions() { return exceptions; }
-    public void addException(FieldNode ex) { this.exceptions.add(ex); }
-    @Override public String getDocString() { return docString; }
-    public void setDocString(String doc) { this.docString = doc; }
-}
-
-class StubServiceNode implements ServiceNode {
-    private String name;
-    private IdentifierTypeNode extendsService;
-    private List<FunctionNode> functions = new ArrayList<>();
-    private String docString;
-
-    public StubServiceNode(String name) { this.name = name; }
-    @Override public String getName() { return name; }
-    @Override public IdentifierTypeNode getExtendsService() { return extendsService; }
-    public void setExtendsService(IdentifierTypeNode ext) { this.extendsService = ext; }
-    @Override public List<FunctionNode> getFunctions() { return functions; }
-    public void addFunction(FunctionNode func) { this.functions.add(func); }
-    @Override public String getDocString() { return docString; }
-    public void setDocString(String doc) { this.docString = doc; }
-}
+// Static imports for JUnit assertions are kept by GeneratorTestUtil, so direct ones here can be removed if not used.
+// For now, keep them if methods like assertTrue/assertFalse are called directly in this file,
+// otherwise, they will be removed if all such calls are through GeneratorTestUtil.
+// import static org.junit.jupiter.api.Assertions.assertTrue; // Now in GeneratorTestUtil
+// import static org.junit.jupiter.api.Assertions.assertFalse; // Now in GeneratorTestUtil
+import static com.github.decster.gen.GeneratorTestUtil.*;
 
 
 public class ServiceGeneratorTest {
 
     private ServiceGenerator generator;
-    private StubServiceNode serviceNode;
+    private StubServiceNode serviceNode; // Assuming StubServiceNode is from AstTestStubs
     private static final String TEST_PACKAGE = "com.test.services";
     private static final String TEST_DATE = "2023-10-27";
 
-    private void assertContains(String generatedCode, String expectedSnippet) {
-        assertTrue(generatedCode.contains(expectedSnippet),
-                "Generated code missing: '" + expectedSnippet + "'\n------ Code Snippet (approx 200 chars around missing part) -----\n" +调试上下文(generatedCode, expectedSnippet, 200) + "\n------ Full Code -----\n" + 간단히하기(generatedCode, 2000) + "\n--------------------");
-    }
-
-    private String 간단히하기(String text, int maxLength) {
-        if (text.length() <= maxLength) return text;
-        return text.substring(0, maxLength/2) + "\n...\n[TRUNCATED]\n...\n" + text.substring(text.length() - maxLength/2);
-    }
-
-    private String 调试上下文(String text, String snippet, int window) {
-        int idx = text.indexOf(snippet);
-        if (idx == -1) return "[Snippet not found for context]";
-        int start = Math.max(0, idx - window/2);
-        int end = Math.min(text.length(), idx + snippet.length() + window/2);
-        return text.substring(start, end);
-    }
-
+    // assertContains, 간단히하기, 调试上下文 moved to GeneratorTestUtil
 
     @BeforeEach
     void setUp() {
@@ -152,16 +42,17 @@ public class ServiceGeneratorTest {
     void testSimpleService() {
         serviceNode = new StubServiceNode("Calculator");
 
-        StubFunctionNode pingFunc = new StubFunctionNode("ping", new StubBaseTypeNode(BaseType.VOID), false);
+        StubFunctionNode pingFunc = new StubFunctionNode("ping", new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.VOID), false);
         pingFunc.setDocString("A simple ping function.");
         serviceNode.addFunction(pingFunc);
 
-        StubFunctionNode addFunc = new StubFunctionNode("add", new StubBaseTypeNode(BaseType.I32), false);
-        addFunc.addArgument(new StubFieldNode((short)1, "num1", new StubBaseTypeNode(BaseType.I32)));
-        addFunc.addArgument(new StubFieldNode((short)2, "num2", new StubBaseTypeNode(BaseType.I32)));
+        StubFunctionNode addFunc = new StubFunctionNode("add", new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.I32), false);
+        addFunc.addParameter(new StubFieldNode((short)1, "num1", new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.I32)));
+        addFunc.addParameter(new StubFieldNode((short)2, "num2", new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.I32)));
         serviceNode.addFunction(addFunc);
 
-        generator = new ServiceGenerator(serviceNode, TEST_PACKAGE, TEST_DATE);
+        StubDocumentNode docNode = new StubDocumentNode();
+        generator = new ServiceGenerator(serviceNode, docNode, TEST_PACKAGE, TEST_DATE);
         String code = generator.generate();
 
         assertContains(code, "public class Calculator {");
@@ -217,13 +108,16 @@ public class ServiceGeneratorTest {
     @Test
     void testServiceWithExceptions() {
         serviceNode = new StubServiceNode("ErrService");
-        StubFunctionNode errFunc = new StubFunctionNode("doOrThrow", new StubBaseTypeNode(BaseType.STRING), false);
-        errFunc.addArgument(new StubFieldNode((short)1, "input", new StubBaseTypeNode(BaseType.STRING)));
+        StubFunctionNode errFunc = new StubFunctionNode("doOrThrow", new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.STRING), false);
+        errFunc.addParameter(new StubFieldNode((short)1, "input", new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.STRING)));
         // Assume MyException is a struct defined elsewhere
         errFunc.addException(new StubFieldNode((short)1, "ex1", new StubIdentifierTypeNode("com.test.exceptions.MyException")));
         serviceNode.addFunction(errFunc);
 
-        generator = new ServiceGenerator(serviceNode, "com.test.svc", "2023-01-01");
+        StubDocumentNode docNode = new StubDocumentNode();
+        StubStructNode myExceptionStruct = new StubStructNode("com.test.exceptions.MyException");
+        docNode.addDefinition(myExceptionStruct);
+        generator = new ServiceGenerator(serviceNode, docNode, "com.test.svc", "2023-01-01");
         String code = generator.generate();
 
         assertContains(code, "public interface Iface {");
@@ -246,11 +140,14 @@ public class ServiceGeneratorTest {
     @Test
     void testServiceExtends() {
         serviceNode = new StubServiceNode("ChildService");
-        serviceNode.setExtendsService(new StubIdentifierTypeNode("com.test.parent.ParentService"));
-        StubFunctionNode childFunc = new StubFunctionNode("childAction", new StubBaseTypeNode(BaseType.BOOL), false);
+        serviceNode.setExtendsService("com.test.parent.ParentService"); // Changed to String
+        StubFunctionNode childFunc = new StubFunctionNode("childAction", new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.BOOL), false);
         serviceNode.addFunction(childFunc);
 
-        generator = new ServiceGenerator(serviceNode, TEST_PACKAGE, TEST_DATE);
+        StubDocumentNode docNode = new StubDocumentNode();
+        StubServiceNode parentService = new StubServiceNode("com.test.parent.ParentService");
+        docNode.addDefinition(parentService);
+        generator = new ServiceGenerator(serviceNode, docNode, TEST_PACKAGE, TEST_DATE);
         String code = generator.generate();
 
         assertContains(code, "public interface Iface extends com.test.parent.ParentService.Iface {");
@@ -265,13 +162,18 @@ public class ServiceGeneratorTest {
     @Test
     void testServiceWithVariousTypes() {
         serviceNode = new StubServiceNode("ComplexTypeService");
-        StubFunctionNode func = new StubFunctionNode("processComplex", new StubMapTypeNode(new StubBaseTypeNode(BaseType.STRING), new StubIdentifierTypeNode("com.custom.MyStruct")), false);
-        func.addArgument(new StubFieldNode((short)1, "pListOfInts", new StubListTypeNode(new StubBaseTypeNode(BaseType.I32))));
-        func.addArgument(new StubFieldNode((short)2, "pSetOfStrings", new StubSetTypeNode(new StubBaseTypeNode(BaseType.STRING))));
-        func.addArgument(new StubFieldNode((short)3, "pMyEnum", new StubIdentifierTypeNode("com.custom.MyEnum", true)));
+        StubFunctionNode func = new StubFunctionNode("processComplex", new StubMapTypeNode(new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.STRING), new StubIdentifierTypeNode("com.custom.MyStruct")), false);
+        func.addParameter(new StubFieldNode((short)1, "pListOfInts", new StubListTypeNode(new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.I32))));
+        func.addParameter(new StubFieldNode((short)2, "pSetOfStrings", new StubSetTypeNode(new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.STRING))));
+        func.addParameter(new StubFieldNode((short)3, "pMyEnum", new StubIdentifierTypeNode("com.custom.MyEnum", true)));
         serviceNode.addFunction(func);
 
-        generator = new ServiceGenerator(serviceNode, TEST_PACKAGE, TEST_DATE);
+        StubDocumentNode docNode = new StubDocumentNode();
+        StubStructNode myStruct = new StubStructNode("com.custom.MyStruct");
+        docNode.addDefinition(myStruct);
+        StubEnumNode myEnum = new StubEnumNode("com.custom.MyEnum");
+        docNode.addDefinition(myEnum);
+        generator = new ServiceGenerator(serviceNode, docNode, TEST_PACKAGE, TEST_DATE);
         String code = generator.generate();
 
         // Iface
@@ -304,11 +206,12 @@ public class ServiceGeneratorTest {
     @Test
     void testOnewayFunction() {
         serviceNode = new StubServiceNode("OnewayTestService");
-        StubFunctionNode onewayFunc = new StubFunctionNode("logMessage", new StubBaseTypeNode(BaseType.VOID), true); // oneway = true
-        onewayFunc.addArgument(new StubFieldNode((short)1, "message", new StubBaseTypeNode(BaseType.STRING)));
+        StubFunctionNode onewayFunc = new StubFunctionNode("logMessage", new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.VOID), true); // oneway = true
+        onewayFunc.addParameter(new StubFieldNode((short)1, "message", new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.STRING)));
         serviceNode.addFunction(onewayFunc);
 
-        generator = new ServiceGenerator(serviceNode, TEST_PACKAGE, TEST_DATE);
+        StubDocumentNode docNode = new StubDocumentNode();
+        generator = new ServiceGenerator(serviceNode, docNode, TEST_PACKAGE, TEST_DATE);
         String code = generator.generate();
 
         // Iface: oneway still has TException because client send can fail

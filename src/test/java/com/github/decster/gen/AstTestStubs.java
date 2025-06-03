@@ -22,7 +22,7 @@ abstract class StubTypeNodeBase extends TypeNode { // Make it abstract if TypeNo
 }
 
 class StubBaseTypeNode extends BaseTypeNode {
-    public StubBaseTypeNode(BaseTypeEnum type) {
+    public StubBaseTypeNode(BaseTypeNode.BaseTypeEnum type) { // Qualified BaseTypeEnum
         super(type);
     }
     // getName() is inherited
@@ -64,14 +64,20 @@ class StubMapTypeNode extends MapTypeNode {
 
 // FieldNode Stub
 class StubFieldNode extends FieldNode {
+    private String docString;
+
     public StubFieldNode(TypeNode type, String name) {
         super(type, name);
     }
-    public StubFieldNode(short id, TypeNode type, String name) { // Convenience for tests
-        super(type, name);
+    public StubFieldNode(short id, String name, TypeNode type) { // Convenience for tests
+        super(type, name); // Call super with correct params first if needed
         this.setId((int)id);
+        this.setName(name); // Set name
+        this.setType(type);   // Set type
     }
     // Methods like setId, setName, setType, setRequirement, setDefaultValue are inherited
+    public String getDocString() { return this.docString; }
+    public void setDocString(String docString) { this.docString = docString; }
 }
 
 // EnumValueNode Stub
@@ -107,14 +113,14 @@ class StubEnumNode extends EnumNode {
 }
 
 class StubFunctionNode extends FunctionNode {
-     private String docString;
+    private String docString;
     public StubFunctionNode(String name, TypeNode returnType, boolean isOneway) {
         super(name, returnType); // Assuming FunctionNode constructor
-        if(isOneway) this.setOneway(Oneway.ONEWAY); else this.setOneway(Oneway.SYNC);
+        this.setOneway(isOneway ? Oneway.ONEWAY : Oneway.SYNC);
     }
     // addParameter, addException are inherited
-    // public String getDocString() { return docString; } // Not in actual FunctionNode
-    // public void setDocString(String doc) { this.docString = doc; }
+    public String getDocString() { return this.docString; }
+    public void setDocString(String docString) { this.docString = docString; }
 }
 
 class StubServiceNode extends ServiceNode {
@@ -123,8 +129,8 @@ class StubServiceNode extends ServiceNode {
         super(name);
     }
     // addFunction, setExtendsService are inherited
-    // public String getDocString() { return docString; } // Not in actual ServiceNode
-    // public void setDocString(String doc) { this.docString = doc; }
+    public String getDocString() { return this.docString; }
+    public void setDocString(String docString) { this.docString = docString; }
 }
 
 // HeaderNode Stubs
