@@ -1,9 +1,17 @@
 package com.github.decster.gen;
 
+import com.github.decster.ast.DefinitionNode;
 import com.github.decster.ast.DocumentNode;
+import com.github.decster.ast.EnumNode;
+import com.github.decster.ast.HeaderNode;
+import com.github.decster.ast.NamespaceNode;
+import com.github.decster.ast.ServiceNode;
+import com.github.decster.ast.StructNode;
+
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 
 public class DocumentGenerator {
     DocumentNode documentNode;
