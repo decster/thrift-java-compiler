@@ -113,14 +113,14 @@ class StubEnumNode extends EnumNode {
 }
 
 class StubFunctionNode extends FunctionNode {
-    private String docString;
+    // docString and its getter/setter are now inherited from FunctionNode
     public StubFunctionNode(String name, TypeNode returnType, boolean isOneway) {
         super(name, returnType); // Assuming FunctionNode constructor
         this.setOneway(isOneway ? Oneway.ONEWAY : Oneway.SYNC);
     }
     // addParameter, addException are inherited
-    public String getDocString() { return this.docString; }
-    public void setDocString(String docString) { this.docString = docString; }
+    // public String getDocString() { return this.docString; } // Removed
+    // public void setDocString(String docString) { this.docString = docString; } // Removed
 }
 
 class StubServiceNode extends ServiceNode {

@@ -19,6 +19,7 @@ public class FunctionNode extends Node {
     private List<FieldNode> parameters;
     private List<FieldNode> exceptions;
     private List<TypeAnnotationNode> annotations;
+    private String docString; // Added docString field
 
     public FunctionNode(String name, TypeNode returnType) {
         this.name = name;
@@ -75,5 +76,14 @@ public class FunctionNode extends Node {
 
     public void addAnnotation(TypeAnnotationNode annotation) {
         this.annotations.add(annotation);
+    }
+
+    // Added getter and setter for docString
+    public String getDocString() {
+        return docString;
+    }
+
+    public void setDocString(String docString) {
+        this.docString = docString;
     }
 }
