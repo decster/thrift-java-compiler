@@ -1,7 +1,6 @@
 package com.github.decster;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
-import com.github.decster.ast.ProgramNode;
 import com.github.decster.parser.ThriftLexer;
 import com.github.decster.parser.ThriftParser;
 import java.io.File;
@@ -12,23 +11,36 @@ import java.nio.file.Paths;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.misc.ParseCancellationException;
 import org.antlr.v4.runtime.tree.ParseTree;
 
 public class ThriftCompiler {
-  public ProgramNode parse(String filePath) throws IOException {
+  public static ThriftParser.DocumentContext parse(String content)
+      throws IOException {
+    CharStream input = CharStreams.fromString(content);
+    ThriftLexer lexer = new ThriftLexer(input);
+    CommonTokenStream tokens = new CommonTokenStream(lexer);
+    ThriftParser parser = new ThriftParser(tokens);
+    ThriftParser.DocumentContext tree = parser.document();
+    if (parser.getNumberOfSyntaxErrors() > 0) {
+      throw new ParseCancellationException("Thrift parsing failed with " +
+                            parser.getNumberOfSyntaxErrors() +
+                            " syntax errors");
+    }
+    return tree;
+  }
+
+  public static ThriftParser.DocumentContext parseFile(String filePath)
+      throws IOException {
     Path path = Paths.get(filePath);
     if (!Files.exists(path)) {
       throw new IOException("Input file not found: " + filePath);
     }
-    CharStream input = CharStreams.fromPath(path);
-    ThriftLexer lexer = new ThriftLexer(input);
-    CommonTokenStream tokens = new CommonTokenStream(lexer);
-    ThriftParser parser = new ThriftParser(tokens);
-    ParseTree tree = parser.document();
-    SimpleThriftAstBuilder astBuilder = new SimpleThriftAstBuilder();
-    return (ProgramNode)astBuilder.visit(tree);
+    String content = Files.readString(path);
+    return parse(content);
   }
-  public static void main(String[] argv) {
+
+  public static void main(String[] argv) throws IOException {
     CommandLineArgs cliArgs = new CommandLineArgs();
     JCommander jc = JCommander.newBuilder().addObject(cliArgs).build();
     String fileToParse = null;
@@ -59,28 +71,6 @@ public class ThriftCompiler {
       jc.usage();
       return;
     }
-    ThriftCompiler compiler = new ThriftCompiler();
-    JavaCodeGenerator generator = new JavaCodeGenerator();
-    System.out.println("Attempting to parse: " + fileToParse);
-    try {
-      ProgramNode astRoot = compiler.parse(fileToParse);
-      if (astRoot != null) {
-        System.out.println("AST Root: " + astRoot.getClass().getSimpleName());
-        System.out.println(astRoot.toString());
-        Files.createDirectories(Paths.get(outputDirectory));
-        generator.generate(astRoot, outputDirectory);
-        System.out.println("Code generation attempted into: " +
-                           outputDirectory);
-      } else {
-        System.err.println("AST construction resulted in null root.");
-      }
-    } catch (IOException e) {
-      System.err.println("IO Error during compilation/generation: " +
-                         e.getMessage());
-    } catch (Exception e) {
-      System.err.println("Unexpected error during compilation/generation: " +
-                         e.getMessage());
-      e.printStackTrace();
-    }
+    ThriftCompiler.parseFile(fileToParse);
   }
 }

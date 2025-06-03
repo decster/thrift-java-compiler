@@ -1,59 +1,279 @@
+// $antlr-format alignTrailingComments true, columnLimit 150, minEmptyLines 1, maxEmptyLinesToKeep 1, reflowComments false, useTab false
+// $antlr-format allowShortRulesOnASingleLine false, allowShortBlocksOnASingleLine true, alignSemicolons hanging, alignColons hanging
 grammar Thrift;
 @header { package com.github.decster.parser; }
-document: header* definition* EOF;
-header: includeHeader | namespaceHeader ;
-includeHeader: KW_INCLUDE LITERAL_STRING;
-namespaceHeader: KW_NAMESPACE (NAMESPACE_SCOPE ID | ID ID) ( SListSeparator? )?;
-definition: constDefinition | typedefDefinition | enumDefinition | structDefinition | unionDefinition | exceptionDefinition | serviceDefinition ;
-constDefinition: KW_CONST fieldType ID '=' constValue xsdAnnotations? ( SListSeparator? )?;
-typedefDefinition: KW_TYPEDEF fieldType ID xsdAnnotations? ( SListSeparator? )?;
-enumDefinition: KW_ENUM ID '{' (ID ('=' INT_CONSTANT)? xsdAnnotations? ( listSeparator )? )* '}' xsdAnnotations? ( SListSeparator? )?;
-structDefinition: KW_STRUCT ID xsdStruct? '{' field* '}' xsdAnnotations? ( SListSeparator? )?;
-unionDefinition: KW_UNION ID xsdStruct? '{' field* '}' xsdAnnotations? ( SListSeparator? )?;
-exceptionDefinition: KW_EXCEPTION ID '{' field* '}' xsdAnnotations? ( SListSeparator? )?;
-serviceDefinition: KW_SERVICE ID (KW_EXTENDS ID)? '{' function* '}' xsdAnnotations? ( SListSeparator? )?;
-xsdStruct: '(' KW_XSD_ALL? ')';
-field: INT_CONSTANT ( ':' fieldRequiredness? )? fieldType ID ('=' constValue)? xsdFieldOptions? ( listSeparator )?;
-fieldRequiredness: KW_REQUIRED | KW_OPTIONAL;
-fieldType: ID | baseType | containerType ;
-baseType: KW_BOOL | KW_BYTE | KW_I8 | KW_I16 | KW_I32 | KW_I64 | KW_DOUBLE | KW_STRING | KW_BINARY ;
-containerType: mapType | setType | listType ;
-mapType: KW_MAP cppType? '<' fieldType ',' fieldType '>' ;
-setType: KW_SET cppType? '<' fieldType '>' ;
-listType: KW_LIST cppType? '<' fieldType '>' ( '(' KW_XML_WRAPPER ')' )? ;
-cppType: KW_CPP_TYPE LITERAL_STRING;
-constValue: INT_CONSTANT | DOUBLE_CONSTANT | LITERAL_STRING | constList | constMap | ID ;
-constList: '[' (constValue (listSeparator constValue)* listSeparator? )? ']';
-constMap: '{' (constMapEntry (listSeparator constMapEntry)* listSeparator? )? '}';
-constMapEntry: constValue ':' constValue;
-function: KW_ONEWAY? functionType ID '(' field* ')' throwsList? ( listSeparator )?;
-functionType: fieldType | KW_VOID ;
-throwsList: KW_THROWS '(' field* ')';
-xsdAnnotations: '(' xsdAnnotationContent ( ',' xsdAnnotationContent )* ')';
-xsdFieldOptions: '(' xsdAnnotationContent ( ',' xsdAnnotationContent )* ')';
-xsdAnnotationContent: KW_XSD_ALL | KW_XSD_NILLABLE | KW_XSD_OPTIONAL | KW_XSD_UNION | xsdAttributes | ID '=' LITERAL_STRING ;
-xsdAttributes: KW_XSD_ATTRS '{' field* '}';
-listSeparator: COMMA | SEMICOLON;
-SListSeparator : COMMA | SEMICOLON;
-KW_INCLUDE: 'include'; KW_NAMESPACE: 'namespace'; KW_CONST: 'const'; KW_TYPEDEF: 'typedef'; KW_ENUM: 'enum';
-KW_STRUCT: 'struct'; KW_UNION: 'union'; KW_EXCEPTION: 'exception'; KW_SERVICE: 'service'; KW_EXTENDS: 'extends';
-KW_REQUIRED: 'required'; KW_OPTIONAL: 'optional'; KW_BOOL: 'bool'; KW_BYTE: 'byte'; KW_I8: 'i8'; KW_I16: 'i16';
-KW_I32: 'i32'; KW_I64: 'i64'; KW_DOUBLE: 'double'; KW_STRING: 'string'; KW_BINARY: 'binary'; KW_MAP: 'map';
-KW_SET: 'set'; KW_LIST: 'list'; KW_ONEWAY: 'oneway'; KW_VOID: 'void'; KW_THROWS: 'throws'; KW_CPP_TYPE: 'cpp_type';
-KW_XML_WRAPPER: 'xml_wrapper'; KW_XSD_ALL: 'xsd_all'; KW_XSD_NILLABLE: 'xsd_nillable'; KW_XSD_OPTIONAL: 'xsd_optional';
-KW_XSD_UNION: 'xsd_union'; KW_XSD_ATTRS: 'xsd_attrs';
-NAMESPACE_SCOPE: '*';
-ID: [a-zA-Z_] [a-zA-Z0-9_.]*;
-INT_CONSTANT: '-'? DIGIT+ ;
-DOUBLE_CONSTANT: '-'? (DIGIT+ '.' DIGIT* EXPONENT? | '.' DIGIT+ EXPONENT? | DIGIT+ EXPONENT);
-LITERAL_STRING: '"' ( EscapeSequence | ~('\\'|'"') )* '"' | '\'' ( EscapeSequence | ~('\\'|'\'') )* '\'' ;
-fragment DIGIT: [0-9];
-fragment EXPONENT: ('E'|'e') ('+'|'-')? DIGIT+;
-fragment EscapeSequence: '\\' (["'\\/bfnrt] | UnicodeEscape);
-fragment UnicodeEscape : 'u' HexDigit HexDigit HexDigit HexDigit;
-fragment HexDigit: [0-9a-fA-F];
-LINE_COMMENT: (('//' | '#') ~[\r\n]* '\r'? '\n') -> skip;
-BLOCK_COMMENT: '/*' .*? '*/' -> skip;
-WS: [ \t\r\n]+ -> skip;
-LPAREN: '('; RPAREN: ')'; LBRACE: '{'; RBRACE: '}'; LBRACKET: '['; RBRACKET: ']';
-COMMA: ','; SEMICOLON: ';'; COLON: ':'; EQUALS: '='; LT: '<'; GT: '>';
+
+document
+    : header* definition* EOF
+    ;
+
+header
+    : include_
+    | namespace_
+    | cpp_include
+    ;
+
+include_
+    : 'include' LITERAL
+    ;
+
+namespace_
+    : 'namespace' '*' (IDENTIFIER | LITERAL)
+    | 'namespace' IDENTIFIER (IDENTIFIER | LITERAL) type_annotations?
+    | 'cpp_namespace' IDENTIFIER
+    | 'php_namespace' IDENTIFIER
+    ;
+
+cpp_include
+    : 'cpp_include' LITERAL
+    ;
+
+definition
+    : const_rule
+    | typedef_
+    | enum_rule
+    | senum
+    | struct_
+    | union_
+    | exception
+    | service
+    ;
+
+const_rule
+    : 'const' field_type IDENTIFIER ('=' const_value)? list_separator?
+    ;
+
+typedef_
+    : 'typedef' field_type IDENTIFIER type_annotations?
+    ;
+
+enum_rule
+    : 'enum' IDENTIFIER '{' enum_field* '}' type_annotations?
+    ;
+
+enum_field
+    : IDENTIFIER ('=' integer)? type_annotations? list_separator?
+    ;
+
+senum
+    : 'senum' IDENTIFIER '{' (LITERAL list_separator?)* '}' type_annotations?
+    ;
+
+struct_
+    : 'struct' IDENTIFIER '{' field* '}' type_annotations?
+    ;
+
+union_
+    : 'union' IDENTIFIER '{' field* '}' type_annotations?
+    ;
+
+exception
+    : 'exception' IDENTIFIER '{' field* '}' type_annotations?
+    ;
+
+service
+    : 'service' IDENTIFIER ('extends' IDENTIFIER)? '{' function_* '}' type_annotations?
+    ;
+
+field
+    : field_id? field_req? field_type IDENTIFIER ('=' const_value)? type_annotations? list_separator?
+    ;
+
+field_id
+    : integer ':'
+    ;
+
+field_req
+    : 'required'
+    | 'optional'
+    ;
+
+function_
+    : oneway? function_type IDENTIFIER '(' field* ')' throws_list? type_annotations? list_separator?
+    ;
+
+oneway
+    : ('oneway' | 'async')
+    ;
+
+function_type
+    : field_type
+    | 'void'
+    ;
+
+throws_list
+    : 'throws' '(' field* ')'
+    ;
+
+type_annotations
+    : '(' type_annotation* ')'
+    ;
+
+type_annotation
+    : IDENTIFIER ('=' annotation_value)? list_separator?
+    ;
+
+annotation_value
+    : integer
+    | LITERAL
+    ;
+
+field_type
+    : base_type
+    | IDENTIFIER
+    | container_type
+    ;
+
+base_type
+    : real_base_type type_annotations?
+    ;
+
+container_type
+    : (map_type | set_type | list_type) type_annotations?
+    ;
+
+map_type
+    : 'map' cpp_type? '<' field_type COMMA field_type '>'
+    ;
+
+set_type
+    : 'set' cpp_type? '<' field_type '>'
+    ;
+
+list_type
+    : 'list' '<' field_type '>' cpp_type?
+    ;
+
+cpp_type
+    : 'cpp_type' LITERAL
+    ;
+
+const_value
+    : integer
+    | DOUBLE
+    | LITERAL
+    | IDENTIFIER
+    | const_list
+    | const_map
+    ;
+
+integer
+    : INTEGER
+    | HEX_INTEGER
+    ;
+
+INTEGER
+    : ('+' | '-')? DIGIT+
+    ;
+
+HEX_INTEGER
+    : '-'? '0x' HEX_DIGIT+
+    ;
+
+DOUBLE
+    : ('+' | '-')? (DIGIT+ ('.' DIGIT+)? | '.' DIGIT+) (('E' | 'e') INTEGER)?
+    ;
+
+const_list
+    : '[' (const_value list_separator?)* ']'
+    ;
+
+const_map_entry
+    : const_value ':' const_value list_separator?
+    ;
+
+const_map
+    : '{' const_map_entry* '}'
+    ;
+
+list_separator
+    : COMMA
+    | ';'
+    ;
+
+real_base_type
+    : TYPE_BOOL
+    | TYPE_BYTE
+    | TYPE_I16
+    | TYPE_I32
+    | TYPE_I64
+    | TYPE_DOUBLE
+    | TYPE_STRING
+    | TYPE_BINARY
+    ;
+
+TYPE_BOOL
+    : 'bool'
+    ;
+
+TYPE_BYTE
+    : 'byte'
+    ;
+
+TYPE_I16
+    : 'i16'
+    ;
+
+TYPE_I32
+    : 'i32'
+    ;
+
+TYPE_I64
+    : 'i64'
+    ;
+
+TYPE_DOUBLE
+    : 'double'
+    ;
+
+TYPE_STRING
+    : 'string'
+    ;
+
+TYPE_BINARY
+    : 'binary'
+    ;
+
+LITERAL
+    : '"' (ESC_SEQ | ~[\\"])* '"'
+    | '\'' ( ESC_SEQ | ~[\\'])* '\''
+    ;
+
+fragment ESC_SEQ
+    : '\\' [rnt"'\\]
+    ;
+
+IDENTIFIER
+    : (LETTER | '_') (LETTER | DIGIT | '.' | '_')*
+    ;
+
+COMMA
+    : ','
+    ;
+
+fragment LETTER
+    : 'A' ..'Z'
+    | 'a' ..'z'
+    ;
+
+fragment DIGIT
+    : '0' ..'9'
+    ;
+
+fragment HEX_DIGIT
+    : DIGIT
+    | 'A' ..'F'
+    | 'a' ..'f'
+    ;
+
+WS
+    : (' ' | '\t' | '\r' '\n' | '\n')+ -> channel(HIDDEN)
+    ;
+
+SL_COMMENT
+    : ('//' | '#') (~'\n')* ('\r')? '\n' -> channel(HIDDEN)
+    ;
+
+ML_COMMENT
+    : '/*' .*? '*/' -> channel(HIDDEN)
+    ;
