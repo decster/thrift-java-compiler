@@ -4,7 +4,6 @@ import com.github.decster.ast.EnumNode; // Assuming these interfaces/classes exi
 import com.github.decster.ast.EnumValueNode;
 import org.junit.jupiter.api.Test;
 // Import common stubs
-import com.github.decster.gen.AstTestStubs.*;
 
 
 import java.util.ArrayList;
@@ -18,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 public class EnumGeneratorTest {
 
     private EnumGenerator generator;
-    private AstTestStubs.StubEnumNode enumNode; // Use common stub
+    private StubEnumNode enumNode; // Use common stub
     private static final String TEST_PACKAGE = "com.test.enums";
     private static final String TEST_DATE = "2023-10-26";
 
@@ -34,10 +33,10 @@ public class EnumGeneratorTest {
 
     @Test
     void testSimpleEnum() {
-        enumNode = new AstTestStubs.StubEnumNode("SimpleEnum");
-        enumNode.addValue(new AstTestStubs.StubEnumValueNode("RED"));
-        enumNode.addValue(new AstTestStubs.StubEnumValueNode("GREEN"));
-        enumNode.addValue(new AstTestStubs.StubEnumValueNode("BLUE"));
+        enumNode = new StubEnumNode("SimpleEnum");
+        enumNode.addValue(new StubEnumValueNode("RED"));
+        enumNode.addValue(new StubEnumValueNode("GREEN"));
+        enumNode.addValue(new StubEnumValueNode("BLUE"));
 
         generator = new EnumGenerator(enumNode, TEST_PACKAGE, TEST_DATE); // EnumGenerator takes ast.EnumNode
         String code = generator.generate();
@@ -63,10 +62,10 @@ public class EnumGeneratorTest {
 
     @Test
     void testEnumWithExplicitValues() {
-        enumNode = new AstTestStubs.StubEnumNode("ExplicitEnum");
-        enumNode.addValue(new AstTestStubs.StubEnumValueNode("PENDING", 1));
-        enumNode.addValue(new AstTestStubs.StubEnumValueNode("ACTIVE", 5));
-        enumNode.addValue(new AstTestStubs.StubEnumValueNode("INACTIVE", 10));
+        enumNode = new StubEnumNode("ExplicitEnum");
+        enumNode.addValue(new StubEnumValueNode("PENDING", 1));
+        enumNode.addValue(new StubEnumValueNode("ACTIVE", 5));
+        enumNode.addValue(new StubEnumValueNode("INACTIVE", 10));
 
         generator = new EnumGenerator(enumNode, TEST_PACKAGE, TEST_DATE);
         String code = generator.generate();
@@ -82,11 +81,11 @@ public class EnumGeneratorTest {
 
     @Test
     void testEnumWithMixedValues() {
-        enumNode = new AstTestStubs.StubEnumNode("MixedEnum");
-        enumNode.addValue(new AstTestStubs.StubEnumValueNode("FIRST", 1));
-        enumNode.addValue(new AstTestStubs.StubEnumValueNode("SECOND"));
-        enumNode.addValue(new AstTestStubs.StubEnumValueNode("THIRD", 5));
-        enumNode.addValue(new AstTestStubs.StubEnumValueNode("FOURTH"));
+        enumNode = new StubEnumNode("MixedEnum");
+        enumNode.addValue(new StubEnumValueNode("FIRST", 1));
+        enumNode.addValue(new StubEnumValueNode("SECOND"));
+        enumNode.addValue(new StubEnumValueNode("THIRD", 5));
+        enumNode.addValue(new StubEnumValueNode("FOURTH"));
 
         generator = new EnumGenerator(enumNode, TEST_PACKAGE, TEST_DATE);
         String code = generator.generate();
@@ -106,9 +105,9 @@ public class EnumGeneratorTest {
     void testEnumWithJavadoc() {
         // EnumNode in AST does not have getDocString(), so EnumGenerator was changed to not produce it.
         // This test now verifies that no Javadoc is generated, even if stub had it.
-        enumNode = new AstTestStubs.StubEnumNode("JavadocEnum");
-        // ((AstTestStubs.StubEnumNode)enumNode).setDocString("This is a test enum.\nIt has multiple lines."); // This method does not exist on common stub by design
-        enumNode.addValue(new AstTestStubs.StubEnumValueNode("VALUE1"));
+        enumNode = new StubEnumNode("JavadocEnum");
+        // ((StubEnumNode)enumNode).setDocString("This is a test enum.\nIt has multiple lines."); // This method does not exist on common stub by design
+        enumNode.addValue(new StubEnumValueNode("VALUE1"));
 
         generator = new EnumGenerator(enumNode, TEST_PACKAGE, TEST_DATE);
         String code = generator.generate();
@@ -120,9 +119,9 @@ public class EnumGeneratorTest {
     @Test
     void testEnumWithJavadocContainingAsteriskSlash() {
         // Similar to above, Javadoc features were removed from EnumGenerator
-        enumNode = new AstTestStubs.StubEnumNode("JavadocEdgeCaseEnum");
-        // ((AstTestStubs.StubEnumNode)enumNode).setDocString("This is a test enum with an asterisk/slash: */ inside.");
-        enumNode.addValue(new AstTestStubs.StubEnumValueNode("VALUE1"));
+        enumNode = new StubEnumNode("JavadocEdgeCaseEnum");
+        // ((StubEnumNode)enumNode).setDocString("This is a test enum with an asterisk/slash: */ inside.");
+        enumNode.addValue(new StubEnumValueNode("VALUE1"));
 
         generator = new EnumGenerator(enumNode, TEST_PACKAGE, TEST_DATE);
         String code = generator.generate();
@@ -134,8 +133,8 @@ public class EnumGeneratorTest {
 
     @Test
     void testEnumWithoutJavadoc() {
-        enumNode = new AstTestStubs.StubEnumNode("NoJavadocEnum");
-        enumNode.addValue(new AstTestStubs.StubEnumValueNode("TEST"));
+        enumNode = new StubEnumNode("NoJavadocEnum");
+        enumNode.addValue(new StubEnumValueNode("TEST"));
 
         generator = new EnumGenerator(enumNode, TEST_PACKAGE, TEST_DATE);
         String code = generator.generate();
@@ -146,9 +145,9 @@ public class EnumGeneratorTest {
 
     @Test
     void testEnumWithEmptyJavadoc() {
-        enumNode = new AstTestStubs.StubEnumNode("EmptyJavadocEnum");
-        // ((AstTestStubs.StubEnumNode)enumNode).setDocString("");
-        enumNode.addValue(new AstTestStubs.StubEnumValueNode("TEST_VAL"));
+        enumNode = new StubEnumNode("EmptyJavadocEnum");
+        // ((StubEnumNode)enumNode).setDocString("");
+        enumNode.addValue(new StubEnumValueNode("TEST_VAL"));
 
         generator = new EnumGenerator(enumNode, TEST_PACKAGE, TEST_DATE);
         String code = generator.generate();
