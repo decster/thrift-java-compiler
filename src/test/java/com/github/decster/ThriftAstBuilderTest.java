@@ -61,9 +61,12 @@ public class ThriftAstBuilderTest {
     void testBuildFromString_InvalidSyntax() {
         // Arrange
         // Use clearly invalid syntax that will force an IOException
-        String invalidContent = "this is not valid thrift syntax @#$%";
+        // Changed to reduce ANTLR console noise while still being invalid.
+        String invalidContent = "struct Test { 1: required string name"; // Missing closing brace
 
         // Act and Assert
+        // We expect an IOException (or a subclass like ThriftParseException if defined)
+        // due to the ANTLR parser encountering a syntax error and the builder wrapping it.
         assertThrows(IOException.class, () -> ThriftAstBuilder.buildFromString(invalidContent));
     }
 

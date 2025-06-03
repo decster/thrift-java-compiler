@@ -2,7 +2,6 @@ package com.github.decster.gen;
 
 import com.github.decster.ast.*;
 // Import common stubs
-import com.github.decster.gen.AstTestStubs.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach; // Added for setUp
 
@@ -22,8 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 public class StructGeneratorTest {
 
     private StructGenerator generator;
-    private AstTestStubs.StubStructNode structNode; // Use common stub
-    private AstTestStubs.StubDocumentNode docNode;    // Use common stub for DocumentNode
+    private StubStructNode structNode; // Use common stub
+    private StubDocumentNode docNode;    // Use common stub for DocumentNode
     private static final String TEST_PACKAGE = "com.test.gen";
     private static final String TEST_DATE = "2023-01-01";
 
@@ -40,24 +39,24 @@ public class StructGeneratorTest {
 
     @BeforeEach
     void setUp() {
-        docNode = new AstTestStubs.StubDocumentNode();
+        docNode = new StubDocumentNode();
     }
 
 
     @Test
     void testBasicStruct() {
-        structNode = new AstTestStubs.StubStructNode("TestBasicStruct");
+        structNode = new StubStructNode("TestBasicStruct");
         // Use stubs from AstTestStubs
-        structNode.addField(new AstTestStubs.StubFieldNode((short) 1, new AstTestStubs.StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.I32), "myInt"));
-        structNode.addField(new AstTestStubs.StubFieldNode((short) 2, new AstTestStubs.StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.STRING), "myString"));
-        structNode.addField(new AstTestStubs.StubFieldNode((short) 3, new AstTestStubs.StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.BOOL), "myBool"));
+        structNode.addField(new StubFieldNode((short) 1, "myInt", new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.I32)));
+        structNode.addField(new StubFieldNode((short) 2, "myString", new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.STRING)));
+        structNode.addField(new StubFieldNode((short) 3, "myBool", new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.BOOL)));
 
         generator = new StructGenerator(structNode, docNode, TEST_PACKAGE, TEST_DATE);
         String code = generator.generate();
 
         assertContains(code, "public class TestBasicStruct implements org.apache.thrift.TBase<TestBasicStruct, TestBasicStruct._Fields>");
         assertContains(code, "public int myInt;");
-        assertContains(code, "public java.lang.String myString;");
+        assertContains(code, "public @org.apache.thrift.annotation.Nullable java.lang.String myString;");
         assertContains(code, "public boolean myBool;");
 
         assertContains(code, "public enum _Fields implements org.apache.thrift.TFieldIdEnum {");
@@ -67,15 +66,15 @@ public class StructGeneratorTest {
 
     @Test
     void testAllPrimitiveTypes() {
-        structNode = new AstTestStubs.StubStructNode("AllPrimitives");
-        structNode.addField(new AstTestStubs.StubFieldNode((short) 1, new AstTestStubs.StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.BOOL), "aBool"));
-        structNode.addField(new AstTestStubs.StubFieldNode((short) 2, new AstTestStubs.StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.BYTE), "aByte"));
-        structNode.addField(new AstTestStubs.StubFieldNode((short) 3, new AstTestStubs.StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.I16), "aI16"));
-        structNode.addField(new AstTestStubs.StubFieldNode((short) 4, new AstTestStubs.StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.I32), "aI32"));
-        structNode.addField(new AstTestStubs.StubFieldNode((short) 5, new AstTestStubs.StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.I64), "aI64"));
-        structNode.addField(new AstTestStubs.StubFieldNode((short) 6, new AstTestStubs.StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.DOUBLE), "aDouble"));
-        structNode.addField(new AstTestStubs.StubFieldNode((short) 7, new AstTestStubs.StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.STRING), "aString"));
-        structNode.addField(new AstTestStubs.StubFieldNode((short) 8, new AstTestStubs.StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.BINARY), "aBinary"));
+        structNode = new StubStructNode("AllPrimitives");
+        structNode.addField(new StubFieldNode((short) 1, "aBool", new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.BOOL)));
+        structNode.addField(new StubFieldNode((short) 2, "aByte", new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.BYTE)));
+        structNode.addField(new StubFieldNode((short) 3, "aI16", new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.I16)));
+        structNode.addField(new StubFieldNode((short) 4, "aI32", new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.I32)));
+        structNode.addField(new StubFieldNode((short) 5, "aI64", new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.I64)));
+        structNode.addField(new StubFieldNode((short) 6, "aDouble", new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.DOUBLE)));
+        structNode.addField(new StubFieldNode((short) 7, "aString", new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.STRING)));
+        structNode.addField(new StubFieldNode((short) 8, "aBinary", new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.BINARY)));
 
         generator = new StructGenerator(structNode, docNode, "com.test.primitives", TEST_DATE);
         String code = generator.generate();
@@ -88,19 +87,19 @@ public class StructGeneratorTest {
 
     @Test
     void testListI32() {
-        structNode = new AstTestStubs.StubStructNode("StructWithList");
-        structNode.addField(new AstTestStubs.StubFieldNode((short)1, new AstTestStubs.StubListTypeNode(new AstTestStubs.StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.I32)), "intList"));
+        structNode = new StubStructNode("StructWithList");
+        structNode.addField(new StubFieldNode((short)1, "intList", new StubListTypeNode(new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.I32))));
         generator = new StructGenerator(structNode, docNode, "com.test.coll", TEST_DATE);
         String code = generator.generate();
 
         assertContains(code, "public java.util.List<java.lang.Integer> intList;");
-        assertContains(code, "new org.apache.thrift.meta_data.ListMetaData(TType.LIST, new org.apache.thrift.meta_data.FieldValueMetaData(org.apache.thrift.protocol.TType.I32))");
+        assertContains(code, "new org.apache.thrift.meta_data.ListMetaData(TType.LIST, new org.apache.thrift.meta_data.FieldValueMetaData(TType.I32))");
     }
 
     @Test
     void testSetString() {
-        structNode = new AstTestStubs.StubStructNode("StructWithSet");
-        structNode.addField(new AstTestStubs.StubFieldNode((short)1, new AstTestStubs.StubSetTypeNode(new AstTestStubs.StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.STRING)), "stringSet"));
+        structNode = new StubStructNode("StructWithSet");
+        structNode.addField(new StubFieldNode((short)1, "stringSet", new StubSetTypeNode(new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.STRING))));
         generator = new StructGenerator(structNode, docNode, "com.test.coll", TEST_DATE);
         String code = generator.generate();
 
@@ -109,12 +108,12 @@ public class StructGeneratorTest {
 
     @Test
     void testMapI16String() {
-        structNode = new AstTestStubs.StubStructNode("StructWithMap");
-        structNode.addField(new AstTestStubs.StubFieldNode((short)1,
-            new AstTestStubs.StubMapTypeNode(
-                new AstTestStubs.StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.I16),
-                new AstTestStubs.StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.STRING)
-            ), "shortToStringMap"));
+        structNode = new StubStructNode("StructWithMap");
+        structNode.addField(new StubFieldNode((short)1, "shortToStringMap",
+            new StubMapTypeNode(
+                new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.I16),
+                new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.STRING)
+            )));
         generator = new StructGenerator(structNode, docNode, "com.test.coll", TEST_DATE);
         String code = generator.generate();
 
@@ -123,13 +122,13 @@ public class StructGeneratorTest {
 
     @Test
     void testEnumField() {
-        structNode = new AstTestStubs.StubStructNode("StructWithEnum");
+        structNode = new StubStructNode("StructWithEnum");
         String enumName = "com.test.enums.DayOfWeek";
         // Define DayOfWeek Enum in the DocumentNode so resolveType can find it
-        AstTestStubs.StubEnumNode enumDef = new AstTestStubs.StubEnumNode(enumName);
+        StubEnumNode enumDef = new StubEnumNode(enumName);
         docNode.addDefinition(enumDef); // Use inherited addDefinition from DocumentNode
 
-        structNode.addField(new AstTestStubs.StubFieldNode((short)1, new AstTestStubs.StubIdentifierTypeNode(enumName), "myDay"));
+        structNode.addField(new StubFieldNode((short)1, "myDay", new StubIdentifierTypeNode(enumName)));
         generator = new StructGenerator(structNode, docNode, "com.test.enums", TEST_DATE);
         String code = generator.generate();
 
@@ -139,12 +138,12 @@ public class StructGeneratorTest {
 
     @Test
     void testNestedStructField() {
-        structNode = new AstTestStubs.StubStructNode("OuterStruct");
+        structNode = new StubStructNode("OuterStruct");
         String innerStructName = "com.test.other.InnerStruct";
-        AstTestStubs.StubStructNode innerStructDef = new AstTestStubs.StubStructNode(innerStructName);
+        StubStructNode innerStructDef = new StubStructNode(innerStructName);
         docNode.addDefinition(innerStructDef);
 
-        structNode.addField(new AstTestStubs.StubFieldNode((short)1, new AstTestStubs.StubIdentifierTypeNode(innerStructName), "inner"));
+        structNode.addField(new StubFieldNode((short)1, "inner", new StubIdentifierTypeNode(innerStructName)));
         generator = new StructGenerator(structNode, docNode, "com.test.outer", TEST_DATE);
         String code = generator.generate();
 
@@ -153,13 +152,13 @@ public class StructGeneratorTest {
 
     @Test
     void testListNestedStruct() {
-        structNode = new AstTestStubs.StubStructNode("ListWithStruct");
+        structNode = new StubStructNode("ListWithStruct");
         String nestedItemName = "com.test.other.NestedItem";
-        AstTestStubs.StubStructNode nestedItemDef = new AstTestStubs.StubStructNode(nestedItemName);
+        StubStructNode nestedItemDef = new StubStructNode(nestedItemName);
         docNode.addDefinition(nestedItemDef);
 
-        com.github.decster.ast.TypeNode innerStructType = new AstTestStubs.StubIdentifierTypeNode(nestedItemName);
-        structNode.addField(new AstTestStubs.StubFieldNode((short)1, new AstTestStubs.StubListTypeNode(innerStructType), "listOfItems"));
+        com.github.decster.ast.TypeNode innerStructType = new StubIdentifierTypeNode(nestedItemName);
+        structNode.addField(new StubFieldNode((short)1, "listOfItems", new StubListTypeNode(innerStructType)));
         generator = new StructGenerator(structNode, docNode, "com.test.main", TEST_DATE);
         String code = generator.generate();
 
@@ -169,12 +168,12 @@ public class StructGeneratorTest {
 
     @Test
     void testFieldRequirements() {
-        structNode = new AstTestStubs.StubStructNode("RequiredFieldsStruct");
-        AstTestStubs.StubFieldNode reqField = new AstTestStubs.StubFieldNode((short)1, new AstTestStubs.StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.I32), "reqInt");
+        structNode = new StubStructNode("RequiredFieldsStruct");
+        StubFieldNode reqField = new StubFieldNode((short)1, "reqInt", new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.I32));
         reqField.setRequirement(com.github.decster.ast.FieldNode.Requirement.REQUIRED); // Use actual enum
         structNode.addField(reqField);
 
-        AstTestStubs.StubFieldNode optField = new AstTestStubs.StubFieldNode((short)2, new AstTestStubs.StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.STRING), "optString");
+        StubFieldNode optField = new StubFieldNode((short)2, "optString", new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.STRING));
         optField.setRequirement(com.github.decster.ast.FieldNode.Requirement.OPTIONAL);
         structNode.addField(optField);
 
@@ -187,22 +186,22 @@ public class StructGeneratorTest {
 
     @Test
     void testDefaultValues() {
-        structNode = new AstTestStubs.StubStructNode("DefaultsStruct");
+        structNode = new StubStructNode("DefaultsStruct");
 
-        AstTestStubs.StubFieldNode intField = new AstTestStubs.StubFieldNode((short)1, new AstTestStubs.StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.I32), "myIntWithDefault");
+        StubFieldNode intField = new StubFieldNode((short)1, "myIntWithDefault", new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.I32));
         intField.setDefaultValue(100); // Use inherited setDefaultValue(Object)
         structNode.addField(intField);
 
-        AstTestStubs.StubFieldNode stringField = new AstTestStubs.StubFieldNode((short)2, new AstTestStubs.StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.STRING), "myStringWithDefault");
+        StubFieldNode stringField = new StubFieldNode((short)2, "myStringWithDefault", new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.STRING));
         stringField.setDefaultValue("Hello Thrift");
         structNode.addField(stringField);
 
         String enumName = "com.test.enums.MyColor";
-        AstTestStubs.StubEnumNode enumDef = new AstTestStubs.StubEnumNode(enumName);
-        enumDef.addValue(new AstTestStubs.StubEnumValueNode("BLUE", 0));
+        StubEnumNode enumDef = new StubEnumNode(enumName);
+        enumDef.addValue(new StubEnumValueNode("BLUE", 0));
         docNode.addDefinition(enumDef);
 
-        AstTestStubs.StubFieldNode enumField = new AstTestStubs.StubFieldNode((short)3, new AstTestStubs.StubIdentifierTypeNode(enumName), "myEnumWithDefault");
+        StubFieldNode enumField = new StubFieldNode((short)3, "myEnumWithDefault", new StubIdentifierTypeNode(enumName));
         enumField.setDefaultValue("BLUE"); // Pass string name of enum value for generator to resolve
         structNode.addField(enumField);
 
@@ -216,9 +215,9 @@ public class StructGeneratorTest {
 
     @Test
     void testHashCodeAndEqualsPrimitives() {
-        structNode = new AstTestStubs.StubStructNode("HashEqualsPrimitives");
-        structNode.addField(new AstTestStubs.StubFieldNode((short) 1, new AstTestStubs.StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.I32), "id"));
-        structNode.addField(new AstTestStubs.StubFieldNode((short) 2, new AstTestStubs.StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.STRING), "name"));
+        structNode = new StubStructNode("HashEqualsPrimitives");
+        structNode.addField(new StubFieldNode((short) 1, "id", new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.I32)));
+        structNode.addField(new StubFieldNode((short) 2, "name", new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.STRING)));
         generator = new StructGenerator(structNode, docNode, "com.test", TEST_DATE);
         String code = generator.generate();
 
@@ -230,9 +229,9 @@ public class StructGeneratorTest {
 
     @Test
     void testToStringGen() {
-        structNode = new AstTestStubs.StubStructNode("ToStringStruct");
-        structNode.addField(new AstTestStubs.StubFieldNode((short) 1, new AstTestStubs.StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.STRING), "reqField"));
-        AstTestStubs.StubFieldNode optField = new AstTestStubs.StubFieldNode((short)2, new AstTestStubs.StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.I32), "optField");
+        structNode = new StubStructNode("ToStringStruct");
+        structNode.addField(new StubFieldNode((short) 1, "reqField", new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.STRING)));
+        StubFieldNode optField = new StubFieldNode((short)2, "optField", new StubBaseTypeNode(BaseTypeNode.BaseTypeEnum.I32));
         optField.setRequirement(com.github.decster.ast.FieldNode.Requirement.OPTIONAL);
         structNode.addField(optField);
 

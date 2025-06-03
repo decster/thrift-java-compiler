@@ -103,6 +103,8 @@ public class ServiceGenerator {
                 case BINARY:
                     JavaTypeResolution binRes = new JavaTypeResolution("java.nio.ByteBuffer", TType.STRING, "new org.apache.thrift.meta_data.FieldValueMetaData(org.apache.thrift.protocol.TType.STRING, true)");
                     binRes.addImport("java.nio.ByteBuffer"); return binRes;
+                case VOID: // Added case for VOID
+                    return new JavaTypeResolution("void", TType.VOID, null);
                 default: throw new IllegalArgumentException("Unsupported base type from BaseTypeNode: " + baseTypeNode.getType());
             }
         } else if (typeNode instanceof IdentifierTypeNode) {
