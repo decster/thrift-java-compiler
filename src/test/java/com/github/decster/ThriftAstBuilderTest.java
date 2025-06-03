@@ -276,6 +276,6 @@ public class ThriftAstBuilderTest {
 
         Optional<FieldNode> byteField = xtruct.getFields().stream().filter(f -> "byte_thing".equals(f.getName())).findFirst();
         assertTrue(byteField.isPresent(), "Xtruct.byte_thing field should exist");
-        assertEquals("byte", byteField.get().getType().getName(), "Xtruct.byte_thing type should be byte");
+        assertEquals("i8", byteField.get().getType().getName(), "Xtruct.byte_thing type should be byte");
     }
 }
