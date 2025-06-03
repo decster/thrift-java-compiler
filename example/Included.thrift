@@ -34,6 +34,6 @@ struct a_struct {
   10: bool what_who,
 }
 
-service AService {
+serviceNode AService {
   i32 a_procedure(1: i32 arg)
 }

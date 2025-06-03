@@ -1,13 +1,13 @@
 // $antlr-format alignTrailingComments true, columnLimit 150, minEmptyLines 1, maxEmptyLinesToKeep 1, reflowComments false, useTab false
 // $antlr-format allowShortRulesOnASingleLine false, allowShortBlocksOnASingleLine true, alignSemicolons hanging, alignColons hanging
 grammar Thrift;
-@header { package com.github.decster.parser; }
+@headerNode { package com.github.decster.parser; }
 
-document
-    : header* definition* EOF
+documentNode
+    : headerNode* definition* EOF
     ;
 
-header
+headerNode
     : include_
     | namespace_
     | cpp_include
@@ -32,11 +32,10 @@ definition
     : const_rule
     | typedef_
     | enum_rule
-    | senum
     | struct_
     | union_
-    | exception
-    | service
+    | exceptionNode
+    | serviceNode
     ;
 
 const_rule
@@ -55,27 +54,23 @@ enum_field
     : IDENTIFIER ('=' integer)? type_annotations? list_separator?
     ;
 
-senum
-    : 'senum' IDENTIFIER '{' (LITERAL list_separator?)* '}' type_annotations?
-    ;
-
 struct_
-    : 'struct' IDENTIFIER '{' field* '}' type_annotations?
+    : 'struct' IDENTIFIER '{' fieldNode* '}' type_annotations?
     ;
 
 union_
-    : 'union' IDENTIFIER '{' field* '}' type_annotations?
+    : 'union' IDENTIFIER '{' fieldNode* '}' type_annotations?
     ;
 
-exception
-    : 'exception' IDENTIFIER '{' field* '}' type_annotations?
+exceptionNode
+    : 'exceptionNode' IDENTIFIER '{' fieldNode* '}' type_annotations?
     ;
 
-service
-    : 'service' IDENTIFIER ('extends' IDENTIFIER)? '{' function_* '}' type_annotations?
+serviceNode
+    : 'serviceNode' IDENTIFIER ('extends' IDENTIFIER)? '{' function_* '}' type_annotations?
     ;
 
-field
+fieldNode
     : field_id? field_req? field_type IDENTIFIER ('=' const_value)? type_annotations? list_separator?
     ;
 
@@ -89,7 +84,7 @@ field_req
     ;
 
 function_
-    : oneway? function_type IDENTIFIER '(' field* ')' throws_list? type_annotations? list_separator?
+    : oneway? function_type IDENTIFIER '(' fieldNode* ')' throws_list? type_annotations? list_separator?
     ;
 
 oneway
@@ -102,7 +97,7 @@ function_type
     ;
 
 throws_list
-    : 'throws' '(' field* ')'
+    : 'throws' '(' fieldNode* ')'
     ;
 
 type_annotations
