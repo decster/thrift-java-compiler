@@ -1,5 +1,0 @@
-serviceNode(myService, currentPackageName) ::= <<
-package $currentPackageName$;
-public interface $myService.name$ {
-}
->>
