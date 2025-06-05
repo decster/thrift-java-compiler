@@ -518,20 +518,24 @@ public class StructLikeGenerator {
             String originalFieldName = field.getName();
             String capName = capitalizedName(originalFieldName);
             TypeNode fieldType = field.getType();
+            TypeNode trueType = getTrueType(fieldType); // Use trueType for checks
 
-            if (typeCanBeNull(fieldType)) {
+            // TODO: Add logic to reset to IDL default if field.getConstValue() is not null, like in C++
+
+            if (typeCanBeNull(trueType)) { // Check trueType
                 out.append(indent()).append("this.").append(originalFieldName).append(" = null;\n");
-            } else {
-                if(fieldNeedsIssetHandling(field)) {
-                    out.append(indent()).append("set").append(capName).append("IsSet(false);\n");
-                }
-                if (fieldType instanceof BaseTypeNode) { // Check if it's a BaseTypeNode before accessing getType()
-                    BaseTypeNode.BaseTypeEnum baseTypeEnum = ((BaseTypeNode) fieldType).getType();
+            } else { // Primitive types
+                // If it's a primitive, its isSet flag should be cleared.
+                out.append(indent()).append("set").append(capName).append("IsSet(false);\n");
+
+                // Reset to Java default for primitives
+                if (trueType instanceof BaseTypeNode) { // Check trueType
+                    BaseTypeNode.BaseTypeEnum baseTypeEnum = ((BaseTypeNode) trueType).getType();
                     switch (baseTypeEnum) {
                         case BOOL:
                             out.append(indent()).append("this.").append(originalFieldName).append(" = false;\n");
                             break;
-                        case BYTE:
+                        case BYTE: // Covers i8 as well due to BaseTypeNode mapping
                         case I16:
                         case I32:
                         case I64:
@@ -540,6 +544,7 @@ public class StructLikeGenerator {
                         case DOUBLE:
                             out.append(indent()).append("this.").append(originalFieldName).append(" = 0.0;\n");
                             break;
+                        // STRING, BINARY, UUID are handled by typeCanBeNull(trueType) path
                     }
                 }
             }
@@ -593,7 +598,8 @@ public class StructLikeGenerator {
                 } else {
                     out.append(indent()).append("this.").append(originalFieldName).append(" = ").append(originalFieldName).append(";\n");
                 }
-                if (fieldNeedsIssetHandling(field) && !typeCanBeNull(fieldType)) {
+                // For fields in the full constructor, if they are primitive (not nullable), their isset flag must be set.
+                if (!typeCanBeNull(getTrueType(fieldType))) {
                     out.append(indent()).append("set").append(capitalizedName(originalFieldName)).append("IsSet(true);\n");
                 }
             }
@@ -627,12 +633,9 @@ public class StructLikeGenerator {
             TypeNode fieldType = field.getType();
             String capName = capitalizedName(originalFieldName);
 
-            boolean needsIsSetCheck = typeCanBeNull(fieldType) || field.getRequirement() == FieldNode.Requirement.OPTIONAL;
-
-            if (needsIsSetCheck) {
-                out.append(indent()).append("if (other.isSet").append(capName).append("()) {\n");
-                indentLevel++;
-            }
+            // Aligning with C++: always check other.isSet<FieldName>() in copy constructor
+            out.append(indent()).append("if (other.isSet").append(capName).append("()) {\n");
+            indentLevel++;
 
             String thisFieldName = "this." + originalFieldName;
             String otherFieldName = "other." + originalFieldName;
@@ -645,11 +648,9 @@ public class StructLikeGenerator {
                    .append(generateDeepCopyNonContainer(fieldType, otherFieldName))
                    .append(";\n");
             }
-
-            if (needsIsSetCheck) {
-                indentLevel--;
-                out.append(indent()).append("}\n");
-            }
+            // Closing the "if (other.isSet<CapName>())" block
+            indentLevel--;
+            out.append(indent()).append("}\n");
         }
         indentLevel--;
         out.append(indent()).append("}\n\n");
@@ -1173,13 +1174,10 @@ public class StructLikeGenerator {
             TypeNode trueType = getTrueType(fieldType);
 
             out.append("\n");
-            if (field.getRequirement() == FieldNode.Requirement.REQUIRED && !typeCanBeNull(trueType)) {
-                out.append(indent()).append("boolean this_present_").append(originalFieldName).append(" = true;\n");
-                out.append(indent()).append("boolean that_present_").append(originalFieldName).append(" = true;\n");
-            } else {
-                out.append(indent()).append("boolean this_present_").append(originalFieldName).append(" = true && this.isSet").append(capName).append("();\n");
-                out.append(indent()).append("boolean that_present_").append(originalFieldName).append(" = true && that.isSet").append(capName).append("();\n");
-            }
+            // Simplified presence check: isSet<FieldName>() correctly handles all cases.
+            out.append(indent()).append("boolean this_present_").append(originalFieldName).append(" = this.isSet").append(capName).append("();\n");
+            out.append(indent()).append("boolean that_present_").append(originalFieldName).append(" = that.isSet").append(capName).append("();\n");
+
             out.append(indent()).append("if (this_present_").append(originalFieldName).append(" || that_present_").append(originalFieldName).append(") {\n");
             indentLevel++;
             out.append(indent()).append("if (!(this_present_").append(originalFieldName).append(" && that_present_").append(originalFieldName).append("))\n");
@@ -1788,7 +1786,7 @@ public class StructLikeGenerator {
             out.append(indent()).append("// check for required fields of primitive type, which can't be checked in the validate method\n");
             for (FieldNode field : structNode.getFields()) {
                 TypeNode fieldType = field.getType();
-                if (field.getRequirement() == FieldNode.Requirement.REQUIRED && isPrimitiveType(fieldType)) {
+                if (field.getRequirement() == FieldNode.Requirement.REQUIRED && isPrimitiveType(getTrueType(fieldType))) { // Use getTrueType here
                     out.append(indent()).append("if (!struct.isSet").append(capitalizedName(field.getName())).append("()) {\n");
                     indentLevel++;
                     out.append(indent()).append("throw new org.apache.thrift.protocol.TProtocolException(\"Required field '")
@@ -1807,7 +1805,11 @@ public class StructLikeGenerator {
         indentLevel++;
         out.append(indent()).append("struct.validate();\n\n");
         out.append(indent()).append("oprot.writeStructBegin(STRUCT_DESC);\n");
-        for (FieldNode field : structNode.getFields()) {
+
+        List<FieldNode> sortedFields = new ArrayList<>(structNode.getFields());
+        java.util.Collections.sort(sortedFields, java.util.Comparator.comparingInt(FieldNode::getId));
+
+        for (FieldNode field : sortedFields) {
             String originalFieldName = field.getName();
             String capFieldName = capitalizedName(originalFieldName);
             TypeNode fieldType = field.getType();
@@ -1868,20 +1870,26 @@ public class StructLikeGenerator {
         List<FieldNode> optionalFields = new ArrayList<>();
         List<FieldNode> requiredOrDefFields = new ArrayList<>();
 
-        for (FieldNode field : structNode.getFields()) {
+        // Populate and sort fields by ID for canonical order
+        List<FieldNode> allFieldsSorted = new ArrayList<>(structNode.getFields());
+        java.util.Collections.sort(allFieldsSorted, java.util.Comparator.comparingInt(FieldNode::getId));
+
+        for (FieldNode field : allFieldsSorted) {
             if (field.getRequirement() == FieldNode.Requirement.OPTIONAL) {
-                optionalFields.add(field);
+                optionalFields.add(field); // optionalFields will maintain ID-sorted order from allFieldsSorted
             } else {
-                requiredOrDefFields.add(field);
+                requiredOrDefFields.add(field); // requiredOrDefFields will maintain ID-sorted order
             }
         }
 
-        for (FieldNode field : requiredOrDefFields) {
-            generateStandardSchemeSerializerLogic(field, "struct", "oprot");
+        for (FieldNode field : requiredOrDefFields) { // Already sorted by ID
+            generateTupleSchemeSerializerLogic(field, "struct", "oprot");
         }
 
         if (!optionalFields.isEmpty()) {
             out.append(indent()).append("java.util.BitSet optionals = new java.util.BitSet();\n");
+            // Optional fields are already sorted by ID in optionalFields list.
+            // The bitset index corresponds to the position in this sorted list.
             for (int i = 0; i < optionalFields.size(); i++) {
                 FieldNode field = optionalFields.get(i);
                 String originalFieldName = field.getName();
@@ -1892,11 +1900,11 @@ public class StructLikeGenerator {
                 out.append(indent()).append("}\n");
             }
             out.append(indent()).append("oprot.writeBitSet(optionals, ").append(optionalFields.size()).append(");\n");
-            for (FieldNode field : optionalFields) {
+            for (FieldNode field : optionalFields) { // Already sorted by ID
                 String originalFieldName = field.getName();
                 out.append(indent()).append("if (struct.isSet").append(capitalizedName(originalFieldName)).append("()) {\n");
                 indentLevel++;
-                generateStandardSchemeSerializerLogic(field, "struct", "oprot");
+                generateTupleSchemeSerializerLogic(field, "struct", "oprot");
                 indentLevel--;
                 out.append(indent()).append("}\n");
             }
@@ -1945,6 +1953,41 @@ public class StructLikeGenerator {
         out.append(indent()).append("}\n\n");
     }
 
+    // New method for TupleScheme serialization (no metadata like Begin/End for containers)
+    private void generateTupleSchemeSerializerLogic(FieldNode field, String structVarName, String protVarName) {
+        TypeNode fieldType = field.getType();
+        String originalFieldName = field.getName();
+        // For tuple scheme, protVarName is already cast to TTupleProtocol (e.g. "oprot")
+        // So, direct calls like oprot.writeI32(), oprot.writeString() are fine.
+        TypeNode trueType = getTrueType(fieldType);
+
+        if (trueType.isBaseType()) {
+            String baseName = trueType.getName();
+            if (trueType.isBinary()) baseName = "binary";
+
+            switch (baseName) {
+                case "bool": out.append(indent()).append(protVarName).append(".writeBool(").append(structVarName).append(".").append(originalFieldName).append(");\n"); break;
+                case "byte": case "i8": out.append(indent()).append(protVarName).append(".writeByte(").append(structVarName).append(".").append(originalFieldName).append(");\n"); break;
+                case "i16": out.append(indent()).append(protVarName).append(".writeI16(").append(structVarName).append(".").append(originalFieldName).append(");\n"); break;
+                case "i32": out.append(indent()).append(protVarName).append(".writeI32(").append(structVarName).append(".").append(originalFieldName).append(");\n"); break;
+                case "i64": out.append(indent()).append(protVarName).append(".writeI64(").append(structVarName).append(".").append(originalFieldName).append(");\n"); break;
+                case "double": out.append(indent()).append(protVarName).append(".writeDouble(").append(structVarName).append(".").append(originalFieldName).append(");\n"); break;
+                case "string": out.append(indent()).append(protVarName).append(".writeString(").append(structVarName).append(".").append(originalFieldName).append(");\n"); break;
+                case "binary": out.append(indent()).append(protVarName).append(".writeBinary(").append(structVarName).append(".").append(originalFieldName).append(");\n"); break;
+                case "uuid": out.append(indent()).append(protVarName).append(".writeUuid(").append(structVarName).append(".").append(originalFieldName).append(");\n"); break;
+                default: throw new RuntimeException("Unhandled base type for tuple serialization: " + baseName);
+            }
+        } else if (trueType.isEnum()) {
+            out.append(indent()).append(protVarName).append(".writeI32(").append(structVarName).append(".").append(originalFieldName).append(".getValue());\n");
+        } else if (trueType.isStruct() || trueType.isException()) {
+            out.append(indent()).append(structVarName).append(".").append(originalFieldName).append(".write(").append(protVarName).append(");\n"); // Structs handle their own tuple/standard switching
+        } else if (trueType.isContainer()) {
+            serializeTupleContainer(trueType, originalFieldName, structVarName, protVarName);
+        } else {
+            throw new RuntimeException("Unhandled type for tuple serialization: " + trueType.getName());
+        }
+    }
+
     private void generateStandardSchemeDeserializerLogic(FieldNode field, String structVarName) {
         generateStandardSchemeDeserializerLogic(field, structVarName, "iprot");
     }
@@ -1976,7 +2019,7 @@ public class StructLikeGenerator {
             out.append(indent()).append(structVarName).append(".").append(originalFieldName).append(" = new ").append(getTypeName(trueType)).append("();\n");
             out.append(indent()).append(structVarName).append(".").append(originalFieldName).append(".read(").append(protVarName).append(");\n");
         } else if (trueType.isContainer()) {
-            deserializeContainer(trueType, originalFieldName, structVarName, protVarName);
+            deserializeContainer(trueType, originalFieldName, structVarName, protVarName); // StandardScheme read uses this
         } else {
             throw new RuntimeException("Unhandled type for deserialization: " + trueType.getName());
         }
@@ -2012,16 +2055,17 @@ public class StructLikeGenerator {
         } else if (trueType.isStruct() || trueType.isException()) {
             out.append(indent()).append(structVarName).append(".").append(originalFieldName).append(".write(").append(protVarName).append(");\n");
         } else if (trueType.isContainer()) {
-            serializeContainer(trueType, originalFieldName, structVarName, protVarName);
+            serializeContainer(trueType, originalFieldName, structVarName, protVarName); // StandardScheme write uses this
         } else {
             throw new RuntimeException("Unhandled type for serialization: " + trueType.getName());
         }
     }
 
+    // Helper for StandardScheme deserialization of containers
     private void deserializeContainer(TypeNode containerType, String fieldJavaName, String structVarName, String protVarName) {
         scope_up();
 
-        String tempObj = "";
+        String tempObj = ""; // Renamed from obj to avoid conflict with parameter 'obj' if any
         if (containerType.isMap()) {
             tempObj = getNextTempVarName("_map");
         } else if (containerType.isSet()) {
@@ -2070,8 +2114,8 @@ public class StructLikeGenerator {
             out.append(indent()).append("{\n");
             indentLevel++;
 
-            generateStandardSchemeDeserializerLogic(new FieldNode(keyType, tmpKeyVar), "", protVarName);
-            generateStandardSchemeDeserializerLogic(new FieldNode(valType, tmpValVar), "", protVarName);
+            generateStandardSchemeDeserializerLogic(new FieldNode(keyType, tmpKeyVar), "", protVarName); // Uses standard deserializer for elements
+            generateStandardSchemeDeserializerLogic(new FieldNode(valType, tmpValVar), "", protVarName); // Uses standard deserializer for elements
 
             boolean isKeyEnum = getTrueType(keyType).isEnum();
             if (isKeyEnum) {
@@ -2110,7 +2154,8 @@ public class StructLikeGenerator {
             out.append(indent()).append("{\n");
             indentLevel++;
 
-            generateStandardSchemeDeserializerLogic(new FieldNode(elemType, tmpElemVar), "", protVarName);
+            generateStandardSchemeDeserializerLogic(new FieldNode(elemType, tmpElemVar), "", protVarName);  // Uses standard deserializer for elements
+            generateStandardSchemeDeserializerLogic(new FieldNode(elemType, tmpElemVar), "", protVarName); // Uses standard deserializer for elements
 
             boolean isElemEnum = getTrueType(elemType).isEnum();
             if (isElemEnum) {
@@ -2185,7 +2230,7 @@ public class StructLikeGenerator {
             out.append(indent()).append("for (").append(getTypeName(elemType, true, false, false, true)).append(" ").append(tempIterVar).append(" : ").append(structVarName).append(".").append(fieldJavaName).append(")\n");
             out.append(indent()).append("{\n");
             indentLevel++;
-            generateStandardSchemeSerializerLogic(new FieldNode(elemType, tempIterVar), "", protVarName);
+            generateStandardSchemeSerializerLogic(new FieldNode(elemType, tempIterVar), "", protVarName); // StandardScheme write uses this
             indentLevel--;
             out.append(indent()).append("}\n");
             out.append(indent()).append(protVarName).append(".writeListEnd();\n");
@@ -2195,7 +2240,7 @@ public class StructLikeGenerator {
             out.append(indent()).append("for (").append(getTypeName(elemType, true, false, false, true)).append(" ").append(tempIterVar).append(" : ").append(structVarName).append(".").append(fieldJavaName).append(")\n");
             out.append(indent()).append("{\n");
             indentLevel++;
-            generateStandardSchemeSerializerLogic(new FieldNode(elemType, tempIterVar), "", protVarName);
+            generateStandardSchemeSerializerLogic(new FieldNode(elemType, tempIterVar), "", protVarName); // StandardScheme write uses this
             indentLevel--;
             out.append(indent()).append("}\n");
             out.append(indent()).append(protVarName).append(".writeSetEnd();\n");
@@ -2206,13 +2251,51 @@ public class StructLikeGenerator {
             out.append(indent()).append("for (java.util.Map.Entry<").append(getTypeName(keyType, true, false, false, true)).append(", ").append(getTypeName(valType, true, false, false, true)).append("> ").append(tempIterVar).append(" : ").append(structVarName).append(".").append(fieldJavaName).append(".entrySet())\n");
             out.append(indent()).append("{\n");
             indentLevel++;
-            generateStandardSchemeSerializerLogic(new FieldNode(keyType, tempIterVar + ".getKey()"), "", protVarName);
-            generateStandardSchemeSerializerLogic(new FieldNode(valType, tempIterVar + ".getValue()"), "", protVarName);
+            generateStandardSchemeSerializerLogic(new FieldNode(keyType, tempIterVar + ".getKey()"), "", protVarName); // StandardScheme write uses this
+            generateStandardSchemeSerializerLogic(new FieldNode(valType, tempIterVar + ".getValue()"), "", protVarName); // StandardScheme write uses this
             indentLevel--;
             out.append(indent()).append("}\n");
             out.append(indent()).append(protVarName).append(".writeMapEnd();\n");
         } else {
             throw new RuntimeException("Unknown container type for serialization: " + containerType.getName());
+        }
+    }
+
+    // Helper for TupleScheme serialization of containers
+    private void serializeTupleContainer(TypeNode containerType, String fieldJavaName, String structVarName, String protVarName) {
+        // protVarName is already cast to TTupleProtocol (e.g. "oprot")
+        String tempIterVar = getNextTempVarName("_iter");
+        if (containerType.isList()) {
+            TypeNode elemType = getTrueType(containerType.getChildNodes().get(0));
+            out.append(indent()).append(protVarName).append(".writeI32(").append(structVarName).append(".").append(fieldJavaName).append(".size());\n");
+            out.append(indent()).append("for (").append(getTypeName(elemType, true, false, false, true)).append(" ").append(tempIterVar).append(" : ").append(structVarName).append(".").append(fieldJavaName).append(")\n");
+            out.append(indent()).append("{\n");
+            indentLevel++;
+            generateTupleSchemeSerializerLogic(new FieldNode(elemType, tempIterVar), "", protVarName);
+            indentLevel--;
+            out.append(indent()).append("}\n");
+        } else if (containerType.isSet()) {
+            TypeNode elemType = getTrueType(containerType.getChildNodes().get(0));
+            out.append(indent()).append(protVarName).append(".writeI32(").append(structVarName).append(".").append(fieldJavaName).append(".size());\n");
+            out.append(indent()).append("for (").append(getTypeName(elemType, true, false, false, true)).append(" ").append(tempIterVar).append(" : ").append(structVarName).append(".").append(fieldJavaName).append(")\n");
+            out.append(indent()).append("{\n");
+            indentLevel++;
+            generateTupleSchemeSerializerLogic(new FieldNode(elemType, tempIterVar), "", protVarName);
+            indentLevel--;
+            out.append(indent()).append("}\n");
+        } else if (containerType.isMap()) {
+            TypeNode keyType = getTrueType(containerType.getChildNodes().get(0));
+            TypeNode valType = getTrueType(containerType.getChildNodes().get(1));
+            out.append(indent()).append(protVarName).append(".writeI32(").append(structVarName).append(".").append(fieldJavaName).append(".size());\n");
+            out.append(indent()).append("for (java.util.Map.Entry<").append(getTypeName(keyType, true, false, false, true)).append(", ").append(getTypeName(valType, true, false, false, true)).append("> ").append(tempIterVar).append(" : ").append(structVarName).append(".").append(fieldJavaName).append(".entrySet())\n");
+            out.append(indent()).append("{\n");
+            indentLevel++;
+            generateTupleSchemeSerializerLogic(new FieldNode(keyType, tempIterVar + ".getKey()"), "", protVarName);
+            generateTupleSchemeSerializerLogic(new FieldNode(valType, tempIterVar + ".getValue()"), "", protVarName);
+            indentLevel--;
+            out.append(indent()).append("}\n");
+        } else {
+            throw new RuntimeException("Unknown container type for tuple serialization: " + containerType.getName());
         }
     }
 
@@ -2468,7 +2551,8 @@ public class StructLikeGenerator {
             result.append(javaNullableAnnotation()).append(" ");
         }
 
-        result.append(getTypeName(type, false, init, false, false))
+        // Aligning with C++: type_name(tfield->get_type()) uses in_init=false for type declaration part
+        result.append(getTypeName(type, false, false, false, false))
                 .append(" ")
                 .append(originalFieldName);
 
@@ -2509,7 +2593,7 @@ public class StructLikeGenerator {
             result.append(" // ");
             if (field.getRequirement() == FieldNode.Requirement.OPTIONAL) result.append("optional");
             else if (field.getRequirement() == FieldNode.Requirement.REQUIRED) result.append("required");
-            else result.append("default");
+            else result.append("required"); // Changed 'default' to 'required' to match C++
         }
         return result.toString();
     }
