@@ -29,12 +29,9 @@ import com.github.decster.ast.TypeNode;
 import com.github.decster.ast.BaseTypeNode;
 import com.github.decster.ast.MapTypeNode;
 
-// REMOVED: import com.github.decster.ast.ConstValueNode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.BitSet; // Added for BitSet usage
-import java.util.Objects; // Added for Objects.requireNonNull
 
 /**
  * Generator for Thrift structs that produces Java code.
@@ -117,7 +114,6 @@ public class StructLikeGenerator {
         if (needsBitSetImport) {
             out.append("import java.util.BitSet;\n");
         }
-        out.append("import java.util.Objects;\n\n");
 
         generateStructDefinition(structLikeNode, structLikeNode instanceof ExceptionNode, false, false);
         return out.toString();
@@ -245,7 +241,7 @@ public class StructLikeGenerator {
                 generateJavaDoc(field);
                 out.append(indent()).append("public ");
             }
-            out.append(declareField(field, true, true)).append("\n"); // init=true
+            out.append(declareField(field, false, true)).append("\n");
         }
     }
 
@@ -426,10 +422,6 @@ public class StructLikeGenerator {
                 }
                 output.append("};");
                 out.append(output.toString()).append("\n");
-            }
-            // Add a final newline if anything was printed in this definition block
-             if (fieldsRequiringIssetHandlingCount > 0 || currentIssetIndex > 0 || optionalsCount > 0) {
-                out.append("\n");
             }
         }
     }
@@ -623,10 +615,10 @@ public class StructLikeGenerator {
 
         if (fieldCountForIsset > 0) {
             if (issetStorageType == IssetType.PRIMITIVE) {
-                out.append(indent()).append("this.__isset_bitfield = other.__isset_bitfield;\n");
+                out.append(indent()).append("__isset_bitfield = other.__isset_bitfield;\n");
             } else if (issetStorageType == IssetType.BITSET) {
-                out.append(indent()).append("this.__isset_bit_vector = new java.util.BitSet(other.__isset_bit_vector.length());\n");
-                out.append(indent()).append("this.__isset_bit_vector.or(other.__isset_bit_vector);\n");
+                out.append(indent()).append("__isset_bit_vector = new java.util.BitSet(other.__isset_bit_vector.length());\n");
+                out.append(indent()).append("__isset_bit_vector.or(other.__isset_bit_vector);\n");
             }
         }
 
@@ -1094,9 +1086,6 @@ public class StructLikeGenerator {
         out.append(indent()).append(javaOverrideAnnotation()).append("\n");
         out.append(indent()).append("public boolean equals(java.lang.Object that) {\n");
         indentLevel++;
-        out.append(indent()).append("if (that == null) {\n"); // Added null check for that
-        out.append(indent()).append("  return false;\n");
-        out.append(indent()).append("}\n");
         out.append(indent()).append("if (that instanceof ").append(structName).append(")\n");
         indentLevel++;
         out.append(indent()).append("return this.equals((").append(structName).append(")that);\n");
@@ -1199,10 +1188,10 @@ public class StructLikeGenerator {
                             out.append(fieldValue).append(";\n");
                             break;
                         case "long": case "i64":
-                            out.append("org.apache.thrift.TBaseHelper.hashCode((long)").append(fieldValue).append("));\n");
+                            out.append("org.apache.thrift.TBaseHelper.hashCode((long)").append(fieldValue).append(");\n");
                             break;
                         case "double":
-                            out.append("org.apache.thrift.TBaseHelper.hashCode(").append(fieldValue).append("));\n"); // Removed cast
+                            out.append("org.apache.thrift.TBaseHelper.hashCode(").append(fieldValue).append(");\n"); // Removed cast
                             break;
                         default:
                             out.append("0); // Should not happen: unhandled required primitive base type in hashCode: ").append(baseName).append("\n");
@@ -1251,7 +1240,7 @@ public class StructLikeGenerator {
                             break;
                     }
                 } else {
-                    out.append(valueAccess).append(".hashCode());\n");
+                    out.append(valueAccess).append(".hashCode();\n");
                 }
                 indentLevel--;
             }
@@ -1344,9 +1333,7 @@ public class StructLikeGenerator {
             out.append(indent()).append("}\n");
             out.append(indent()).append("break;\n");
             indentLevel--;
-            if (i < fields.size() - 1) {
-                 out.append("\n");
-            }
+            out.append("\n");
         }
         out.append(indent()).append("}\n");
         indentLevel--;
@@ -1374,9 +1361,7 @@ public class StructLikeGenerator {
                     "is" + capName : "get" + capName;
             out.append(indent()).append("return ").append(getterName).append("();\n");
             indentLevel--;
-             if (i < fields.size() - 1) {
-                 out.append("\n");
-            }
+            out.append("\n");
         }
         out.append(indent()).append("}\n");
         out.append(indent()).append("throw new java.lang.IllegalStateException();\n");
@@ -1405,9 +1390,6 @@ public class StructLikeGenerator {
             indentLevel++;
             out.append(indent()).append("return isSet").append(capName).append("();\n");
             indentLevel--;
-            if (i < fields.size() - 1) {
-                 out.append("\n");
-            }
         }
         out.append(indent()).append("}\n");
         out.append(indent()).append("throw new java.lang.IllegalStateException();\n");
@@ -1445,6 +1427,74 @@ public class StructLikeGenerator {
     }
 
     private void generateJavaStructToString(StructLikeNode struct) {
+        String structName = getEffectiveJavaIdentifier(struct.getName());
+        out.append(indent()).append(javaOverrideAnnotation()).append("\n");
+        out.append(indent()).append("public java.lang.String toString() {\n");
+        indentLevel++;
+
+        out.append(indent()).append("java.lang.StringBuilder sb = new java.lang.StringBuilder(\"").append(structName).append("(\");\n");
+        out.append(indent()).append("boolean first = true;\n\n");
+
+        boolean first = true;
+        for (FieldNode field : struct.getFields()) {
+            String originalFieldName = field.getName();
+            String javaFieldName = makeValidJavaIdentifier(originalFieldName);
+            String capName = capitalizedName(originalFieldName);
+            TypeNode fieldType = field.getType();
+            TypeNode trueType = getTrueType(fieldType);
+            boolean isOptional = field.getRequirement() == FieldNode.Requirement.OPTIONAL;
+
+            if (isOptional) {
+                out.append(indent()).append("if (isSet").append(capName).append("()) {\n");
+                indentLevel++;
+            }
+
+            if (!first) {
+                out.append(indent()).append("if (!first) sb.append(\", \");\n");
+            }
+            out.append(indent()).append("sb.append(\"").append(originalFieldName).append(":\");\n");
+
+            boolean canBeNull = typeCanBeNull(trueType);
+            if (canBeNull) {
+                out.append(indent()).append("if (this.").append(javaFieldName).append(" == null) {\n");
+                indentLevel++;
+                out.append(indent()).append("sb.append(\"null\");\n");
+                indentLevel--;
+                out.append(indent()).append("} else {\n");
+                indentLevel++;
+            }
+
+            if (trueType.isBinary()) {
+                out.append(indent()).append("org.apache.thrift.TBaseHelper.toString(this.").append(javaFieldName).append(", sb);\n");
+            } else if (trueType.isSet() && getTrueType(trueType.getChildNodes().get(0)).isBinary()) {
+                out.append(indent()).append("org.apache.thrift.TBaseHelper.toString(this.").append(javaFieldName).append(", sb);\n");
+            } else if (trueType.isList() && getTrueType(trueType.getChildNodes().get(0)).isBinary()) {
+                out.append(indent()).append("org.apache.thrift.TBaseHelper.toString(this.").append(javaFieldName).append(", sb);\n");
+            } else {
+                out.append(indent()).append("sb.append(this.").append(javaFieldName).append(");\n");
+            }
+
+            if (canBeNull) {
+                indentLevel--;
+                out.append(indent()).append("}\n");
+            }
+
+            out.append(indent()).append("first = false;\n");
+
+            if (isOptional) {
+                indentLevel--;
+                out.append(indent()).append("}\n");
+            }
+            first = false;
+        }
+
+        out.append(indent()).append("sb.append(\")\");\n");
+        out.append(indent()).append("return sb.toString();\n");
+        indentLevel--;
+        out.append(indent()).append("}\n\n");
+    }
+
+    private void generateJavaStructToStringbak(StructLikeNode struct) {
         String structName = getEffectiveJavaIdentifier(struct.getName());
         out.append(indent()).append(javaOverrideAnnotation()).append("\n");
         out.append(indent()).append("public java.lang.String toString() {\n");
@@ -1533,17 +1583,12 @@ public class StructLikeGenerator {
                         indentLevel--;
                         out.append(indent()).append("}\n");
                     } else {
-                        out.append(indent()).append("if (!isSet").append(capName).append("()) {\n");
-                        indentLevel++;
-                        out.append(indent()).append("throw new org.apache.thrift.protocol.TProtocolException(\"Required field '")
-                                .append(originalFieldName).append("' was not found in serialized data! Struct: \" + toString());\n");
-                        indentLevel--;
-                        out.append(indent()).append("}\n");
+                        out.append(indent()).append("// alas, we cannot check '").append(originalFieldName)
+                                .append("' because it's a primitive and you chose the non-beans generator.\n");
                     }
                 }
             }
         }
-        out.append("\n");
 
         out.append(indent()).append("// check for sub-struct validity\n");
         for (FieldNode field : struct.getFields()) {
@@ -1592,8 +1637,10 @@ public class StructLikeGenerator {
         if (numFieldsActuallyNeedingIsset > 0) {
             IssetType issetStorageType = determineIssetStorageType(numFieldsActuallyNeedingIsset);
             if (issetStorageType == IssetType.PRIMITIVE) {
+                out.append(indent()).append("// it doesn't seem like you should have to do this, but java serialization is wacky, and doesn't call the default constructor.\n");
                 out.append(indent()).append("__isset_bitfield = 0;\n");
             } else if (issetStorageType == IssetType.BITSET) {
+                out.append(indent()).append("// it doesn't seem like you should have to do this, but java serialization is wacky, and doesn't call the default constructor.\n");
                 out.append(indent()).append("__isset_bit_vector = new java.util.BitSet(").append(numFieldsActuallyNeedingIsset).append(");\n");
             }
         }
@@ -1629,7 +1676,7 @@ public class StructLikeGenerator {
         indentLevel--;
         out.append(indent()).append("}\n\n");
 
-        out.append(indent()).append("private static class ").append(capStructName).append("StandardScheme extends org.apache.thrift.scheme.StandardScheme<").append(structName).append("> {\n");
+        out.append(indent()).append("private static class ").append(capStructName).append("StandardScheme extends org.apache.thrift.scheme.StandardScheme<").append(structName).append("> {\n\n");
         indentLevel++;
 
         out.append(indent()).append(javaOverrideAnnotation()).append("\n");
@@ -1650,9 +1697,10 @@ public class StructLikeGenerator {
         for (FieldNode field : structNode.getFields()) {
             String originalFieldName = field.getName();
             String fieldConstName = constantName(originalFieldName).toUpperCase();
-            out.append(indent()).append("  case ").append(field.getId()).append(": // ").append(fieldConstName).append("\n");
             indentLevel++;
-            out.append(indent()).append("if (schemeField.type == ").append(fieldConstName).append("_FIELD_DESC.type) {\n");
+            out.append(indent()).append("case ").append(field.getId()).append(": // ").append(fieldConstName).append("\n");
+            indentLevel++;
+            out.append(indent()).append("if (schemeField.type == ").append(typeToEnum(field.getType())).append(") {\n");
             indentLevel++;
             generateStandardSchemeDeserializerLogic(field, "struct");
             out.append(indent()).append("struct.set").append(capitalizedName(originalFieldName)).append("IsSet(true);\n");
@@ -1663,6 +1711,7 @@ public class StructLikeGenerator {
             indentLevel--;
             out.append(indent()).append("}\n");
             out.append(indent()).append("break;\n");
+            indentLevel--;
             indentLevel--;
         }
         out.append(indent()).append("  default:\n");
