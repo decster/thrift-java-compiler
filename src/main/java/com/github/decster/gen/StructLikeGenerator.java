@@ -508,42 +508,890 @@ public class StructLikeGenerator {
      * Generate meta data map
      */
     private void generateJavaMetaDataMap(StructLikeNode struct) {
-        // TODO: Implement this method
-        indent(out).append("// TODO: Generate metadata map\n");
+        List<FieldNode> fields = struct.getFields();
+
+        indent(out).append("public static final java.util.Map<_Fields, ")
+                .append("org.apache.thrift.meta_data.FieldMetaData> metaDataMap;\n");
+        indent(out).append("static {\n");
+        indentLevel++;
+
+        indent(out)
+                .append("java.util.Map<_Fields, org.apache.thrift.meta_data.FieldMetaData> tmpMap = new ")
+                .append("java.util.EnumMap<_Fields, org.apache.thrift.meta_data.FieldMetaData>(_Fields.class);\n");
+
+        for (FieldNode field : fields) {
+            String fieldName = field.getName();
+            String fieldConstantName = constantName(fieldName);
+
+            indent(out).append("tmpMap.put(_Fields.").append(fieldConstantName)
+                    .append(", new org.apache.thrift.meta_data.FieldMetaData(\"").append(fieldName).append("\", ");
+
+            // Determine field requirement type
+            FieldNode.Requirement req = field.getRequirement();
+            if (req == FieldNode.Requirement.REQUIRED) {
+                out.append("org.apache.thrift.TFieldRequirementType.REQUIRED, ");
+            } else if (req == FieldNode.Requirement.OPTIONAL) {
+                out.append("org.apache.thrift.TFieldRequirementType.OPTIONAL, ");
+            } else { // DEFAULT
+                out.append("org.apache.thrift.TFieldRequirementType.DEFAULT, ");
+            }
+
+            // Create value meta data
+            out.append(generateFieldValueMetaData(field.getType()));
+
+            // TODO: Add annotations_as_metadata logic if enabled
+            // if (annotationsAsMetadata) {
+            //    generateMetadataForFieldAnnotations(out, field);
+            // }
+            out.append("));\n");
+        }
+
+        indent(out).append("metaDataMap = java.util.Collections.unmodifiableMap(tmpMap);\n");
+
+        indent(out).append("org.apache.thrift.meta_data.FieldMetaData.addStructMetaDataMap(")
+                .append(makeValidJavaIdentifier(struct.getName())).append(".class, metaDataMap);\n");
+        indentLevel--;
+        indent(out).append("}\n\n");
     }
-    
+
+    /**
+     * Generates the FieldValueMetaData string for a given type.
+     * Mirrors t_java_generator::generate_field_value_meta_data
+     */
+    private String generateFieldValueMetaData(TypeNode type) {
+        TypeNode trueType = getTrueType(type);
+        StringBuilder sb = new StringBuilder();
+
+        if (trueType.isStruct() || trueType.isException()) {
+            sb.append("new org.apache.thrift.meta_data.StructMetaData(org.apache.thrift.protocol.TType.STRUCT, ")
+              .append(getTypeName(trueType, false, false, false, true)).append(".class)");
+        } else if (trueType.isContainer()) {
+            if (trueType.isList()) {
+                TypeNode elemType = trueType.getChildNodes().get(0);
+                sb.append("new org.apache.thrift.meta_data.ListMetaData(org.apache.thrift.protocol.TType.LIST, ")
+                  .append(generateFieldValueMetaData(elemType)).append(")");
+            } else if (trueType.isSet()) {
+                TypeNode elemType = trueType.getChildNodes().get(0);
+                sb.append("new org.apache.thrift.meta_data.SetMetaData(org.apache.thrift.protocol.TType.SET, ")
+                  .append(generateFieldValueMetaData(elemType)).append(")");
+            } else { // Map
+                TypeNode keyType = trueType.getChildNodes().get(0);
+                TypeNode valType = trueType.getChildNodes().get(1);
+                sb.append("new org.apache.thrift.meta_data.MapMetaData(org.apache.thrift.protocol.TType.MAP, ")
+                  .append(generateFieldValueMetaData(keyType)).append(", ")
+                  .append(generateFieldValueMetaData(valType)).append(")");
+            }
+        } else if (trueType.isEnum()) {
+            sb.append("new org.apache.thrift.meta_data.EnumMetaData(org.apache.thrift.protocol.TType.ENUM, ")
+              .append(getTypeName(trueType, false, false, false, true)).append(".class)");
+        } else { // BaseType
+            sb.append("new org.apache.thrift.meta_data.FieldValueMetaData(").append(typeToEnum(trueType));
+            if (trueType.isBinary()) { // Assumes TypeNode.isBinary()
+                sb.append(", true");
+            }
+            // In the C++ generator, there's an optional third argument for typedef original name.
+            // If the original type was a typedef, and TypeNode stores that symbolic name.
+            if (type.isTypedef() && !type.getName().equals(trueType.getName())) {
+                 // type.getName() here would be the typedef name itself.
+                 sb.append(", \"").append(type.getName()).append("\"");
+            }
+            sb.append(")");
+        }
+        return sb.toString();
+    }
+
     /**
      * Generate constructors
      */
     private void generateConstructors(StructLikeNode struct) {
-        // TODO: Implement this method
-        indent(out).append("// TODO: Generate constructors\n");
+        generateDefaultConstructor(struct);
+        generateFullConstructor(struct); // Constructor for required/default fields
+        generateCopyConstructor(struct);
+        generateDeepCopyMethod(struct);
+    }
+
+    private void generateDefaultConstructor(StructLikeNode struct) {
+        indent(out).append("public ").append(makeValidJavaIdentifier(struct.getName())).append("() {\n");
+        indentLevel++;
+        List<FieldNode> fields = struct.getFields();
+        for (FieldNode field : fields) {
+            if (field.getDefaultValue() != null) {
+                // TODO: Implement renderConstValue for field initializers
+                // For now, direct assignment of what might be a string representation
+                // This needs proper conversion from ConstantValueNode to Java literal
+                indent(out).append("this.").append(makeValidJavaIdentifier(field.getName()))
+                           .append(" = ").append("/* TODO: renderConstValue for default */ ")
+                           .append(field.getDefaultValue().toString()).append(";\n");
+            }
+        }
+        indentLevel--;
+        indent(out).append("}\n\n");
+    }
+
+    private void generateFullConstructor(StructLikeNode struct) {
+        List<FieldNode> fields = struct.getFields();
+        List<FieldNode> fullConstructorFields = new ArrayList<>();
+        boolean allOptional = true;
+        for (FieldNode field : fields) {
+            if (field.getRequirement() != FieldNode.Requirement.OPTIONAL) {
+                fullConstructorFields.add(field);
+                allOptional = false;
+            }
+        }
+
+        // Only generate if there are fields and not all of them are optional
+        if (!fields.isEmpty() && !allOptional) {
+            indent(out).append("public ").append(makeValidJavaIdentifier(struct.getName())).append("(\n");
+            indentLevel++;
+            for (int i = 0; i < fullConstructorFields.size(); i++) {
+                FieldNode field = fullConstructorFields.get(i);
+                indent(out).append(getTypeName(field.getType(), false, false, false, false))
+                           .append(" ").append(makeValidJavaIdentifier(field.getName()));
+                if (i < fullConstructorFields.size() - 1) {
+                    out.append(",\n");
+                }
+            }
+            out.append(") {\n");
+            indentLevel--; // Back to constructor's indent level
+            // indentLevel++; // For constructor body
+
+            indent(out).append("this();\n"); // Call default constructor
+            for (FieldNode field : fullConstructorFields) {
+                String fieldName = makeValidJavaIdentifier(field.getName());
+                TypeNode trueType = getTrueType(field.getType());
+                if (trueType.isBinary() && !unsafeBinaries) { // unsafeBinaries is a generator option
+                     indent(out).append("this.").append(fieldName)
+                               .append(" = org.apache.thrift.TBaseHelper.copyBinary(").append(fieldName).append(");\n");
+                } else {
+                    indent(out).append("this.").append(fieldName).append(" = ").append(fieldName).append(";\n");
+                }
+                if (!typeCanBeNull(trueType)) {
+                    // Equivalent to generate_isset_set(out, (*m_iter), "");
+                    indent(out).append("set").append(capitalizedName(fieldName)).append("IsSet(true);\n");
+                }
+            }
+            // indentLevel--;
+            indent(out).append("}\n\n");
+        }
+    }
+
+    private void generateCopyConstructor(StructLikeNode struct) {
+        String structName = makeValidJavaIdentifier(struct.getName());
+        indent(out).append("/**\n");
+        indent(out).append(" * Performs a deep copy on <i>other</i>.\n");
+        indent(out).append(" */\n");
+        indent(out).append("public ").append(structName).append("(").append(structName).append(" other) {\n");
+        indentLevel++;
+
+        // Copy isset bits
+        IssetType issetType = needsIsset(struct);
+        switch (issetType) {
+            case PRIMITIVE:
+                indent(out).append("__isset_bitfield = other.__isset_bitfield;\n");
+                break;
+            case BITSET:
+                indent(out).append("__isset_bit_vector = new java.util.BitSet(other.__isset_bit_vector.length());\n");
+                indent(out).append("__isset_bit_vector.or(other.__isset_bit_vector);\n");
+                break;
+            case NONE:
+                // No action needed
+                break;
+        }
+
+        List<FieldNode> fields = struct.getFields();
+        for (FieldNode field : fields) {
+            String fieldName = makeValidJavaIdentifier(field.getName());
+            TypeNode trueType = getTrueType(field.getType());
+
+            if (typeCanBeNull(trueType)) {
+                indent(out).append("if (other.isSet").append(capitalizedName(fieldName)).append("()) {\n");
+                indentLevel++;
+            }
+
+            String sourceFieldAccess = "other." + fieldName;
+            if (trueType.isContainer()) {
+                String copiedContainerName = "this." + fieldName;
+                generateDeepCopyContainer(trueType, sourceFieldAccess, copiedContainerName);
+            } else {
+                indent(out).append("this.").append(fieldName).append(" = ");
+                generateDeepCopyNonContainer(trueType, sourceFieldAccess, "this." + fieldName);
+                out.append(";\n");
+            }
+
+            if (typeCanBeNull(trueType)) {
+                indentLevel--;
+                indent(out).append("}\n");
+            }
+        }
+        indentLevel--;
+        indent(out).append("}\n\n");
+    }
+
+    private void generateDeepCopyMethod(StructLikeNode struct) {
+        String structName = makeValidJavaIdentifier(struct.getName());
+        indent(out).append(javaOverrideAnnotation()).append("\n");
+        indent(out).append("public ").append(structName).append(" deepCopy() {\n");
+        indentLevel++;
+        indent(out).append("return new ").append(structName).append("(this);\n");
+        indentLevel--;
+        indent(out).append("}\n\n");
+    }
+
+    // Helper for deep copy - simplified
+    private void generateDeepCopyContainer(TypeNode type, String sourceName, String destName) {
+        // This is a complex method in C++. For now, provide a basic structure.
+        // Full implementation requires iterating and copying elements, potentially recursively.
+        TypeNode trueType = getTrueType(type);
+        String containerTypeName = getTypeName(trueType, false, true, false, false); // For new instance
+        String elementTypeName; // Generic type for iteration
+
+        // Simplified: assumes direct copy for base types, new for complex.
+        // Real deep copy needs element-wise copy for complex types.
+
+        if (trueType.isList()) {
+            TypeNode elemType = getTrueType(trueType.getChildNodes().get(0));
+            elementTypeName = getTypeName(elemType, true, false, false, false);
+            indent(out).append(destName).append(" = new ").append(containerTypeName).append("();\n");
+            indent(out).append("for (").append(elementTypeName).append(" __item : ").append(sourceName).append(") {\n");
+            indentLevel++;
+            if (elemType.isContainer()) {
+                String tempItemCopy = "__item_copy_" + System.nanoTime(); // Unique temp var name
+                indent(out).append(getTypeName(elemType, false, true, false, false) + " " + tempItemCopy + ";\n");
+                generateDeepCopyContainer(elemType, "__item", tempItemCopy);
+                indent(out).append(destName).append(".add(").append(tempItemCopy).append(");\n");
+            } else {
+                 String tempCopy = "(";
+                 generateDeepCopyNonContainer(elemType, "__item", tempCopy);
+                 tempCopy += ")";
+                 indent(out).append(destName).append(".add").append(tempCopy).append(";\n");
+            }
+            indentLevel--;
+            indent(out).append("}\n");
+        } else if (trueType.isSet()) {
+            TypeNode elemType = getTrueType(trueType.getChildNodes().get(0));
+            elementTypeName = getTypeName(elemType, true, false, false, false);
+            if (elemType.isEnum() && !sortedContainers) { // EnumSet
+                 indent(out).append(destName).append(" = java.util.EnumSet.copyOf(").append(sourceName).append(");\n");
+            } else {
+                indent(out).append(destName).append(" = new ").append(containerTypeName).append("();\n");
+                indent(out).append("for (").append(elementTypeName).append(" __item : ").append(sourceName).append(") {\n");
+                indentLevel++;
+                 if (elemType.isContainer()) {
+                    String tempItemCopy = "__item_copy_" + System.nanoTime();
+                    indent(out).append(getTypeName(elemType, false, true, false, false) + " " + tempItemCopy + ";\n");
+                    generateDeepCopyContainer(elemType, "__item", tempItemCopy);
+                    indent(out).append(destName).append(".add(").append(tempItemCopy).append(");\n");
+                } else {
+                    String tempCopy = "(";
+                    generateDeepCopyNonContainer(elemType, "__item", tempCopy);
+                    tempCopy += ")";
+                    indent(out).append(destName).append(".add").append(tempCopy).append(";\n");
+                }
+                indentLevel--;
+                indent(out).append("}\n");
+            }
+        } else if (trueType.isMap()) {
+            TypeNode keyType = getTrueType(trueType.getChildNodes().get(0));
+            TypeNode valueType = getTrueType(trueType.getChildNodes().get(1));
+            String keyTypeName = getTypeName(keyType, true, false, false, false);
+            String valueTypeName = getTypeName(valueType, true, false, false, false);
+
+            if (keyType.isEnum() && !sortedContainers) { // EnumMap
+                indent(out).append(destName).append(" = new java.util.EnumMap<>(").append(sourceName).append(");\n");
+                 // EnumMap copy constructor is shallow for values, need to deep copy values if they are complex
+                indent(out).append(destName).append(".clear();\n"); // Clear and re-populate with deep copies
+                 indent(out).append("for (java.util.Map.Entry<").append(keyTypeName).append(", ").append(valueTypeName).append("> __entry : ").append(sourceName).append(".entrySet()) {\n");
+                 indentLevel++;
+                 String tempKeyCopy = "__entry.getKey()"; // Enums are immutable
+                 String tempValueCopy = "__value_copy_" + System.nanoTime();
+                 indent(out).append(getTypeName(valueType, false, true, false, false) + " " + tempValueCopy + ";\n");
+                 if (valueType.isContainer()){
+                     generateDeepCopyContainer(valueType, "__entry.getValue()", tempValueCopy);
+                 } else {
+                     generateDeepCopyNonContainer(valueType, "__entry.getValue()", tempValueCopy);
+                 }
+                 indent(out).append(destName).append(".put(").append(tempKeyCopy).append(", ").append(tempValueCopy).append(");\n");
+                 indentLevel--;
+                 indent(out).append("}\n");
+
+            } else {
+                indent(out).append(destName).append(" = new ").append(containerTypeName).append("();\n");
+                indent(out).append("for (java.util.Map.Entry<").append(keyTypeName).append(", ").append(valueTypeName).append("> __entry : ").append(sourceName).append(".entrySet()) {\n");
+                indentLevel++;
+                String tempKeyCopy = "__key_copy_" + System.nanoTime();
+                String tempValueCopy = "__value_copy_" + System.nanoTime();
+
+                indent(out).append(getTypeName(keyType, false, true, false, false) + " " + tempKeyCopy + ";\n");
+                if (keyType.isContainer()) {
+                    generateDeepCopyContainer(keyType, "__entry.getKey()", tempKeyCopy);
+                } else {
+                    generateDeepCopyNonContainer(keyType, "__entry.getKey()", tempKeyCopy);
+                }
+
+                indent(out).append(getTypeName(valueType, false, true, false, false) + " " + tempValueCopy + ";\n");
+                if (valueType.isContainer()){
+                    generateDeepCopyContainer(valueType, "__entry.getValue()", tempValueCopy);
+                } else {
+                    generateDeepCopyNonContainer(valueType, "__entry.getValue()", tempValueCopy);
+                }
+                indent(out).append(destName).append(".put(").append(tempKeyCopy).append(", ").append(tempValueCopy).append(");\n");
+                indentLevel--;
+                indent(out).append("}\n");
+            }
+        } else {
+            indent(out).append("// TODO: Deep copy for unknown container type: ").append(trueType.getName()).append("\n");
+            indent(out).append(destName).append(" = ").append(sourceName).append("; // Fallback to shallow copy\n");
+        }
+    }
+
+    // Helper for deep copy - simplified
+    private void generateDeepCopyNonContainer(TypeNode type, String sourceName, String destName) {
+         // destName is not directly used for assignment here, the caller appends `destName = `
+        TypeNode trueType = getTrueType(type);
+        if (trueType.isBaseType() || trueType.isEnum()) {
+            if (trueType.isBinary() && !unsafeBinaries) { // unsafeBinaries is a generator option
+                out.append("org.apache.thrift.TBaseHelper.copyBinary(").append(sourceName).append(")");
+            } else {
+                out.append(sourceName);
+            }
+        } else if (trueType.isStruct() || trueType.isException()) {
+            out.append("new ").append(getTypeName(trueType, false, false, false, true))
+               .append("(").append(sourceName).append(")");
+        } else {
+             out.append(sourceName); // Fallback for unknown non-container types (e.g. if it's a typedef to an unexpected type)
+        }
     }
     
+    private String capitalizedName(String name) {
+        if (name == null || name.isEmpty()) {
+            return name;
+        }
+        return name.substring(0, 1).toUpperCase() + name.substring(1);
+    }
+
     /**
      * Generate getters and setters
      */
     private void generateGettersAndSetters(StructLikeNode struct) {
-        // TODO: Implement this method
-        indent(out).append("// TODO: Generate getters and setters\n");
+        List<FieldNode> fields = struct.getFields();
+        for (FieldNode field : fields) {
+            TypeNode trueType = getTrueType(field.getType());
+            String fieldName = makeValidJavaIdentifier(field.getName());
+            String capName = capitalizedName(fieldName);
+            boolean isOptional = field.getRequirement() == FieldNode.Requirement.OPTIONAL;
+
+            // 1. Container-specific methods
+            if (trueType.isContainer()) {
+                generateContainerMethods(field, trueType, fieldName, capName, isOptional);
+            }
+
+            // 2. Standard Getter
+            generateGetter(field, trueType, fieldName, capName, isOptional);
+
+            // 3. Standard Setter
+            generateSetter(field, trueType, fieldName, capName);
+
+            // 4. Unsetter
+            generateUnsetter(field, trueType, fieldName, capName);
+
+            // 5. isSet method
+            generateIsSetMethod(field, trueType, fieldName, capName);
+
+            // 6. set<Name>IsSet method
+            generateSetIsSetMethod(field, trueType, fieldName, capName);
+        }
     }
-    
+
+    private void generateContainerMethods(FieldNode field, TypeNode trueType, String fieldName, String capName, boolean isOptional) {
+        // Get Size method
+        if (useOptionType && isOptional) {
+            String optionClassName = useJdk8OptionType ? "java.util.Optional" : "org.apache.thrift.Option";
+            indent(out).append("public ").append(optionClassName).append("<Integer> get").append(capName).append("Size() {\n");
+            indentLevel++;
+            indent(out).append("if (this.").append(fieldName).append(" == null) {\n");
+            indentLevel++;
+            indent(out).append("return ").append(optionClassName).append(".empty();\n");
+            indentLevel--;
+            indent(out).append("} else {\n");
+            indentLevel++;
+            indent(out).append("return ").append(optionClassName).append(".of(this.").append(fieldName).append(".size());\n");
+            indentLevel--;
+            indent(out).append("}\n");
+            indentLevel--;
+            indent(out).append("}\n\n");
+        } else {
+            indent(out).append("public int get").append(capName).append("Size() {\n");
+            indentLevel++;
+            indent(out).append("return (this.").append(fieldName).append(" == null) ? 0 : this.").append(fieldName).append(".size();\n");
+            indentLevel--;
+            indent(out).append("}\n\n");
+        }
+
+        // Iterator getter & addTo / putTo methods
+        if (trueType.isList() || trueType.isSet()) {
+            TypeNode elemType = getTrueType(trueType.getChildNodes().get(0));
+            String elemTypeName = getTypeName(elemType, true, false, false, false);
+            if (useOptionType && isOptional) {
+                String optionClassName = useJdk8OptionType ? "java.util.Optional" : "org.apache.thrift.Option";
+                indent(out).append("public ").append(optionClassName).append("<java.util.Iterator<").append(elemTypeName).append(">> get")
+                           .append(capName).append("Iterator() {\n");
+                indentLevel++;
+                indent(out).append("if (this.").append(fieldName).append(" == null) {\n");
+                indentLevel++;
+                indent(out).append("return ").append(optionClassName).append(".empty();\n");
+                indentLevel--;
+                indent(out).append("} else {\n");
+                indentLevel++;
+                indent(out).append("return ").append(optionClassName).append(".of(this.").append(fieldName).append(".iterator());\n");
+                indentLevel--;
+                indent(out).append("}\n");
+                indentLevel--;
+                indent(out).append("}\n\n");
+            } else {
+                indent(out).append(javaNullableAnnotation()).append("\n");
+                indent(out).append("public java.util.Iterator<").append(elemTypeName).append("> get").append(capName).append("Iterator() {\n");
+                indentLevel++;
+                indent(out).append("return (this.").append(fieldName).append(" == null) ? null : this.").append(fieldName).append(".iterator();\n");
+                indentLevel--;
+                indent(out).append("}\n\n");
+            }
+
+            indent(out).append("public void addTo").append(capName).append("(").append(getTypeName(elemType, false, false, false, false)).append(" elem) {\n");
+            indentLevel++;
+            indent(out).append("if (this.").append(fieldName).append(" == null) {\n");
+            indentLevel++;
+            // Get appropriate type for initialization (e.g. HashSet, ArrayList, EnumSet)
+            String containerInitType = getTypeName(trueType, false, true, false, false);
+            if (elemType.isEnum() && !sortedContainers && trueType.isSet()) { // EnumSet
+                 indent(out).append("this.").append(fieldName).append(" = java.util.EnumSet.noneOf(")
+                           .append(getTypeName(elemType, true, false, false, true)).append(".class);\n");
+            } else {
+                 indent(out).append("this.").append(fieldName).append(" = new ").append(containerInitType).append("();\n");
+            }
+            indentLevel--;
+            indent(out).append("}\n");
+            indent(out).append("this.").append(fieldName).append(".add(elem);\n");
+            indentLevel--;
+            indent(out).append("}\n\n");
+
+        } else if (trueType.isMap()) {
+            TypeNode keyType = getTrueType(trueType.getChildNodes().get(0));
+            TypeNode valueType = getTrueType(trueType.getChildNodes().get(1));
+            indent(out).append("public void putTo").append(capName).append("(")
+                       .append(getTypeName(keyType, false, false, false, false)).append(" key, ")
+                       .append(getTypeName(valueType, false, false, false, false)).append(" val) {\n");
+            indentLevel++;
+            indent(out).append("if (this.").append(fieldName).append(" == null) {\n");
+            indentLevel++;
+            String mapInitType = getTypeName(trueType, false, true, false, false);
+             if (keyType.isEnum() && !sortedContainers) { // EnumMap
+                indent(out).append("this.").append(fieldName).append(" = new ").append(mapInitType).append("(")
+                           .append(getTypeName(keyType, true, false, false, true)).append(".class);\n");
+            } else {
+                indent(out).append("this.").append(fieldName).append(" = new ").append(mapInitType).append("();\n");
+            }
+            indentLevel--;
+            indent(out).append("}\n");
+            indent(out).append("this.").append(fieldName).append(".put(key, val);\n");
+            indentLevel--;
+            indent(out).append("}\n\n");
+        }
+    }
+
+    private void generateGetter(FieldNode field, TypeNode trueType, String fieldName, String capName, boolean isOptional) {
+        generateJavaDoc(field); // Assuming generateJavaDoc can handle FieldNode
+        if (trueType.isBinary()) {
+            indent(out).append("public byte[] get").append(capName).append("() {\n");
+            indentLevel++;
+            // The C++ version has: set<FieldName>(org.apache.thrift.TBaseHelper.rightSize(bufferFor<FieldName>()));
+            // This seems to be a defensive call to ensure the internal ByteBuffer is correctly sized or trimmed.
+            // Java's TBaseHelper.copyBinary creates a new ByteBuffer, so rightSize might not be directly applicable here in the same way.
+            // If `this.fieldName` is the direct buffer, one might trim it:
+            // if (this.fieldName != null) { this.fieldName = org.apache.thrift.TBaseHelper.rightSize(this.fieldName); }
+            // However, the C++ code calls this on the result of bufferForFieldName(), which returns a copy.
+            // For now, we directly return array from the (potentially copied) buffer.
+            indent(out).append("public byte[] get").append(capName).append("() {\n");
+            indentLevel++;
+            indent(out).append("java.nio.ByteBuffer bf = bufferFor").append(capName).append("();\n");
+            indent(out).append("return (bf == null ? null : bf.array());\n");
+            // The C++ version also calls set<CapName>(TBaseHelper.rightSize(bufferFor<CapName>())).
+            // This is unusual for a getter. It seems to imply the getter might modify the internal state
+            // by replacing the stored ByteBuffer with a "right-sized" version.
+            // This is not typical Java getter behavior and is omitted here for now.
+            // Example: if (this.fieldName != null) { setBinaryField(TBaseHelper.rightSize(bufferForBinaryField())); }
+            indentLevel--;
+            indent(out).append("}\n\n");
+
+            indent(out).append(javaNullableAnnotation()).append("\n");
+            indent(out).append("public java.nio.ByteBuffer bufferFor").append(capName).append("() {\n");
+            indentLevel++;
+            if (unsafeBinaries) {
+                indent(out).append("return this.").append(fieldName).append(";\n");
+            } else {
+                indent(out).append("return org.apache.thrift.TBaseHelper.copyBinary(this.").append(fieldName).append(");\n");
+            }
+            indentLevel--;
+            indent(out).append("}\n\n");
+        } else {
+            String getterName;
+            // Assume TypeNode.getName() gives "bool" for boolean base type
+            if (trueType.isBaseType() && "bool".equals(trueType.getName())) {
+                getterName = "is" + capName;
+            } else {
+                getterName = "get" + capName;
+            }
+
+            if (useOptionType && isOptional) {
+                String optionClassName = useJdk8OptionType ? "java.util.Optional" : "org.apache.thrift.Option";
+                indent(out).append("public ").append(optionClassName).append("<").append(getTypeName(trueType, true, false, false, false)).append("> ")
+                           .append(getterName).append("() {\n");
+                indentLevel++;
+                // isSet<CapName>() checks if the field is set (not null for objects, or isset bit for primitives)
+                indent(out).append("if (this.isSet").append(capName).append("()) {\n");
+                indentLevel++;
+                indent(out).append("return ").append(optionClassName).append(".of(this.").append(fieldName).append(");\n");
+                indentLevel--;
+                indent(out).append("} else {\n");
+                indentLevel++;
+                indent(out).append("return ").append(optionClassName).append(".empty();\n");
+                indentLevel--;
+                indent(out).append("}\n");
+                indentLevel--;
+                indent(out).append("}\n\n");
+            } else {
+                if (typeCanBeNull(trueType)) {
+                    indent(out).append(javaNullableAnnotation()).append("\n");
+                }
+                indent(out).append("public ").append(getTypeName(trueType, false, false, false, false)).append(" ")
+                           .append(getterName).append("() {\n");
+                indentLevel++;
+                indent(out).append("return this.").append(fieldName).append(";\n");
+                indentLevel--;
+                indent(out).append("}\n\n");
+            }
+        }
+    }
+
+    private void generateSetter(FieldNode field, TypeNode trueType, String fieldName, String capName) {
+        generateJavaDoc(field); // Add Javadoc for the setter
+        String returnType = beanStyle ? "void" : makeValidJavaIdentifier(structLikeNode.getName());
+        String params;
+
+        // ByteBuffer variant for binary type
+        if (trueType.isBinary()) {
+            params = (typeCanBeNull(trueType) ? javaNullableAnnotation() + " " : "") +
+                     "java.nio.ByteBuffer" + " " + fieldName; // Parameter is ByteBuffer
+
+            indent(out).append("public ").append(returnType).append(" set").append(capName).append("(").append(params).append(") {\n");
+            indentLevel++;
+            if (unsafeBinaries) {
+                indent(out).append("this.").append(fieldName).append(" = ").append(fieldName).append(";\n");
+            } else {
+                indent(out).append("this.").append(fieldName).append(" = org.apache.thrift.TBaseHelper.copyBinary(").append(fieldName).append(");\n");
+            }
+            // For object types like ByteBuffer, being "set" means not null. Primitives use isset bits.
+            // No explicit setIsSet call here as null check in isSet<CapName>() handles it.
+            if (!beanStyle) {
+                indent(out).append("return this;\n");
+            }
+            indentLevel--;
+            indent(out).append("}\n\n");
+
+            // byte[] overload for binary type
+            generateJavaDoc(field); // Add Javadoc for the byte[] overload too
+            params = (typeCanBeNull(trueType) ? javaNullableAnnotation() + " " : "") + // byte[] can be null
+                     "byte[]" + " " + fieldName;
+
+            indent(out).append("public ").append(returnType).append(" set").append(capName).append("(").append(params).append(") {\n");
+            indentLevel++;
+            indent(out).append("set").append(capName).append("(").append(fieldName)
+                       .append(" == null ? (java.nio.ByteBuffer)null");
+            if (unsafeBinaries) {
+                 out.append(" : java.nio.ByteBuffer.wrap(").append(fieldName).append("));\n");
+            } else {
+                 // Important: wrap a clone for safety if not unsafe
+                 out.append(" : java.nio.ByteBuffer.wrap(").append(fieldName).append(".clone()));\n");
+            }
+            if (!beanStyle) {
+                indent(out).append("return this;\n");
+            }
+            indentLevel--;
+            indent(out).append("}\n\n");
+
+        } else { // Non-binary types
+            params = (typeCanBeNull(trueType) ? javaNullableAnnotation() + " " : "") +
+                     getTypeName(trueType, false, false, false, false) + " " + fieldName;
+            indent(out).append("public ").append(returnType).append(" set").append(capName).append("(").append(params).append(") {\n");
+            indentLevel++;
+            indent(out).append("this.").append(fieldName).append(" = ").append(fieldName).append(";\n");
+            if (!typeCanBeNull(trueType)) {
+                indent(out).append("set").append(capName).append("IsSet(true);\n");
+            }
+            if (!beanStyle) {
+                indent(out).append("return this;\n");
+            }
+            indentLevel--;
+            indent(out).append("}\n\n");
+        }
+    }
+
+    private void generateUnsetter(FieldNode field, TypeNode trueType, String fieldName, String capName) {
+        indent(out).append("public void unset").append(capName).append("() {\n");
+        indentLevel++;
+        if (typeCanBeNull(trueType)) {
+            indent(out).append("this.").append(fieldName).append(" = null;\n");
+        } else {
+            IssetType issetTypeEnum = needsIsset(this.structLikeNode); // Check specific to this struct
+            String issetIdentifier = issetTypeEnum == IssetType.BITSET ? "__isset_bit_vector" : "__isset_bitfield";
+            String clearBitMethod = issetTypeEnum == IssetType.BITSET ? ".clear(" : " = org.apache.thrift.EncodingUtils.clearBit(";
+            String clearBitParam = issetFieldId(field); // This needs to correctly get the int/index
+            String closingClear = issetTypeEnum == IssetType.BITSET ? ")" : ", " + clearBitParam + ")";
+
+            if (issetTypeEnum != IssetType.NONE) {
+                 indent(out).append(issetIdentifier).append(clearBitMethod);
+                 if (issetTypeEnum == IssetType.PRIMITIVE) out.append(issetIdentifier).append(", ");
+                 out.append(clearBitParam);
+                 if (issetTypeEnum == IssetType.PRIMITIVE) out.append(")");
+                 out.append(";\n");
+            }
+        }
+        indentLevel--;
+        indent(out).append("}\n\n");
+    }
+
+    private void generateIsSetMethod(FieldNode field, TypeNode trueType, String fieldName, String capName) {
+        indent(out).append("/** Returns true if field ").append(fieldName).append(" is set (has been assigned a value) and false otherwise */\n");
+        indent(out).append("public boolean isSet").append(capName).append("() {\n");
+        indentLevel++;
+        if (typeCanBeNull(trueType)) {
+            indent(out).append("return this.").append(fieldName).append(" != null;\n");
+        } else {
+            IssetType issetTypeEnum = needsIsset(this.structLikeNode);
+             if (issetTypeEnum == IssetType.NONE) {
+                indent(out).append("return false; // Should not happen if type cannot be null and no isset bits\n");
+            } else {
+                String issetIdentifier = issetTypeEnum == IssetType.BITSET ? "__isset_bit_vector" : "__isset_bitfield";
+                String testBitMethod = issetTypeEnum == IssetType.BITSET ? ".get(" : "org.apache.thrift.EncodingUtils.testBit(";
+                String testBitParam = issetFieldId(field);
+                String closingTest = issetTypeEnum == IssetType.BITSET ? ")" : ", " + testBitParam + ")";
+
+                indent(out).append("return ").append(testBitMethod);
+                if (issetTypeEnum == IssetType.PRIMITIVE) out.append(issetIdentifier).append(", ");
+                out.append(testBitParam).append(closingTest).append(";\n");
+            }
+        }
+        indentLevel--;
+        indent(out).append("}\n\n");
+    }
+
+    private void generateSetIsSetMethod(FieldNode field, TypeNode trueType, String fieldName, String capName) {
+        indent(out).append("public void set").append(capName).append("IsSet(boolean value) {\n");
+        indentLevel++;
+        if (typeCanBeNull(trueType)) {
+            indent(out).append("if (!value) {\n");
+            indentLevel++;
+            indent(out).append("this.").append(fieldName).append(" = null;\n");
+            indentLevel--;
+            indent(out).append("}\n");
+        } else {
+            IssetType issetTypeEnum = needsIsset(this.structLikeNode);
+             if (issetTypeEnum != IssetType.NONE) {
+                String issetIdentifier = issetTypeEnum == IssetType.BITSET ? "__isset_bit_vector" : "__isset_bitfield";
+                String setBitMethod = issetTypeEnum == IssetType.BITSET ? ".set(" : " = org.apache.thrift.EncodingUtils.setBit(";
+                String setBitParam = issetFieldId(field);
+                String closingSet = issetTypeEnum == IssetType.BITSET ? ", value)" : ", " + setBitParam + ", value)";
+
+                indent(out).append(issetIdentifier).append(setBitMethod);
+                if (issetTypeEnum == IssetType.PRIMITIVE) out.append(issetIdentifier).append(", ");
+                out.append(setBitParam).append(closingSet).append(";\n");
+            }
+        }
+        indentLevel--;
+        indent(out).append("}\n\n");
+    }
+
     /**
-     * Generate equality methods
+     * Generate equality methods (equals and hashCode)
      */
     private void generateJavaStructEquality(StructLikeNode struct) {
-        // TODO: Implement this method
-        indent(out).append("// TODO: Generate equality methods\n");
+        generateEqualsObjectMethod(struct);
+        generateEqualsTypedMethod(struct);
+        generateHashCodeMethod(struct);
     }
-    
+
+    private void generateEqualsObjectMethod(StructLikeNode struct) {
+        String structName = makeValidJavaIdentifier(struct.getName());
+        indent(out).append(javaOverrideAnnotation()).append("\n");
+        indent(out).append("public boolean equals(java.lang.Object that) {\n");
+        indentLevel++;
+        indent(out).append("if (that instanceof ").append(structName).append(")\n");
+        indentLevel++;
+        indent(out).append("return this.equals((").append(structName).append(")that);\n");
+        indentLevel--;
+        indent(out).append("return false;\n");
+        indentLevel--;
+        indent(out).append("}\n\n");
+    }
+
+    private void generateEqualsTypedMethod(StructLikeNode struct) {
+        String structName = makeValidJavaIdentifier(struct.getName());
+        indent(out).append("public boolean equals(").append(structName).append(" that) {\n");
+        indentLevel++;
+        indent(out).append("if (that == null)\n");
+        indentLevel++;
+        indent(out).append("return false;\n");
+        indentLevel--;
+        indent(out).append("if (this == that)\n");
+        indentLevel++;
+        indent(out).append("return true;\n");
+        indentLevel--;
+
+        List<FieldNode> fields = struct.getFields();
+        for (FieldNode field : fields) {
+            String fieldName = makeValidJavaIdentifier(field.getName());
+            String capName = capitalizedName(fieldName);
+            TypeNode trueType = getTrueType(field.getType());
+
+            out.append("\n");
+            indent(out).append("boolean this_present_").append(fieldName).append(" = this.isSet").append(capName).append("();\n");
+            indent(out).append("boolean that_present_").append(fieldName).append(" = that.isSet").append(capName).append("();\n");
+            indent(out).append("if (this_present_").append(fieldName).append(" || that_present_").append(fieldName).append(") {\n");
+            indentLevel++;
+            indent(out).append("if (!(this_present_").append(fieldName).append(" && that_present_").append(fieldName).append("))\n");
+            indentLevel++;
+            indent(out).append("return false;\n");
+            indentLevel--;
+
+            String thisFieldValue = "this." + fieldName;
+            String thatFieldValue = "that." + fieldName;
+            String comparison;
+
+            if (trueType.isBinary() || !typeCanBeNull(trueType) && !trueType.isBaseType()) { // ByteBuffer or other non-primitive objects
+                comparison = "!" + thisFieldValue + ".equals(" + thatFieldValue + ")";
+            } else if (typeCanBeNull(trueType) && !trueType.isBaseType()) { // Other objects that can be null (structs, containers)
+                 comparison = "!" + thisFieldValue + ".equals(" + thatFieldValue + ")";
+            }
+            else { // Primitives
+                comparison = thisFieldValue + " != " + thatFieldValue;
+            }
+            indent(out).append("if (").append(comparison).append(")\n");
+            indentLevel++;
+            indent(out).append("return false;\n");
+            indentLevel--;
+            indentLevel--;
+            indent(out).append("}\n");
+        }
+        out.append("\n");
+        indent(out).append("return true;\n");
+        indentLevel--;
+        indent(out).append("}\n\n");
+    }
+
+    private void generateHashCodeMethod(StructLikeNode struct) {
+        indent(out).append(javaOverrideAnnotation()).append("\n");
+        indent(out).append("public int hashCode() {\n");
+        indentLevel++;
+        // Based on C++: final int MUL = 8191; final int B_YES = 131071; final int B_NO = 524287;
+        // Effective Java uses 31. Using a list as in C++ Unions or Apache Commons HashCodeBuilder style.
+        indent(out).append("java.util.List<java.lang.Object> list = new java.util.ArrayList<java.lang.Object>();\n");
+
+        List<FieldNode> fields = struct.getFields();
+        for (FieldNode field : fields) {
+            String fieldName = makeValidJavaIdentifier(field.getName());
+            String capName = capitalizedName(fieldName);
+            TypeNode trueType = getTrueType(field.getType());
+
+            indent(out).append("boolean present_").append(fieldName).append(" = isSet").append(capName).append("();\n");
+            indent(out).append("list.add(present_").append(fieldName).append(");\n"); // Record presence
+            indent(out).append("if (present_").append(fieldName).append(") {\n");
+            indentLevel++;
+
+            String fieldValue = "this." + fieldName;
+            if (trueType.isEnum()) {
+                indent(out).append("list.add(").append(fieldValue).append(".getValue());\n");
+            } else if (trueType.isBaseType()) {
+                String baseName = trueType.getName();
+                switch (baseName) {
+                    case "bool": // boolean
+                        // list.add(fieldValue); // Auto-boxed
+                        indent(out).append("list.add(").append(fieldValue).append(" ? 1 : 0); \n"); // C++ style B_YES/B_NO
+                        break;
+                    case "byte": case "i8":
+                    case "short": case "i16":
+                    case "int": case "i32":
+                        indent(out).append("list.add(").append(fieldValue).append(");\n");
+                        break;
+                    case "long": case "i64":
+                    case "double":
+                        // TBaseHelper.hashCode not directly used like this in C++ for individual fields, but for overall.
+                        // For individual field contribution, direct value or its own hashcode.
+                        indent(out).append("list.add(").append(fieldValue).append(");\n"); // Auto-boxed, relies on Long/Double.hashCode()
+                        break;
+                    case "string": // String or Binary (ByteBuffer)
+                    case "uuid":
+                        indent(out).append("list.add(").append(fieldValue).append(");\n"); // Relies on String/UUID/ByteBuffer.hashCode()
+                        break;
+                    default: // Should not happen
+                        indent(out).append("list.add(0); // Unhandled base type in hashCode\n");
+                        break;
+                }
+            } else { // Object type (struct, container)
+                indent(out).append("list.add(").append(fieldValue).append(");\n"); // Relies on object's .hashCode()
+            }
+            indentLevel--;
+            indent(out).append("}\n");
+        }
+        indent(out).append("return list.hashCode();\n");
+        indentLevel--;
+        indent(out).append("}\n\n");
+    }
+
     /**
      * Generate compareTo method
      */
     private void generateJavaStructCompareTo(StructLikeNode struct) {
-        // TODO: Implement this method
-        indent(out).append("// TODO: Generate compareTo method\n");
+        String structName = makeValidJavaIdentifier(struct.getName());
+        indent(out).append(javaOverrideAnnotation()).append("\n");
+        indent(out).append("public int compareTo(").append(structName).append(" other) {\n");
+        indentLevel++;
+
+        indent(out).append("if (!getClass().equals(other.getClass())) {\n");
+        indentLevel++;
+        indent(out).append("return getClass().getName().compareTo(other.getClass().getName());\n");
+        indentLevel--;
+        indent(out).append("}\n\n");
+
+        indent(out).append("int lastComparison = 0;\n\n");
+
+        List<FieldNode> fields = struct.getFields(); // Assumes getFields() maintains declaration order
+        for (FieldNode field : fields) {
+            String fieldName = makeValidJavaIdentifier(field.getName());
+            String capName = capitalizedName(fieldName);
+
+            indent(out).append("lastComparison = java.lang.Boolean.compare(isSet").append(capName).append("(), other.isSet").append(capName).append("());\n");
+            indent(out).append("if (lastComparison != 0) {\n");
+            indentLevel++;
+            indent(out).append("return lastComparison;\n");
+            indentLevel--;
+            indent(out).append("}\n");
+
+            indent(out).append("if (isSet").append(capName).append("()) {\n");
+            indentLevel++;
+            indent(out).append("lastComparison = org.apache.thrift.TBaseHelper.compareTo(this.").append(fieldName).append(", other.").append(fieldName).append(");\n");
+            indent(out).append("if (lastComparison != 0) {\n");
+            indentLevel++;
+            indent(out).append("return lastComparison;\n");
+            indentLevel--;
+            indent(out).append("}\n");
+            indentLevel--;
+            indent(out).append("}\n"); // End if (isSet<CapName>())
+        }
+
+        indent(out).append("return 0;\n");
+        indentLevel--;
+        indent(out).append("}\n\n");
     }
-    
+
     /**
      * Generate field by id method
      */
@@ -607,18 +1455,136 @@ public class StructLikeGenerator {
      * Generate toString method
      */
     private void generateJavaStructToString(StructLikeNode struct) {
-        // TODO: Implement this method
-        indent(out).append("// TODO: Generate toString method\n");
+        String structName = makeValidJavaIdentifier(struct.getName());
+        indent(out).append(javaOverrideAnnotation()).append("\n");
+        indent(out).append("public java.lang.String toString() {\n");
+        indentLevel++;
+
+        indent(out).append("java.lang.StringBuilder sb = new java.lang.StringBuilder(\"").append(structName).append("(\");\n");
+        indent(out).append("boolean first = true;\n\n");
+
+        List<FieldNode> fields = struct.getFields();
+        for (FieldNode field : fields) {
+            String fieldName = makeValidJavaIdentifier(field.getName());
+            String capName = capitalizedName(fieldName);
+            TypeNode trueType = getTrueType(field.getType());
+            boolean isOptional = field.getRequirement() == FieldNode.Requirement.OPTIONAL;
+
+            if (isOptional) {
+                indent(out).append("if (isSet").append(capName).append("()) {\n");
+                indentLevel++;
+            }
+
+            indent(out).append("if (!first) sb.append(\", \");\n");
+            indent(out).append("sb.append(\"").append(field.getName()).append(":\");\n"); // Use original field name for toString
+
+            indent(out).append("if (this.").append(fieldName).append(" == null) {\n");
+            indentLevel++;
+            indent(out).append("sb.append(\"null\");\n");
+            indentLevel--;
+            indent(out).append("} else {\n");
+            indentLevel++;
+
+            // Special handling for binary fields as per C++ TBaseHelper.toString(ByteBuffer, StringBuilder)
+            // Assumes TBaseHelper.toString can handle ByteBuffer.
+            // For collections of ByteBuffer, Java's default .toString() for collections will be used,
+            // which calls ByteBuffer.toString() on elements. This might differ from a specialized
+            // TBaseHelper.toString(Collection<ByteBuffer>, StringBuilder) if that existed.
+            if (trueType.isBinary() && !trueType.isContainer()) { // Direct binary field, not in a container
+                indent(out).append("org.apache.thrift.TBaseHelper.toString(this.").append(fieldName).append(", sb);\n");
+            } else {
+                indent(out).append("sb.append(this.").append(fieldName).append(");\n");
+            }
+            indentLevel--;
+            indent(out).append("}\n"); // End else (field != null)
+
+            indent(out).append("first = false;\n");
+
+            if (isOptional) {
+                indentLevel--;
+                indent(out).append("}\n"); // End if (isSet<CapName>())
+            }
+        }
+        indent(out).append("sb.append(\")\n");"); // Append closing parenthesis for struct
+        indent(out).append("return sb.toString();\n");
+        indentLevel--;
+        indent(out).append("}\n\n");
     }
-    
+
     /**
      * Generate validator method
      */
     private void generateJavaValidator(StructLikeNode struct) {
-        // TODO: Implement this method
-        indent(out).append("// TODO: Generate validator method\n");
+        indent(out).append("public void validate() throws org.apache.thrift.TException {\n");
+        indentLevel++;
+
+        List<FieldNode> fields = struct.getFields();
+
+        indent(out).append("// check for required fields\n");
+        for (FieldNode field : fields) {
+            if (field.getRequirement() == FieldNode.Requirement.REQUIRED) {
+                String fieldName = makeValidJavaIdentifier(field.getName());
+                String capName = capitalizedName(fieldName);
+                TypeNode trueType = getTrueType(field.getType());
+
+                if (beanStyle) { // In bean_style, always use isSet for required check
+                    indent(out).append("if (!isSet").append(capName).append("()) {\n");
+                    indentLevel++;
+                    indent(out).append("throw new org.apache.thrift.protocol.TProtocolException(\"Required field '")
+                               .append(field.getName()).append("' is unset! Struct: \" + toString());\n");
+                    indentLevel--;
+                    indent(out).append("}\n");
+                } else { // Not bean_style
+                    if (typeCanBeNull(trueType)) { // Object types
+                        indent(out).append("if (this.").append(fieldName).append(" == null) {\n");
+                        indentLevel++;
+                        indent(out).append("throw new org.apache.thrift.protocol.TProtocolException(\"Required field '")
+                                   .append(field.getName()).append("' was not present! Struct: \" + toString());\n");
+                        indentLevel--;
+                        indent(out).append("}\n");
+                    } else { // Primitive types (non-bean style)
+                        // This check is typically done during deserialization (read method) for non-bean style
+                        // because primitives always have a value. The 'isSet' bit is the source of truth.
+                        // The C++ generator has a similar comment.
+                        // However, if there's an isset bit, it should be checked.
+                        // The isSet<CapName>() method checks this bit.
+                        indent(out).append("if (!isSet").append(capName).append("()) {\n");
+                        indentLevel++;
+                        indent(out).append("throw new org.apache.thrift.protocol.TProtocolException(\"Required field '")
+                                   .append(field.getName()).append("' was not found in serialized data! Struct: \" + toString());\n");
+                        indentLevel--;
+                        indent(out).append("}\n");
+                        // indent(out).append("// alas, we cannot check '").append(field.getName())
+                        //            .append("' because it's a primitive and you chose the non-beans generator.\n");
+                        // indent(out).append("// The check for presence would normally happen during deserialization.\n");
+                    }
+                }
+            }
+        }
+        out.append("\n");
+
+        indent(out).append("// check for sub-struct validity\n");
+        for (FieldNode field : fields) {
+            String fieldName = makeValidJavaIdentifier(field.getName());
+            TypeNode trueType = getTrueType(field.getType());
+
+            // Assuming TypeNode has isUnion() or similar if unions should be excluded.
+            // The C++ code checks if (type->is_struct() && !((t_struct*)type)->is_union())
+            // For now, just checking isStruct(). If TypeNode has isUnion(), it should be added:
+            // && !trueType.isUnion() (if isUnion method exists)
+            if (trueType.isStruct()) {
+                indent(out).append("if (this.").append(fieldName).append(" != null) {\n");
+                indentLevel++;
+                indent(out).append("this.").append(fieldName).append(".validate();\n");
+                indentLevel--;
+                indent(out).append("}\n");
+            }
+        }
+
+        indentLevel--;
+        indent(out).append("}\n\n");
     }
-    
+
     /**
      * Generate writeObject method for Java serialization
      */
@@ -913,36 +1879,95 @@ public class StructLikeGenerator {
      * Declare a field with proper type and name
      */
     private String declareField(FieldNode field, boolean init, boolean comment) {
-        // TODO: Implement proper field declaration
         StringBuilder result = new StringBuilder();
-        
-        if (typeCanBeNull(field.getType())) {
+        TypeNode type = getTrueType(field.getType());
+
+        if (typeCanBeNull(type)) {
             result.append(javaNullableAnnotation()).append(" ");
         }
-        
-        result.append(getTypeName(field.getType()))
+
+        // Use getTypeName with inInit=true if init is true, to get appropriate collection types like HashMap
+        result.append(getTypeName(type, false, init, false, false))
               .append(" ")
               .append(makeValidJavaIdentifier(field.getName()));
-        
+
         if (init) {
-            // Handle initialization if needed
-            result.append(" = /* TODO: default value */");
+            // This logic mirrors parts of t_java_generator::declare_field and print_const_value
+            // It's simplified; full constant rendering (like in print_const_value) is complex.
+            // This focuses on default initializations for new declarations.
+            if (type.isBaseType() && field.getDefaultValue() != null) {
+                // TODO: Need a robust way to render field.getDefaultValue() (t_const_value) to a Java literal.
+                // This is non-trivial and similar to render_const_value in C++.
+                // For now, this part is a placeholder if defaultValue rendering is complex.
+                // result.append(" = ").append(renderConstValue(type, field.getDefaultValue()));
+                result.append(" = /* TODO: render default value for base type */");
+            } else if (type.isBaseType()) {
+                // Default primitive values for Java if no explicit default
+                String baseName = type.getName();
+                switch (baseName) {
+                    case "void": // Should not happen for fields
+                        break;
+                    case "string":
+                    case "uuid": // These are objects
+                        result.append(" = null");
+                        break;
+                    case "bool":
+                        result.append(" = false");
+                        break;
+                    case "byte": case "i8":
+                    case "short": case "i16":
+                    case "int": case "i32":
+                    case "long": case "i64":
+                        result.append(" = 0");
+                        break;
+                    case "double":
+                        result.append(" = 0.0");
+                        break;
+                    default: // Should not be reached
+                        result.append(" = /* TODO: unknown base type default */");
+                        break;
+                }
+            } else if (type.isEnum()) {
+                // TODO: Handle enum default value if field.getDefaultValue() is available and non-null
+                // result.append(" = ").append(renderConstValue(type, field.getDefaultValue()));
+                result.append(" = null"); // Default for enums is null unless specified
+            } else if (type.isContainer()) {
+                String typeNameWithOptions = getTypeName(type, false, true, false, false);
+                String classForEnumMapSet = "";
+                if (type.isMap() && getTrueType(type.getChildNodes().get(0)).isEnum() && !sortedContainers) {
+                    classForEnumMapSet = getTypeName(getTrueType(type.getChildNodes().get(0)), true, false, false, false) + ".class";
+                    result.append(" = new ").append(typeNameWithOptions).append("(").append(classForEnumMapSet).append(")");
+                } else if (type.isSet() && getTrueType(type.getChildNodes().get(0)).isEnum() && !sortedContainers) {
+                    classForEnumMapSet = getTypeName(getTrueType(type.getChildNodes().get(0)), true, false, false, false) + ".class";
+                    // EnumSet uses static factory, e.g., EnumSet.noneOf(MyEnum.class)
+                    result.append(" = java.util.EnumSet.noneOf(").append(classForEnumMapSet).append(")");
+                } else {
+                    result.append(" = new ").append(typeNameWithOptions).append("()");
+                }
+            } else if (type.isStruct() || type.isException()) {
+                // TODO: Handle struct default value if field.getDefaultValue() is available and non-null
+                result.append(" = new ").append(getTypeName(type, false, true, false, false)).append("()");
+            } else {
+                result.append(" = /* TODO: Unhandled type for init */");
+            }
         }
-        
+
         result.append(";");
-        
+
         if (comment) {
             result.append(" // ");
             if (field.getRequirement() == FieldNode.Requirement.OPTIONAL) {
                 result.append("optional");
-            } else {
+            } else if (field.getRequirement() == FieldNode.Requirement.REQUIRED) {
                 result.append("required");
+            } else { // DEFAULT
+                result.append("default");
             }
         }
-        
+
         return result.toString();
     }
-    
+
     /**
      * Get the Java type name for a Thrift type
      */
