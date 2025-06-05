@@ -26,4 +26,14 @@ public class BaseTypeNode extends TypeNode {
     public String getName() {
         return type.name().toLowerCase();
     }
+
+    @Override
+    public boolean isBaseType() {
+        return true;
+    }
+
+    @Override
+    public boolean isBinary() {
+        return type == BaseTypeEnum.BINARY;
+    }
 }

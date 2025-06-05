@@ -11,8 +11,8 @@
  *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied. See the License for the
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS
+ * either express or implied. See the License for the
  * specific language governing permissions and limitations
  * under the License.
  */
@@ -1505,7 +1505,7 @@ public class StructLikeGenerator {
                 indent(out).append("}\n"); // End if (isSet<CapName>())
             }
         }
-        indent(out).append("sb.append(\")\n");"); // Append closing parenthesis for struct
+        indent(out).append("\")\n");
         indent(out).append("return sb.toString();\n");
         indentLevel--;
         indent(out).append("}\n\n");
@@ -1972,10 +1972,28 @@ public class StructLikeGenerator {
      * Get the Java type name for a Thrift type
      */
     private String getTypeName(TypeNode type) {
-        // TODO: Implement proper type conversion
+        return getTypeName(type, false, false, false, false);
+    }
+
+    /**
+     * Get the Java type name for a Thrift type with options
+     *
+     * @param type The Thrift type
+     * @param in_container Whether this type is contained in a container
+     * @param in_init Whether this type is being used in initialization
+     * @param in_param Whether this type is being used as a parameter
+     * @param as_args Whether to return the type as args (e.g. for metadata)
+     * @return The corresponding Java type name
+     */
+    private String getTypeName(TypeNode type, boolean in_container, boolean in_init, boolean in_param, boolean as_args) {
+        // TODO: Implement proper type conversion with all parameters
         return "Object";
     }
-    
+
+    private TypeNode getTrueType(TypeNode type) {
+        return type;
+    }
+
     /**
      * Create indentation based on current level
      */

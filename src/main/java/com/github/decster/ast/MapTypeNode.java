@@ -1,5 +1,8 @@
 package com.github.decster.ast;
 
+import java.util.List;
+import java.util.ArrayList;
+
 /**
  * Represents a map type in a Thrift document.
  */
@@ -31,5 +34,18 @@ public class MapTypeNode extends ContainerTypeNode {
     @Override
     public String getName() {
         return "map<" + keyType.getName() + "," + valueType.getName() + ">";
+    }
+
+    @Override
+    public boolean isMap() {
+        return true;
+    }
+
+    @Override
+    public List<TypeNode> getChildNodes() {
+        List<TypeNode> children = new ArrayList<>();
+        children.add(keyType);
+        children.add(valueType);
+        return children;
     }
 }

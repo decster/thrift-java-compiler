@@ -14,4 +14,9 @@ public abstract class ContainerTypeNode extends TypeNode {
     public void setCppType(String cppType) {
         this.cppType = cppType;
     }
+
+    @Override
+    public boolean isContainer() {
+        return true;
+    }
 }
