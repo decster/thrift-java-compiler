@@ -638,7 +638,8 @@ public class StructLikeGenerator {
             String otherFieldName = "other." + originalFieldName;
 
             if (fieldType.isContainer()) {
-                generateDeepCopyContainer(fieldType, otherFieldName, thisFieldName);
+                generateDeepCopyContainer(fieldType, otherFieldName, "__this__"+originalFieldName);
+                out.append(indent()).append(thisFieldName).append(" = __this__").append(originalFieldName).append(";\n");
             } else {
                 out.append(indent()).append(thisFieldName).append(" = ")
                    .append(generateDeepCopyNonContainer(fieldType, otherFieldName))
@@ -666,74 +667,133 @@ public class StructLikeGenerator {
 
     private void generateDeepCopyContainer(TypeNode type, String sourceName, String destName) {
         TypeNode trueType = getTrueType(type);
-        String containerTypeName = getTypeName(trueType, false, true, false, false);
-        String tempIterVar = getNextTempVarName("__item_");
-        String tempKeyVar = getNextTempVarName("__key_");
-        String tempValVar = getNextTempVarName("__val_");
 
-        if (trueType.isList()) {
-            TypeNode elemType = getTrueType(trueType.getChildNodes().get(0));
-            String elementTypeName = getTypeName(elemType, true, false, false, true);
-            out.append(indent()).append(destName).append(" = new ").append(containerTypeName).append("();\n");
-            out.append(indent()).append("for (").append(elementTypeName).append(" ").append(tempIterVar).append(" : ").append(sourceName).append(") {\n");
-            indentLevel++;
-            out.append(indent()).append(destName).append(".add(").append(generateDeepCopyNonContainer(elemType, tempIterVar)).append(");\n");
-            indentLevel--;
-            out.append(indent()).append("}\n");
-        } else if (trueType.isSet()) {
-            TypeNode elemType = getTrueType(trueType.getChildNodes().get(0));
-            String elementTypeName = getTypeName(elemType, true, false, false, true);
-            if (elemType.isEnum() && !sortedContainers) {
-                 out.append(indent()).append(destName).append(" = java.util.EnumSet.copyOf(").append(sourceName).append(");\n");
-            } else {
-                out.append(indent()).append(destName).append(" = new ").append(containerTypeName).append("();\n");
-                out.append(indent()).append("for (").append(elementTypeName).append(" ").append(tempIterVar).append(" : ").append(sourceName).append(") {\n");
-                indentLevel++;
-                out.append(indent()).append(destName).append(".add(").append(generateDeepCopyNonContainer(elemType, tempIterVar)).append(");\n");
-                indentLevel--;
-                out.append(indent()).append("}\n");
-            }
-        } else if (trueType.isMap()) {
+        // Check if we can use copy constructor for efficiency (for base types)
+        boolean copyConstructContainer = false;
+        if (trueType.isMap()) {
             TypeNode keyType = getTrueType(trueType.getChildNodes().get(0));
             TypeNode valueType = getTrueType(trueType.getChildNodes().get(1));
-            String keyTypeName = getTypeName(keyType, true, false, false, true);
-            String valueTypeName = getTypeName(valueType, true, false, false, true);
-
-            String fieldN = destName.startsWith("this.") ? destName.substring("this.".length()) : destName;
-            String tempLocalMapVar = "__this__" + fieldN;
-            String actualMapType = getTypeName(trueType, false, false, false, true);
-            String concreteMapType = containerTypeName;
-
-            boolean keyIsString = keyType.isBaseType() && "string".equals(keyType.getName());
-            boolean valueIsBaseNonBinary = valueType.isBaseType() && !valueType.isBinary();
-
-            boolean useCopyConstructor = keyIsString &&
-                                         valueIsBaseNonBinary &&
-                                         !sortedContainers && concreteMapType.startsWith("java.util.HashMap");
-
-            if (useCopyConstructor) {
-                out.append(indent()).append(actualMapType).append(" ").append(tempLocalMapVar).append(" = new ").append(concreteMapType).append("(").append(sourceName).append(");\n");
-            } else {
-                if (keyType.isEnum() && !sortedContainers && concreteMapType.startsWith("java.util.EnumMap")) {
-                    out.append(indent()).append(actualMapType).append(" ").append(tempLocalMapVar).append(" = new ").append(concreteMapType).append("<>(").append(getTypeName(keyType, false, false, true, true)).append(");\n");
-                } else {
-                    out.append(indent()).append(actualMapType).append(" ").append(tempLocalMapVar).append(" = new ").append(concreteMapType).append("();\n");
-                }
-                out.append(indent()).append("for (java.util.Map.Entry<").append(keyTypeName).append(", ").append(valueTypeName).append("> ").append(tempIterVar).append(" : ").append(sourceName).append(".entrySet()) {\n");
-                indentLevel++;
-                String keyDeclaredType = getTypeName(keyType, false, false, false, true);
-                String valueDeclaredType = getTypeName(valueType, false, false, false, true);
-
-                out.append(indent()).append(keyDeclaredType).append(" ").append(tempKeyVar).append(" = ").append(generateDeepCopyNonContainer(keyType, tempIterVar + ".getKey()")).append(";\n");
-                out.append(indent()).append(valueDeclaredType).append(" ").append(tempValVar).append(" = ").append(generateDeepCopyNonContainer(valueType, tempIterVar + ".getValue()")).append(";\n");
-                out.append(indent()).append(tempLocalMapVar).append(".put(").append(tempKeyVar).append(", ").append(tempValVar).append(");\n");
-                indentLevel--;
-                out.append(indent()).append("}\n");
-            }
-            out.append(indent()).append(destName).append(" = ").append(tempLocalMapVar).append(";\n");
+            copyConstructContainer = keyType.isBaseType() && valueType.isBaseType();
         } else {
-            out.append(indent()).append("// TODO: Deep copy for unknown container type: ").append(trueType.getName()).append("\n");
-            out.append(indent()).append(destName).append(" = ").append(sourceName).append("; // Fallback to shallow copy\n");
+            TypeNode elemType = trueType.isList()
+                    ? getTrueType(trueType.getChildNodes().get(0))
+                    : getTrueType(trueType.getChildNodes().get(0));
+            copyConstructContainer = elemType.isBaseType();
+        }
+
+        if (copyConstructContainer) {
+            // Deep copy of base types can be done more efficiently with copy constructor
+            out.append(indent()).append(getTypeName(trueType, true, false)).append(" ")
+                    .append(destName).append(" = new ")
+                    .append(getTypeName(trueType, false, true)).append("(")
+                    .append(sourceName).append(");\n");
+            return;
+        }
+
+        // For non-base type elements, we need to construct and copy each element
+        String constructorArgs = "";
+        if ((trueType.isSet() && getTrueType(trueType.getChildNodes().get(0)).isEnum()) ||
+                (trueType.isMap() && getTrueType(trueType.getChildNodes().get(0)).isEnum())) {
+            // For enum collections, we need the enum class
+            constructorArgs = getTypeName(getTrueType(trueType.getChildNodes().get(0)), false, false, true, true);
+        } else if (!(sortedContainers && (trueType.isMap() || trueType.isSet()))) {
+            // Unsorted containers accept a capacity value
+            constructorArgs = sourceName + ".size()";
+        }
+
+        // Initialize the container
+        if (trueType.isSet() && getTrueType(trueType.getChildNodes().get(0)).isEnum() && !sortedContainers) {
+            out.append(indent()).append(getTypeName(trueType, true, false)).append(" ")
+                    .append(destName).append(" = ")
+                    .append("java.util.EnumSet.noneOf(").append(constructorArgs).append(");\n");
+        } else {
+            out.append(indent()).append(getTypeName(trueType, true, false)).append(" ")
+                    .append(destName).append(" = new ")
+                    .append(getTypeName(trueType, false, true)).append("(")
+                    .append(constructorArgs).append(");\n");
+        }
+
+        // Element names for iteration
+        String iteratorElementName = getNextTempVarName("_element");
+        String resultElementName = destName + "_copy";
+
+        if (trueType.isMap()) {
+            TypeNode keyType = getTrueType(trueType.getChildNodes().get(0));
+            TypeNode valueType = getTrueType(trueType.getChildNodes().get(1));
+
+            out.append(indent()).append("for (java.util.Map.Entry<")
+                    .append(getTypeName(keyType, true, false)).append(", ")
+                    .append(getTypeName(valueType, true, false)).append("> ")
+                    .append(iteratorElementName).append(" : ")
+                    .append(sourceName).append(".entrySet()) {\n");
+            indentLevel++;
+
+            out.append(indent()).append(getTypeName(keyType, true, false)).append(" ")
+                    .append(iteratorElementName).append("_key = ")
+                    .append(iteratorElementName).append(".getKey();\n");
+
+            out.append(indent()).append(getTypeName(valueType, true, false)).append(" ")
+                    .append(iteratorElementName).append("_value = ")
+                    .append(iteratorElementName).append(".getValue();\n");
+
+            // Handle key copy
+            if (keyType.isContainer()) {
+                generateDeepCopyContainer(keyType, iteratorElementName + "_key", resultElementName + "_key");
+            } else {
+                out.append(indent()).append(getTypeName(keyType, true, false)).append(" ")
+                        .append(resultElementName).append("_key = ")
+                        .append(generateDeepCopyNonContainer(keyType, iteratorElementName + "_key"))
+                        .append(";\n");
+            }
+
+            // Handle value copy
+            if (valueType.isContainer()) {
+                generateDeepCopyContainer(valueType, iteratorElementName + "_value", resultElementName + "_value");
+            } else {
+                out.append(indent()).append(getTypeName(valueType, true, false)).append(" ")
+                        .append(resultElementName).append("_value = ")
+                        .append(generateDeepCopyNonContainer(valueType, iteratorElementName + "_value"))
+                        .append(";\n");
+            }
+
+            out.append(indent()).append(destName).append(".put(")
+                    .append(resultElementName).append("_key, ")
+                    .append(resultElementName).append("_value);\n");
+
+            indentLevel--;
+            out.append(indent()).append("}\n");
+        } else {
+            // Set or List
+            TypeNode elemType = trueType.isList()
+                    ? getTrueType(trueType.getChildNodes().get(0))
+                    : getTrueType(trueType.getChildNodes().get(0));
+
+            out.append(indent()).append("for (").append(getTypeName(elemType, true, false))
+                    .append(" ").append(iteratorElementName).append(" : ")
+                    .append(sourceName).append(") {\n");
+
+            indentLevel++;
+
+            if (elemType.isContainer()) {
+                // Recursive deep copy
+                generateDeepCopyContainer(elemType, iteratorElementName, resultElementName);
+                out.append(indent()).append(destName).append(".add(").append(resultElementName).append(");\n");
+            } else {
+                // Iterative copy
+                if (elemType.isBinary()) {
+                    out.append(indent()).append("java.nio.ByteBuffer temp_binary_element = ")
+                            .append(generateDeepCopyNonContainer(elemType, iteratorElementName))
+                            .append(";\n");
+                    out.append(indent()).append(destName).append(".add(temp_binary_element);\n");
+                } else {
+                    out.append(indent()).append(destName).append(".add(")
+                            .append(generateDeepCopyNonContainer(elemType, iteratorElementName))
+                            .append(");\n");
+                }
+            }
+
+            indentLevel--;
+            out.append(indent()).append("}\n");
         }
     }
 
@@ -1959,65 +2019,162 @@ public class StructLikeGenerator {
     }
 
     private void deserializeContainer(TypeNode containerType, String fieldJavaName, String structVarName, String protVarName) {
-        String tmpElemVar = getNextTempVarName("_elem");
-        String tmpKeyVar = getNextTempVarName("_key");
-        String tmpValVar = getNextTempVarName("_val");
+        scope_up();
 
-        if (containerType.isList()) {
-            TypeNode elemType = getTrueType(containerType.getChildNodes().get(0));
-            out.append(indent()).append("org.apache.thrift.protocol.TList _list = ").append(protVarName).append(".readListBegin();\n");
-            out.append(indent()).append(structVarName).append(".").append(fieldJavaName).append(" = new ").append(getTypeName(containerType, false, true, false, false)).append("(_list.size);\n");
-            out.append(indent()).append(getTypeName(elemType, true, false, false, true)).append(" ").append(tmpElemVar).append(";\n");
-            out.append(indent()).append("for (int _i = 0; _i < _list.size; ++_i)\n");
-            out.append(indent()).append("{\n");
-            indentLevel++;
-            generateStandardSchemeDeserializerLogic(new FieldNode(elemType, tmpElemVar), "", protVarName);
-            out.append(indent()).append(structVarName).append(".").append(fieldJavaName).append(".add(").append(tmpElemVar).append(");\n");
-            indentLevel--;
-            out.append(indent()).append("}\n");
-            out.append(indent()).append(protVarName).append(".readListEnd();\n");
+        String tempObj = "";
+        if (containerType.isMap()) {
+            tempObj = getNextTempVarName("_map");
         } else if (containerType.isSet()) {
-            TypeNode elemType = getTrueType(containerType.getChildNodes().get(0));
-            out.append(indent()).append("org.apache.thrift.protocol.TSet _set = ").append(protVarName).append(".readSetBegin();\n");
-            String initTypeName = getTypeName(containerType, false, true, false, false);
-            if (initTypeName.startsWith("java.util.EnumSet")) {
-                 out.append(indent()).append(structVarName).append(".").append(fieldJavaName).append(" = ").append(initTypeName).append(".noneOf(").append(getTypeName(elemType, true, false, true, true)).append(");\n");
+            tempObj = getNextTempVarName("_set");
+        } else if (containerType.isList()) {
+            tempObj = getNextTempVarName("_list");
+        }
+
+        // Declare variables, read header
+        if (containerType.isMap()) {
+            out.append(indent()).append("org.apache.thrift.protocol.TMap ").append(tempObj).append(" = ")
+                    .append(protVarName).append(".readMapBegin();\n");
+        } else if (containerType.isSet()) {
+            out.append(indent()).append("org.apache.thrift.protocol.TSet ").append(tempObj).append(" = ")
+                    .append(protVarName).append(".readSetBegin();\n");
+        } else if (containerType.isList()) {
+            out.append(indent()).append("org.apache.thrift.protocol.TList ").append(tempObj).append(" = ")
+                    .append(protVarName).append(".readListBegin();\n");
+        }
+
+        // Initialize the collection
+        String initTypeName = getTypeName(containerType, false, true, false, false);
+        if (containerType.isMap()) {
+            if (initTypeName.startsWith("java.util.EnumMap")) {
+                TypeNode keyType = getTrueType(containerType.getChildNodes().get(0));
+                out.append(indent()).append(structVarName).append(".").append(fieldJavaName)
+                        .append(" = new ").append(initTypeName).append("(")
+                        .append(getTypeName(keyType, true, false, true, true)).append(");\n");
             } else {
-                 out.append(indent()).append(structVarName).append(".").append(fieldJavaName).append(" = new ").append(initTypeName).append("(_set.size);\n");
+                out.append(indent()).append(structVarName).append(".").append(fieldJavaName)
+                        .append(" = new ").append(initTypeName).append("(2*").append(tempObj).append(".size);\n");
             }
-            out.append(indent()).append(getTypeName(elemType, true, false, false, true)).append(" ").append(tmpElemVar).append(";\n");
-            out.append(indent()).append("for (int _i = 0; _i < _set.size; ++_i)\n");
-            out.append(indent()).append("{\n");
-            indentLevel++;
-            generateStandardSchemeDeserializerLogic(new FieldNode(elemType, tmpElemVar), "", protVarName);
-            out.append(indent()).append(structVarName).append(".").append(fieldJavaName).append(".add(").append(tmpElemVar).append(");\n");
-            indentLevel--;
-            out.append(indent()).append("}\n");
-            out.append(indent()).append(protVarName).append(".readSetEnd();\n");
-        } else if (containerType.isMap()) {
+
+            // Deserialize map elements
+            String tmpKeyVar = getNextTempVarName("_key");
+            String tmpValVar = getNextTempVarName("_val");
             TypeNode keyType = getTrueType(containerType.getChildNodes().get(0));
             TypeNode valType = getTrueType(containerType.getChildNodes().get(1));
-            out.append(indent()).append("org.apache.thrift.protocol.TMap _map = ").append(protVarName).append(".readMapBegin();\n");
-            String initTypeName = getTypeName(containerType, false, true, false, false);
-             if (initTypeName.startsWith("java.util.EnumMap")) {
-                out.append(indent()).append(structVarName).append(".").append(fieldJavaName).append(" = new ").append(initTypeName).append("(").append(getTypeName(keyType, true, false, true, true)).append(");\n");
-            } else {
-                out.append(indent()).append(structVarName).append(".").append(fieldJavaName).append(" = new ").append(initTypeName).append("(2*_map.size);\n");
-            }
-            out.append(indent()).append(getTypeName(keyType, true, false, false, true)).append(" ").append(tmpKeyVar).append(";\n");
-            out.append(indent()).append(getTypeName(valType, true, false, false, true)).append(" ").append(tmpValVar).append(";\n");
-            out.append(indent()).append("for (int _i = 0; _i < _map.size; ++_i)\n");
+
+            out.append(indent()).append(getTypeName(keyType, true, false, false, true))
+                    .append(" ").append(tmpKeyVar).append(";\n");
+            out.append(indent()).append(getTypeName(valType, true, false, false, true))
+                    .append(" ").append(tmpValVar).append(";\n");
+
+            out.append(indent()).append("for (int _i = 0; _i < ").append(tempObj).append(".size; ++_i)\n");
             out.append(indent()).append("{\n");
             indentLevel++;
+
             generateStandardSchemeDeserializerLogic(new FieldNode(keyType, tmpKeyVar), "", protVarName);
             generateStandardSchemeDeserializerLogic(new FieldNode(valType, tmpValVar), "", protVarName);
-            out.append(indent()).append(structVarName).append(".").append(fieldJavaName).append(".put(").append(tmpKeyVar).append(", ").append(tmpValVar).append(");\n");
+
+            boolean isKeyEnum = getTrueType(keyType).isEnum();
+            if (isKeyEnum) {
+                out.append(indent()).append("if (").append(tmpKeyVar).append(" != null) {\n");
+                indentLevel++;
+            }
+
+            out.append(indent()).append(structVarName).append(".").append(fieldJavaName)
+                    .append(".put(").append(tmpKeyVar).append(", ").append(tmpValVar).append(");\n");
+
+            if (isKeyEnum) {
+                indentLevel--;
+                out.append(indent()).append("}\n");
+            }
+
             indentLevel--;
             out.append(indent()).append("}\n");
-            out.append(indent()).append(protVarName).append(".readMapEnd();\n");
+
+        } else if (containerType.isSet()) {
+            TypeNode elemType = getTrueType(containerType.getChildNodes().get(0));
+            if (initTypeName.startsWith("java.util.EnumSet")) {
+                out.append(indent()).append(structVarName).append(".").append(fieldJavaName)
+                        .append(" = ").append(initTypeName).append(".noneOf(")
+                        .append(getTypeName(elemType, true, false, true, true)).append(");\n");
+            } else {
+                out.append(indent()).append(structVarName).append(".").append(fieldJavaName)
+                        .append(" = new ").append(initTypeName).append("(").append(tempObj).append(".size);\n");
+            }
+
+            // Deserialize set elements
+            String tmpElemVar = getNextTempVarName("_elem");
+            out.append(indent()).append(getTypeName(elemType, true, false, false, true))
+                    .append(" ").append(tmpElemVar).append(";\n");
+
+            out.append(indent()).append("for (int _i = 0; _i < ").append(tempObj).append(".size; ++_i)\n");
+            out.append(indent()).append("{\n");
+            indentLevel++;
+
+            generateStandardSchemeDeserializerLogic(new FieldNode(elemType, tmpElemVar), "", protVarName);
+
+            boolean isElemEnum = getTrueType(elemType).isEnum();
+            if (isElemEnum) {
+                out.append(indent()).append("if (").append(tmpElemVar).append(" != null) {\n");
+                indentLevel++;
+            }
+
+            out.append(indent()).append(structVarName).append(".").append(fieldJavaName)
+                    .append(".add(").append(tmpElemVar).append(");\n");
+
+            if (isElemEnum) {
+                indentLevel--;
+                out.append(indent()).append("}\n");
+            }
+
+            indentLevel--;
+            out.append(indent()).append("}\n");
+
+        } else if (containerType.isList()) {
+            TypeNode elemType = getTrueType(containerType.getChildNodes().get(0));
+            out.append(indent()).append(structVarName).append(".").append(fieldJavaName)
+                    .append(" = new ").append(initTypeName).append("(").append(tempObj).append(".size);\n");
+
+            // Deserialize list elements
+            String tmpElemVar = getNextTempVarName("_elem");
+            out.append(indent()).append(getTypeName(elemType, true, false, false, true))
+                    .append(" ").append(tmpElemVar).append(";\n");
+
+            out.append(indent()).append("for (int _i = 0; _i < ").append(tempObj).append(".size; ++_i)\n");
+            out.append(indent()).append("{\n");
+            indentLevel++;
+
+            generateStandardSchemeDeserializerLogic(new FieldNode(elemType, tmpElemVar), "", protVarName);
+
+            boolean isElemEnum = getTrueType(elemType).isEnum();
+            if (isElemEnum) {
+                out.append(indent()).append("if (").append(tmpElemVar).append(" != null) {\n");
+                indentLevel++;
+            }
+
+            out.append(indent()).append(structVarName).append(".").append(fieldJavaName)
+                    .append(".add(").append(tmpElemVar).append(");\n");
+
+            if (isElemEnum) {
+                indentLevel--;
+                out.append(indent()).append("}\n");
+            }
+
+            indentLevel--;
+            out.append(indent()).append("}\n");
         } else {
             throw new RuntimeException("Unknown container type for deserialization: " + containerType.getName());
         }
+
+        // Read container end
+        if (containerType.isMap()) {
+            out.append(indent()).append(protVarName).append(".readMapEnd();\n");
+        } else if (containerType.isSet()) {
+            out.append(indent()).append(protVarName).append(".readSetEnd();\n");
+        } else if (containerType.isList()) {
+            out.append(indent()).append(protVarName).append(".readListEnd();\n");
+        }
+
+        scope_down();
     }
 
     private void serializeContainer(TypeNode containerType, String fieldJavaName, String structVarName, String protVarName) {
@@ -2361,6 +2518,10 @@ public class StructLikeGenerator {
         return getTypeName(type, false, false, false, false);
     }
 
+    private String getTypeName(TypeNode type, boolean in_container, boolean in_init) {
+        return getTypeName(type, in_container, in_init, false, false);
+    }
+
     private String getTypeName(TypeNode type, boolean in_container, boolean in_init, boolean as_args, boolean force_namespace) {
         TypeNode trueType = getTrueType(type);
         String prefix = "";
@@ -2449,6 +2610,16 @@ public class StructLikeGenerator {
             sb.append("  ");
         }
         return sb.toString();
+    }
+
+    private void scope_up() {
+        out.append(indent()).append("{\n");
+        indentLevel++;
+    }
+
+    private void scope_down() {
+        indentLevel--;
+        out.append(indent()).append("}\n");
     }
 
     private enum IssetType {
