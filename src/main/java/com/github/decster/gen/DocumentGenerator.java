@@ -6,6 +6,7 @@ import com.github.decster.ast.EnumNode;
 import com.github.decster.ast.HeaderNode;
 import com.github.decster.ast.NamespaceNode;
 import com.github.decster.ast.ServiceNode;
+import com.github.decster.ast.StructLikeNode;
 import com.github.decster.ast.StructNode;
 // No direct need for ConstNode, etc. here as we only dispatch based on major definition types
 
@@ -71,17 +72,18 @@ public class DocumentGenerator {
             return generatedFiles;
         }
 
+        Map<String, Boolean> options = new HashMap<>();
         for (DefinitionNode definition : definitions) {
             String generatedCode = null;
             String fileName = null;
             String entityName = null;
 
             // 3. Instantiate and Use Sub-Generators
-            if (definition instanceof StructNode) {
-                StructNode structNode = (StructNode) definition;
+            if (definition instanceof StructLikeNode) {
+                StructLikeNode structNode = (StructLikeNode) definition;
                 entityName = structNode.getName();
                 // Pass documentNode to StructGenerator
-                StructGenerator structGenerator = new StructGenerator(structNode, this.documentNode, resolvedPackageName, date);
+                StructLikeGenerator structGenerator = new StructLikeGenerator(structNode, this.documentNode, resolvedPackageName, date, options);
                 generatedCode = structGenerator.generate();
             } else if (definition instanceof EnumNode) {
                 EnumNode enumNode = (EnumNode) definition;

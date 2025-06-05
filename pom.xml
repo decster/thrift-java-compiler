@@ -74,6 +74,12 @@
                     <includes>
                         <include>**/*Test.java</include>
                     </includes>
+                    <redirectTestOutputToFile>false</redirectTestOutputToFile>
+                    <useSystemClassLoader>true</useSystemClassLoader>
+                    <printSummary>true</printSummary>
+                    <forkCount>1</forkCount>
+                    <reuseForks>true</reuseForks>
+                    <disableXmlReport>true</disableXmlReport>
                 </configuration>
             </plugin>
             <plugin>

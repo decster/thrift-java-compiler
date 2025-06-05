@@ -3,31 +3,55 @@ package com.github.decster.gen;
 import org.junit.jupiter.api.Assertions;
 
 public class GeneratorTestUtil {
+    public static void assertEqualsLineByLine(String generatedCode, String expectedCode) {
+        String[] generatedLines = generatedCode.split("\n");
+        String[] expectedLines = expectedCode.split("\n");
+        // compare line by line, if line not equal, fail with surrounding 4 lines as context
+        for (int i = 0; i < Math.max(generatedLines.length, expectedLines.length); i++) {
+            String generatedLine = i < generatedLines.length ? generatedLines[i] : "";
+            String expectedLine = i < expectedLines.length ? expectedLines[i] : "";
+            if (!generatedLine.equals(expectedLine)) {
+                StringBuilder context = new StringBuilder();
+                context.append("Difference at line ").append(i + 1).append(":\n");
+                int start = Math.max(0, i - 4);
+                int end = Math.min(Math.max(generatedLines.length, expectedLines.length), i + 5);
+                context.append("Generated:\n");
+                for (int j = start; j < end; j++) {
+                    context.append((j + 1)).append(": ").append(j < generatedLines.length ? generatedLines[j] : "").append("\n");
+                }
+                context.append("Expected:\n");
+                for (int j = start; j < end; j++) {
+                    context.append((j + 1)).append(": ").append(j < expectedLines.length ? expectedLines[j] : "").append("\n");
+                }
+                Assertions.fail(context.toString());
+            }
+        }
+    }
 
     public static void assertContains(String generatedCode, String expectedSnippet) {
         Assertions.assertTrue(generatedCode.contains(expectedSnippet),
                 "Generated code does not contain expected snippet.\n" +
                         "Expected: '" + expectedSnippet + "'\n" +
-                        "Actual  : '" + 간단히하기(generatedCode, 200) + "'\n" +
-                        "Context : \n" +调试上下文(generatedCode, expectedSnippet, 80)
+                        "Actual  : '" + shortenString(generatedCode, 200) + "'\n" +
+                        "Context : \n" + debugContext(generatedCode, expectedSnippet, 80)
         );
     }
 
     public static void assertNotContains(String generatedCode, String unexpectedSnippet) {
         Assertions.assertFalse(generatedCode.contains(unexpectedSnippet),
                 "Generated code SHOULD NOT contain: '" + unexpectedSnippet + "'\n" +
-                        "Actual  : '" + 간단히하기(generatedCode, 200) + "'\n" +
-                        "Context : \n" +调试上下文(generatedCode, unexpectedSnippet, 80)
+                        "Actual  : '" + shortenString(generatedCode, 200) + "'\n" +
+                        "Context : \n" + debugContext(generatedCode, unexpectedSnippet, 80)
         );
     }
 
-    public static String 간단히하기(String text, int maxLength) {
+    public static String shortenString(String text, int maxLength) {
         if (text == null) return "null";
         if (text.length() <= maxLength) return text;
         return text.substring(0, maxLength - 3) + "...";
     }
 
-    public static String 调试上下文(String text, String snippet, int window) {
+    public static String debugContext(String text, String snippet, int window) {
         if (text == null || snippet == null) return "N/A (null input)";
         int idx = text.indexOf(snippet);
         if (idx == -1) return "N/A (snippet not found)";

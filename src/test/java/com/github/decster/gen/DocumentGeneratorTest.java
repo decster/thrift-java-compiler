@@ -36,6 +36,8 @@ public class DocumentGeneratorTest {
 
     assertNotNull(generatedFiles, "Generated files map should not be null");
 
+    dumpFiles(generatedFiles, "gen-output");
+
     // Compare with files in javagen directory
     URL javagenUrl = getClass().getClassLoader().getResource("javagen");
     assertNotNull(javagenUrl, "Javagen directory not found in resources");
@@ -58,6 +60,18 @@ public class DocumentGeneratorTest {
                       }
                     }
             ));
+  }
+
+  private void dumpFiles(Map<String, String> files, String path) {
+    files.forEach((filePath, content) -> {
+      try {
+        Path outputPath = Paths.get(path, filePath);
+        Files.createDirectories(outputPath.getParent());
+        Files.writeString(outputPath, content);
+      } catch (IOException e) {
+        throw new RuntimeException("Failed to write file: " + filePath, e);
+      }
+    });
   }
 
   private void
