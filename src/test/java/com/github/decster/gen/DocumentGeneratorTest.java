@@ -1,5 +1,6 @@
 package com.github.decster.gen;
 
+import static com.github.decster.gen.GeneratorTestUtil.assertEqualsLineByLine;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -17,38 +18,30 @@ import org.junit.jupiter.api.Test;
 public class DocumentGeneratorTest {
 
   @Test
-  public void testGenerateMatchesJavagen() throws IOException {
+  public void testMultiFile() throws IOException {
     // Parse the thrift file to build an AST
     URL url = getClass().getClassLoader().getResource(
-        "parser_tests/thrift_test.thrift");
+            "multi_file_tests/complex1.thrift");
     assertNotNull(url, "Test file not found in resources");
 
     Path filePath = Paths.get(url.getPath());
     String content = Files.readString(filePath);
-    DocumentNode documentNode = ThriftAstBuilder.buildFromString(content);
+    DocumentNode documentNode = ThriftAstBuilder.buildFromFile(url.getPath());
 
     assertNotNull(documentNode, "Failed to build AST from thrift file");
 
     // Generate code using DocumentGenerator
     DocumentGenerator generator =
-        new DocumentGenerator(documentNode, "2025-06-03");
+        new DocumentGenerator(documentNode, "2025-06-06");
     Map<String, String> generatedFiles = generator.generate();
 
     assertNotNull(generatedFiles, "Generated files map should not be null");
 
-    dumpFiles(generatedFiles, "gen-output");
-
     // Compare with files in javagen directory
-    URL javagenUrl = getClass().getClassLoader().getResource("javagen");
+    URL javagenUrl = getClass().getClassLoader().getResource("multi_file_tests/thrift/test");
     assertNotNull(javagenUrl, "Javagen directory not found in resources");
-    Map<String, String> expectedFiles= loadExpectedFiles(javagenUrl);
-    // TODO: load expected files from src/test/resources/javagen directory
-    verifyGeneratedFilesMatchExpected(generatedFiles, expectedFiles);
-  }
-
-  private Map<String, String> loadExpectedFiles(URL directoryUrl) throws IOException {
-    Path directoryPath = Paths.get(directoryUrl.getPath());
-    return Files.walk(directoryPath)
+    Path directoryPath = Paths.get(javagenUrl.getPath());
+    Map<String, String> expectedFiles= Files.walk(directoryPath)
             .filter(Files::isRegularFile)
             .collect(Collectors.toMap(
                     path -> directoryPath.relativize(path).toString(),
@@ -60,6 +53,8 @@ public class DocumentGeneratorTest {
                       }
                     }
             ));
+    // TODO: load expected files from src/test/resources/javagen directory
+    verifyGeneratedFilesMatchExpected(generatedFiles, expectedFiles);
   }
 
   private void dumpFiles(Map<String, String> files, String path) {
@@ -74,8 +69,7 @@ public class DocumentGeneratorTest {
     });
   }
 
-  private void
-  verifyGeneratedFilesMatchExpected(Map<String, String> generatedFiles,
+  private void verifyGeneratedFilesMatchExpected(Map<String, String> generatedFiles,
                                     Map<String, String> expectedFiles) throws IOException {
     // Check that all expected files are generated
     for (Map.Entry<String, String> expectedEntry : expectedFiles.entrySet()) {
@@ -90,9 +84,7 @@ public class DocumentGeneratorTest {
       expectedContent = normalizeLineEndings(expectedContent);
       generatedContent = normalizeLineEndings(generatedContent);
 
-      assertEquals(expectedContent, generatedContent,
-                   "Generated content doesn't match expected for: " +
-                       relativePath);
+      assertEqualsLineByLine(relativePath, expectedContent, generatedContent);
     }
 
     // Check that no extra files are generated

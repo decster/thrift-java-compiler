@@ -7,6 +7,7 @@ import java.util.ArrayList;
  * Represents a Thrift document, which is the root of the AST.
  */
 public class DocumentNode extends Node {
+    String name;
     private List<HeaderNode> headerNodes;
     private List<DefinitionNode> definitions;
 
@@ -41,5 +42,13 @@ public class DocumentNode extends Node {
             }
         }
         return null;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
     }
 }

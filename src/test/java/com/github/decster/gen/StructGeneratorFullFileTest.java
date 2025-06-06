@@ -6,9 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.github.decster.ThriftAstBuilder;
+import com.github.decster.ast.ConstNode;
 import com.github.decster.ast.DefinitionNode;
 import com.github.decster.ast.DocumentNode;
 import com.github.decster.ast.EnumNode;
+import com.github.decster.ast.ServiceNode;
 import com.github.decster.ast.StructLikeNode;
 import com.github.decster.ast.StructNode;
 import java.io.File;
@@ -19,14 +21,15 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+
 import org.junit.jupiter.api.Test;
 
 public class StructGeneratorFullFileTest {
     @Test
     void testSingleFileCases() throws IOException {
-        List<SingleFileCase> cases = loadSingleFileCasesFromResource();
-        assertFalse(cases.isEmpty(), "No test cases found in single_file_tests directory");
-
+        List<SingleFileCase> cases = loadSingleFileCasesFromResource("single_file_tests");
+        assertFalse(cases.isEmpty(), "No test cases found");
         for (SingleFileCase testCase : cases) {
             testCase.test();
         }
@@ -44,29 +47,43 @@ public class StructGeneratorFullFileTest {
         }
 
         void test() throws IOException {
-            DocumentNode documentNode = ThriftAstBuilder.buildFromString(idl);
+            DocumentNode documentNode = ThriftAstBuilder.buildFromString(idl, file);
             Map<String, Boolean> options = new HashMap<>();
-            DefinitionNode definitionNode = documentNode.getDefinitions().get(0);
+            String date = "2025-06-06"; // Use a fixed date for consistency in tests
             Generator gen;
-            if (definitionNode instanceof StructLikeNode) {
-                gen = new StructLikeGenerator((StructLikeNode) definitionNode, documentNode,
-                        documentNode.getPackageName(), "2025-06-06", options);
-            } else if (definitionNode instanceof EnumNode) {
-                gen = new EnumGenerator((EnumNode) definitionNode, documentNode.getPackageName(), "2025-06-06");
+            if (documentNode.getDefinitions().size() == 1) {
+                DefinitionNode definitionNode = documentNode.getDefinitions().get(0);
+                if (definitionNode instanceof StructLikeNode) {
+                    gen = new StructLikeGenerator((StructLikeNode) definitionNode, documentNode,
+                            documentNode.getPackageName(), date, options);
+                } else if (definitionNode instanceof EnumNode) {
+                    gen = new EnumGenerator((EnumNode) definitionNode, documentNode.getPackageName(), date);
+                } else if (definitionNode instanceof ServiceNode) {
+                    gen = new ServiceGenerator((ServiceNode) definitionNode, documentNode, documentNode.getPackageName(), date);
+                } else {
+                    throw new IllegalArgumentException("Unsupported definition type: " + definitionNode.getClass().getSimpleName());
+                }
             } else {
-                throw new IllegalArgumentException("Unsupported definition type: " + definitionNode.getClass().getSimpleName());
+                List<ConstNode> consts = documentNode.getDefinitions().stream()
+                        .filter(def -> def instanceof ConstNode)
+                        .map(t -> (ConstNode) t)
+                        .collect(Collectors.toList());
+                if (!consts.isEmpty()) {
+                    gen = new ConstsGenerator(documentNode, consts, documentNode.getPackageName(), date);
+                } else {
+                    throw new IllegalArgumentException("No valid definition/consts found in document");
+                }
             }
             String generatedCode = gen.generate();
             assertEqualsLineByLine(file, generatedCode, expectedOutput);
         }
     }
 
-    List<SingleFileCase> loadSingleFileCasesFromResource() throws IOException {
+    static List<SingleFileCase> loadSingleFileCasesFromResource(String caseGroup) throws IOException {
         // load file pairs from test/resources/single_file_tests
         List<SingleFileCase> cases = new ArrayList<>();
 
-        URL resourceUrl =
-                getClass().getClassLoader().getResource("single_file_tests");
+        URL resourceUrl = StructGeneratorFullFileTest.class.getClassLoader().getResource(caseGroup);
         if (resourceUrl == null) {
             return cases;
         }
@@ -78,7 +95,11 @@ public class StructGeneratorFullFileTest {
             if (idlFiles != null) {
                 for (File idlFile : idlFiles) {
                     String baseName = idlFile.getName().replace(".thrift", "");
-                    File javaFile = new File(resourceDir, "com/example/thrift/" + baseName + ".java");
+                    String suffix = ".java";
+                    if (caseGroup.equals("constants")) {
+                        suffix = "Constants.java";
+                    }
+                    File javaFile = new File(resourceDir, "com/example/thrift/" + baseName + suffix);
                     if (javaFile.exists()) {
                         String idl = Files.readString(idlFile.toPath());
                         String expectedOutput = Files.readString(javaFile.toPath());

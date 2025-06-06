@@ -1,5 +1,6 @@
 package com.github.decster.gen;
 
+import com.github.decster.ast.ConstNode;
 import com.github.decster.ast.DefinitionNode;
 import com.github.decster.ast.DocumentNode;
 import com.github.decster.ast.EnumNode;
@@ -13,6 +14,7 @@ import com.github.decster.ast.StructNode;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class DocumentGenerator {
     private final DocumentNode documentNode;
@@ -111,6 +113,20 @@ public class DocumentGenerator {
             }
         }
 
+        // generate constants
+        List<ConstNode> consts = definitions.stream()
+            .filter(def -> def instanceof ConstNode)
+                .map(t -> (ConstNode) t)
+            .collect(Collectors.toList());
+        if (!consts.isEmpty()) {
+            ConstsGenerator constsGenerator = new ConstsGenerator(documentNode, consts, resolvedPackageName, date);
+            String constsCode = constsGenerator.generate();
+            if (constsCode != null) {
+                String packagePath = resolvedPackageName.isEmpty() ? "" : resolvedPackageName.replace('.', '/') + "/";
+                String constsFileName = packagePath + documentNode.getName() + "Constants.java";
+                generatedFiles.put(constsFileName, constsCode);
+            }
+        }
         return generatedFiles;
     }
 

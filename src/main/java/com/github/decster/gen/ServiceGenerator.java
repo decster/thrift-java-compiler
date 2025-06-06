@@ -16,7 +16,7 @@ import org.apache.thrift.protocol.TType;
 import org.apache.thrift.TFieldRequirementType;
 
 
-public class ServiceGenerator {
+public class ServiceGenerator implements Generator {
     private final ServiceNode serviceNode;
     private final DocumentNode documentNode;
     private final String packageName;
@@ -73,7 +73,7 @@ public class ServiceGenerator {
     }
 
     private String getWrapperTypeIfPrimitive(String javaType) {
-        if (javaType == null) return "java.lang.Void";
+        if (javaType == null) return "Void";
         switch (javaType) {
             case "boolean": return "java.lang.Boolean";
             case "byte":    return "java.lang.Byte";
@@ -81,7 +81,7 @@ public class ServiceGenerator {
             case "int":     return "java.lang.Integer";
             case "long":    return "java.lang.Long";
             case "double":  return "java.lang.Double";
-            case "void":    return "java.lang.Void";
+            case "void":    return "Void";
             default:        return javaType;
         }
     }
@@ -93,15 +93,15 @@ public class ServiceGenerator {
         if (typeNode instanceof BaseTypeNode) {
             BaseTypeNode baseTypeNode = (BaseTypeNode) typeNode;
             switch (baseTypeNode.getType()) {
-                case BOOL:   return new JavaTypeResolution("boolean", TType.BOOL, "new FieldValueMetaData(org.apache.thrift.protocol.TType.BOOL)");
-                case BYTE:   return new JavaTypeResolution("byte", TType.BYTE, "new FieldValueMetaData(org.apache.thrift.protocol.TType.BYTE)");
-                case I16:    return new JavaTypeResolution("short", TType.I16, "new FieldValueMetaData(org.apache.thrift.protocol.TType.I16)");
-                case I32:    return new JavaTypeResolution("int", TType.I32, "new FieldValueMetaData(org.apache.thrift.protocol.TType.I32)");
-                case I64:    return new JavaTypeResolution("long", TType.I64, "new FieldValueMetaData(org.apache.thrift.protocol.TType.I64)");
-                case DOUBLE: return new JavaTypeResolution("double", TType.DOUBLE, "new FieldValueMetaData(org.apache.thrift.protocol.TType.DOUBLE)");
-                case STRING: return new JavaTypeResolution("java.lang.String", TType.STRING, "new FieldValueMetaData(org.apache.thrift.protocol.TType.STRING)");
+                case BOOL:   return new JavaTypeResolution("boolean", TType.BOOL, "new org.apache.thrift.meta_data.FieldValueMetaData(org.apache.thrift.protocol.TType.BOOL)");
+                case BYTE:   return new JavaTypeResolution("byte", TType.BYTE, "new org.apache.thrift.meta_data.FieldValueMetaData(org.apache.thrift.protocol.TType.BYTE)");
+                case I16:    return new JavaTypeResolution("short", TType.I16, "new org.apache.thrift.meta_data.FieldValueMetaData(org.apache.thrift.protocol.TType.I16)");
+                case I32:    return new JavaTypeResolution("int", TType.I32, "new org.apache.thrift.meta_data.FieldValueMetaData(org.apache.thrift.protocol.TType.I32)");
+                case I64:    return new JavaTypeResolution("long", TType.I64, "new org.apache.thrift.meta_data.FieldValueMetaData(org.apache.thrift.protocol.TType.I64)");
+                case DOUBLE: return new JavaTypeResolution("double", TType.DOUBLE, "new org.apache.thrift.meta_data.FieldValueMetaData(org.apache.thrift.protocol.TType.DOUBLE)");
+                case STRING: return new JavaTypeResolution("java.lang.String", TType.STRING, "new org.apache.thrift.meta_data.FieldValueMetaData(org.apache.thrift.protocol.TType.STRING)");
                 case BINARY:
-                    JavaTypeResolution binRes = new JavaTypeResolution("java.nio.ByteBuffer", TType.STRING, "new FieldValueMetaData(org.apache.thrift.protocol.TType.STRING, true)");
+                    JavaTypeResolution binRes = new JavaTypeResolution("java.nio.ByteBuffer", TType.STRING, "new org.apache.thrift.meta_data.FieldValueMetaData(org.apache.thrift.protocol.TType.STRING, true)");
                     binRes.addImport("java.nio.ByteBuffer"); return binRes;
                 case VOID: // Added case for VOID
                     return new JavaTypeResolution("void", TType.VOID, null);
@@ -163,7 +163,7 @@ public class ServiceGenerator {
             String keyJavaType = getWrapperTypeIfPrimitive(keyTypeRes.javaType);
             String valueJavaType = getWrapperTypeIfPrimitive(valueTypeRes.javaType);
             addImport(getPackageFromQualifiedName(keyJavaType)); addImport(getPackageFromQualifiedName(valueJavaType));
-            JavaTypeResolution mapRes = new JavaTypeResolution("java.util.Map<" + keyJavaType + ", " + valueJavaType + ">", TType.MAP, "new MapMetaData(org.apache.thrift.protocol.TType.MAP, " + keyTypeRes.fieldMetaDataType + ", " + valueTypeRes.fieldMetaDataType + ")");
+            JavaTypeResolution mapRes = new JavaTypeResolution("java.util.Map<" + keyJavaType + "," + valueJavaType + ">", TType.MAP, "new MapMetaData(org.apache.thrift.protocol.TType.MAP, " + keyTypeRes.fieldMetaDataType + ", " + valueTypeRes.fieldMetaDataType + ")");
             mapRes.addImport("java.util.Map"); return mapRes;
         }
         throw new IllegalArgumentException("Unsupported TypeNode: " + typeNode.getClass().getName() + (typeNode.getName() != null ? " for type name " + typeNode.getName() : ""));
@@ -175,11 +175,16 @@ public class ServiceGenerator {
         this.sb.setLength(0);
         addDefaultImports();
 
+        sb.append("/**\n");
+        sb.append(" * Autogenerated by Thrift Compiler (0.20.0)\n");
+        sb.append(" *\n");
+        sb.append(" * DO NOT EDIT UNLESS YOU ARE SURE THAT YOU KNOW WHAT YOU ARE DOING\n");
+        sb.append(" *  @generated\n");
+        sb.append(" */\n");
         sb.append("package ").append(packageName).append(";\n\n");
-        String importPlaceholder = "// IMPORTS_PLACEHOLDER\n";
-        sb.append(importPlaceholder);
 
         sb.append("@javax.annotation.Generated(value = \"Autogenerated by Thrift Compiler (0.20.0)\", date = \"").append(date).append("\")\n");
+        sb.append("@SuppressWarnings({\"cast\", \"rawtypes\", \"serial\", \"unchecked\", \"unused\"})\n");
         sb.append("public class ").append(serviceName).append(" {\n\n");
 
         generateIface(serviceName);
@@ -195,12 +200,7 @@ public class ServiceGenerator {
 
         sb.append("}\n");
 
-        StringBuilder importSb = new StringBuilder();
-        List<String> sortedImports = new ArrayList<>(this.imports);
-        Collections.sort(sortedImports);
-        for (String imp : sortedImports) { importSb.append("import ").append(imp).append(";\n"); }
-        if (!sortedImports.isEmpty()) importSb.append("\n");
-        return sb.toString().replace(importPlaceholder, importSb.toString());
+        return sb.toString();
     }
 
     private void addDefaultImports(){
@@ -337,14 +337,32 @@ public class ServiceGenerator {
             sb.append("org.apache.thrift.TServiceClient");
         }
         sb.append(" implements Iface {\n");
-        sb.append("    public Client(org.apache.thrift.protocol.TProtocol prot) { super(prot, prot); }\n");
-        sb.append("    public Client(org.apache.thrift.protocol.TProtocol iprot, org.apache.thrift.protocol.TProtocol oprot) { super(iprot, oprot); }\n\n");
+        sb.append("    public static class Factory implements org.apache.thrift.TServiceClientFactory<Client> {\n");
+        sb.append("      public Factory() {}\n");
+        sb.append("      @Override\n");
+        sb.append("      public Client getClient(org.apache.thrift.protocol.TProtocol prot) {\n");
+        sb.append("        return new Client(prot);\n");
+        sb.append("      }\n");
+        sb.append("      @Override\n");
+        sb.append("      public Client getClient(org.apache.thrift.protocol.TProtocol iprot, org.apache.thrift.protocol.TProtocol oprot) {\n");
+        sb.append("        return new Client(iprot, oprot);\n");
+        sb.append("      }\n");
+        sb.append("    }\n\n");
+        sb.append("    public Client(org.apache.thrift.protocol.TProtocol prot)\n");
+        sb.append("    {\n");
+        sb.append("      super(prot, prot);\n");
+        sb.append("    }\n\n");
+        sb.append("    public Client(org.apache.thrift.protocol.TProtocol iprot, org.apache.thrift.protocol.TProtocol oprot) {\n");
+        sb.append("      super(iprot, oprot);\n");
+        sb.append("    }\n\n");
 
         for (FunctionNode fn : serviceNode.getFunctions()) {
             JavaTypeResolution returnType = resolveType(fn.getReturnType());
+            sb.append("    @Override\n");
             sb.append("    public ").append(returnType.javaType).append(" ").append(fn.getName()).append("(");
             appendFunctionParameters(fn.getParameters(), false);
-            sb.append(")").append(getThrowsClause(fn, false)).append(" {\n");
+            sb.append(")").append(getThrowsClause(fn, false)).append("\n");
+            sb.append("    {\n");
             sb.append("      send_").append(fn.getName()).append("(");
             appendFunctionCallArguments(fn.getParameters());
             sb.append(");\n");
@@ -356,20 +374,23 @@ public class ServiceGenerator {
 
             sb.append("    public void send_").append(fn.getName()).append("(");
             appendFunctionParameters(fn.getParameters(), false);
-            sb.append(") throws org.apache.thrift.TException {\n");
+            sb.append(") throws org.apache.thrift.TException\n");
+            sb.append("    {\n");
             sb.append("      ").append(fn.getName()).append("_args args = new ").append(fn.getName()).append("_args();\n");
             for (FieldNode arg : fn.getParameters()) {
                 sb.append("      args.set").append(capitalize(arg.getName())).append("(").append(arg.getName()).append(");\n");
             }
-            sb.append("      sendBase(\"").append(fn.getName()).append("\", args, TMessageType.CALL);\n"); // Use simple name
+            sb.append("      sendBase(\"").append(fn.getName()).append("\", args);\n");
             sb.append("    }\n\n");
 
             if (fn.getOneway() != FunctionNode.Oneway.ONEWAY) {
-                sb.append("    public ").append(returnType.javaType).append(" recv_").append(fn.getName()).append("()").append(getThrowsClause(fn, false)).append(" {\n");
+                sb.append("    public ").append(returnType.javaType).append(" recv_").append(fn.getName()).append("()").append(getThrowsClause(fn, false)).append("\n    {\n");
                 sb.append("      ").append(fn.getName()).append("_result result = new ").append(fn.getName()).append("_result();\n");
                 sb.append("      receiveBase(result, \"").append(fn.getName()).append("\");\n");
                 if (!returnType.javaType.equals("void")) {
-                    sb.append("      if (result.isSetSuccess()) { return result.success; }\n");
+                    sb.append("      if (result.isSetSuccess()) {\n");
+                    sb.append("        return result.success;\n");
+                    sb.append("      }\n");
                 }
                 for (FieldNode exField : fn.getExceptions()) {
                     // Changed to direct null check to match test expectation for testServiceWithExceptions
@@ -380,7 +401,7 @@ public class ServiceGenerator {
                 sb.append("    }\n\n");
             }
         }
-        sb.append("  }\n\n");
+        sb.append("  }\n");
     }
 
     private void generateAsyncClient(String serviceName) {
@@ -396,7 +417,9 @@ public class ServiceGenerator {
         sb.append("    public static class Factory implements org.apache.thrift.async.TAsyncClientFactory<AsyncClient> {\n");
         sb.append("      private org.apache.thrift.async.TAsyncClientManager clientManager;\n      private org.apache.thrift.protocol.TProtocolFactory protocolFactory;\n");
         sb.append("      public Factory(org.apache.thrift.async.TAsyncClientManager clientManager, org.apache.thrift.protocol.TProtocolFactory protocolFactory) {\n");
-        sb.append("        this.clientManager = clientManager; this.protocolFactory = protocolFactory;\n      }\n");
+        sb.append("        this.clientManager = clientManager;\n");
+        sb.append("        this.protocolFactory = protocolFactory;\n      }\n");
+        sb.append("    @Override\n");
         sb.append("      public AsyncClient getAsyncClient(org.apache.thrift.transport.TNonblockingTransport transport) {\n");
         sb.append("        return new AsyncClient(protocolFactory, clientManager, transport);\n");
         sb.append("      }\n    }\n\n");
@@ -407,6 +430,7 @@ public class ServiceGenerator {
             JavaTypeResolution returnTypeRes = resolveType(fn.getReturnType());
             String resultWrapperClass = getWrapperTypeIfPrimitive(returnTypeRes.javaType);
 
+            sb.append("    @Override\n");
             sb.append("    public void ").append(fn.getName()).append("(");
             appendFunctionParameters(fn.getParameters(), true);
             sb.append("org.apache.thrift.async.AsyncMethodCallback<").append(resultWrapperClass).append("> resultHandler");
@@ -416,7 +440,8 @@ public class ServiceGenerator {
             appendFunctionCallArguments(fn.getParameters());
             if (fn.getParameters().size() > 0) sb.append(", ");
             sb.append("resultHandler, this, ___protocolFactory, ___transport);\n");
-            sb.append("      this.___manager.call(method_call);\n    }\n\n");
+            sb.append("      this.___currentMethod = method_call;\n");
+            sb.append("      ___manager.call(method_call);\n    }\n\n");
 
             sb.append("    public static class ").append(fn.getName()).append("_call extends org.apache.thrift.async.TAsyncMethodCall<").append(resultWrapperClass).append("> {\n");
             for(FieldNode arg : fn.getParameters()){
@@ -429,25 +454,25 @@ public class ServiceGenerator {
             sb.append("        super(client, protocolFactory, transport, resultHandler, ").append(fn.getOneway() == FunctionNode.Oneway.ONEWAY).append(");\n");
             for(FieldNode arg : fn.getParameters()){ sb.append("        this.").append(arg.getName()).append(" = ").append(arg.getName()).append(";\n"); }
             sb.append("      }\n\n");
+            sb.append("      @Override\n");
             sb.append("      public void write_args(org.apache.thrift.protocol.TProtocol prot) throws org.apache.thrift.TException {\n");
             sb.append("        prot.writeMessageBegin(new org.apache.thrift.protocol.TMessage(\"").append(fn.getName()).append("\", org.apache.thrift.protocol.TMessageType.CALL, 0));\n");
             sb.append("        ").append(fn.getName()).append("_args args = new ").append(fn.getName()).append("_args();\n");
-            for(FieldNode arg : fn.getParameters()){ sb.append("        args.set").append(capitalize(arg.getName())).append("(this.").append(arg.getName()).append(");\n"); }
+            for(FieldNode arg : fn.getParameters()){ sb.append("        args.set").append(capitalize(arg.getName())).append("(").append(arg.getName()).append(");\n"); }
             sb.append("        args.write(prot);\n        prot.writeMessageEnd();\n      }\n\n");
+            sb.append("      @Override\n");
             sb.append("      public ").append(resultWrapperClass).append(" getResult()").append(getThrowsClause(fn, true)).append(" {\n");
-            sb.append("        if (getState() != org.apache.thrift.async.TAsyncMethodCall.State.SUCCESS) throw getError();\n");
-            sb.append("        if (getFrameBuffer() == null) throw new org.apache.thrift.TApplicationException(org.apache.thrift.TApplicationException.MISSING_RESULT, \"").append(fn.getName()).append(" failed: unknown result\");\n");
-            sb.append("        ").append(fn.getName()).append("_result result = new ").append(fn.getName()).append("_result();\n");
-            sb.append("        try { result.read(new org.apache.thrift.protocol.TCompactProtocol(new org.apache.thrift.transport.TMemoryInputTransport(getFrameBuffer().array()))); } catch (TException e) { throw new org.apache.thrift.TApplicationException(TApplicationException.INTERNAL_ERROR, \"Internal error reading result: \" + e.getMessage()); }\n");
-            if(!returnTypeRes.javaType.equals("void")){
-                 sb.append("        if (result.isSetSuccess()) return result.success;\n");
+            sb.append("        if (getState() != org.apache.thrift.async.TAsyncMethodCall.State.RESPONSE_READ) {\n");
+            sb.append("          throw new java.lang.IllegalStateException(\"Method call not finished!\");\n");
+            sb.append("        }\n");
+            sb.append("        org.apache.thrift.transport.TMemoryInputTransport memoryTransport = new org.apache.thrift.transport.TMemoryInputTransport(getFrameBuffer().array());\n");
+            sb.append("        org.apache.thrift.protocol.TProtocol prot = client.getProtocolFactory().getProtocol(memoryTransport);\n");
+            sb.append("        ");
+            if (!returnTypeRes.javaType.equals("void")) {
+                sb.append("return ");
             }
-            for (FieldNode exField : fn.getExceptions()) {
-                // Apply same change for AsyncClient's getResult exception handling
-                sb.append("        if (result.").append(exField.getName()).append(" != null) throw result.").append(exField.getName()).append(";\n");
-            }
+            sb.append("(new Client(prot)).recv_").append(fn.getName()).append("();\n");
             if(returnTypeRes.javaType.equals("void")) { sb.append("        return null;\n"); }
-            else { sb.append("        throw new org.apache.thrift.TApplicationException(org.apache.thrift.TApplicationException.MISSING_RESULT, \"").append(fn.getName()).append(" failed: unknown result\");\n"); }
             sb.append("      }\n    }\n\n");
         }
         sb.append("  }\n\n");
@@ -463,12 +488,12 @@ public class ServiceGenerator {
             sb.append("org.apache.thrift.TBaseProcessor<I>");
         }
         sb.append(" implements org.apache.thrift.TProcessor {\n");
-        sb.append("    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(Processor.class.getName());\n");
-        sb.append("    public Processor(I iface) {\n      super(iface, getProcessMap(new HashMap<String, org.apache.thrift.ProcessFunction<I, ? extends TBase>>()));\n    }\n\n");
-        sb.append("    protected Processor(I iface, Map<String, org.apache.thrift.ProcessFunction<I, ? extends TBase>> processMap) {\n      super(iface, getProcessMap(processMap));\n    }\n\n");
-        sb.append("    private static <I extends Iface> Map<String,  org.apache.thrift.ProcessFunction<I, ? extends TBase>> getProcessMap(Map<String, org.apache.thrift.ProcessFunction<I, ? extends TBase>> processMap) {\n");
+        sb.append("    private static final org.slf4j.Logger _LOGGER = org.slf4j.LoggerFactory.getLogger(Processor.class.getName());\n");
+        sb.append("    public Processor(I iface) {\n      super(iface, getProcessMap(new java.util.HashMap<java.lang.String, org.apache.thrift.ProcessFunction<I, ? extends org.apache.thrift.TBase>>()));\n    }\n\n");
+        sb.append("    protected Processor(I iface, java.util.Map<java.lang.String, org.apache.thrift.ProcessFunction<I, ? extends org.apache.thrift.TBase>> processMap) {\n      super(iface, getProcessMap(processMap));\n    }\n\n");
+        sb.append("    private static <I extends Iface> java.util.Map<java.lang.String,  org.apache.thrift.ProcessFunction<I, ? extends org.apache.thrift.TBase>> getProcessMap(java.util.Map<java.lang.String, org.apache.thrift.ProcessFunction<I, ? extends  org.apache.thrift.TBase>> processMap) {\n");
         for (FunctionNode fn : serviceNode.getFunctions()) {
-            sb.append("      processMap.put(\"").append(fn.getName()).append("\", new ").append(fn.getName()).append("<I>());\n");
+            sb.append("      processMap.put(\"").append(fn.getName()).append("\", new ").append(fn.getName()).append("());\n");
         }
         sb.append("      return processMap;\n    }\n\n");
 
@@ -477,37 +502,138 @@ public class ServiceGenerator {
             JavaTypeResolution returnType = resolveType(fn.getReturnType());
 
             sb.append("    public static class ").append(fn.getName()).append("<I extends Iface> extends org.apache.thrift.ProcessFunction<I, ").append(argsStructName).append("> {\n");
-            sb.append("      public ").append(fn.getName()).append("() { super(\"").append(fn.getName()).append("\"); }\n\n");
-            sb.append("      public ").append(argsStructName).append(" getEmptyArgsInstance() { return new ").append(argsStructName).append("(); }\n\n");
+            sb.append("      public ").append(fn.getName()).append("() {\n");
+            sb.append("        super(\"").append(fn.getName()).append("\");\n");
+            sb.append("      }\n\n");
+            sb.append("      @Override\n");
+            sb.append("      public ").append(argsStructName).append(" getEmptyArgsInstance() {\n");
+            sb.append("        return new ").append(argsStructName).append("();\n");
+            sb.append("      }\n\n");
+            sb.append("      @Override\n");
             sb.append("      protected boolean isOneway() {\n");
             sb.append("        return ").append(fn.getOneway() == FunctionNode.Oneway.ONEWAY).append(";\n");
             sb.append("      }\n\n");
-            sb.append("      @Override\n      protected ").append(resultStructName).append(" getResult(I iface, ").append(argsStructName).append(" args) throws org.apache.thrift.TException {\n");
+            sb.append("      @Override\n");
+            sb.append("      protected boolean rethrowUnhandledExceptions() {\n");
+            sb.append("        return false;\n");
+            sb.append("      }\n\n");
+            sb.append("      @Override\n      public ").append(resultStructName).append(" getResult(I iface, ").append(argsStructName).append(" args) throws org.apache.thrift.TException {\n");
             sb.append("        ").append(resultStructName).append(" result = new ").append(resultStructName).append("();\n");
-            sb.append("        try {\n          ");
             StringBuilder argPassingSb = new StringBuilder();
             for(int i=0; i<fn.getParameters().size(); i++) {
                 argPassingSb.append("args.").append(fn.getParameters().get(i).getName()).append(i < fn.getParameters().size() -1 ? ", " : "");
             }
             if (returnType.javaType.equals("void")) {
-                sb.append("iface.").append(fn.getName()).append("(").append(argPassingSb.toString()).append(");\n");
+                sb.append("        iface.").append(fn.getName()).append("(").append(argPassingSb.toString()).append(");\n");
             } else {
-                sb.append("result.success = iface.").append(fn.getName()).append("(").append(argPassingSb.toString()).append(");\n");
+                sb.append("        result.success = iface.").append(fn.getName()).append("(").append(argPassingSb.toString()).append(");\n");
                 if (isPrimitive(returnType.javaType)) {
-                     sb.append("          result.setSuccessIsSet(true);\n");
+                    sb.append("        result.setSuccessIsSet(true);\n");
                 }
             }
-            sb.append("        }");
-            for (FieldNode exField : fn.getExceptions()) {
-                JavaTypeResolution exRes = resolveType(exField.getType());
-                sb.append(" catch (").append(exRes.javaType).append(" ").append(exField.getName()).append(") {\n");
-                sb.append("          result.set").append(capitalize(exField.getName())).append("(").append(exField.getName()).append(");\n        }");
-            }
-            sb.append(" catch (Throwable th) {\n          LOGGER.error(\"Internal error processing ").append(fn.getName()).append("\", th);\n");
-            sb.append("          if (!isOneway()) { throw new TApplicationException(TApplicationException.INTERNAL_ERROR, \"Internal error processing ").append(fn.getName()).append(": \" + th.getMessage()); }\n");
-            sb.append("        }\n");
             sb.append("        return result;\n      }\n    }\n\n");
         }
+        sb.append("  }\n\n");
+
+        // Generate AsyncProcessor
+        sb.append("  public static class AsyncProcessor<I extends AsyncIface> extends org.apache.thrift.TBaseAsyncProcessor<I> {\n");
+        sb.append("    private static final org.slf4j.Logger _LOGGER = org.slf4j.LoggerFactory.getLogger(AsyncProcessor.class.getName());\n");
+        sb.append("    public AsyncProcessor(I iface) {\n");
+        sb.append("      super(iface, getProcessMap(new java.util.HashMap<java.lang.String, org.apache.thrift.AsyncProcessFunction<I, ? extends org.apache.thrift.TBase, ?>>()));\n");
+        sb.append("    }\n\n");
+        sb.append("    protected AsyncProcessor(I iface, java.util.Map<java.lang.String,  org.apache.thrift.AsyncProcessFunction<I, ? extends  org.apache.thrift.TBase, ?>> processMap) {\n");
+        sb.append("      super(iface, getProcessMap(processMap));\n");
+        sb.append("    }\n\n");
+        sb.append("    private static <I extends AsyncIface> java.util.Map<java.lang.String,  org.apache.thrift.AsyncProcessFunction<I, ? extends  org.apache.thrift.TBase,?>> getProcessMap(java.util.Map<java.lang.String,  org.apache.thrift.AsyncProcessFunction<I, ? extends  org.apache.thrift.TBase, ?>> processMap) {\n");
+        for (FunctionNode fn : serviceNode.getFunctions()) {
+            sb.append("      processMap.put(\"").append(fn.getName()).append("\", new ").append(fn.getName()).append("());\n");
+        }
+        sb.append("      return processMap;\n");
+        sb.append("    }\n\n");
+
+        for (FunctionNode fn : serviceNode.getFunctions()) {
+            String argsStructName = fn.getName() + "_args";
+            String resultStructName = fn.getName() + "_result";
+            JavaTypeResolution returnType = resolveType(fn.getReturnType());
+            String resultWrapperClass = getWrapperTypeIfPrimitive(returnType.javaType);
+
+            sb.append("    public static class ").append(fn.getName()).append("<I extends AsyncIface> extends org.apache.thrift.AsyncProcessFunction<I, ").append(argsStructName).append(", ").append(resultWrapperClass).append("> {\n");
+            sb.append("      public ").append(fn.getName()).append("() {\n");
+            sb.append("        super(\"").append(fn.getName()).append("\");\n");
+            sb.append("      }\n\n");
+            sb.append("      @Override\n");
+            sb.append("      public ").append(argsStructName).append(" getEmptyArgsInstance() {\n");
+            sb.append("        return new ").append(argsStructName).append("();\n");
+            sb.append("      }\n\n");
+            sb.append("      @Override\n");
+            sb.append("      public org.apache.thrift.async.AsyncMethodCallback<").append(resultWrapperClass).append("> getResultHandler(final org.apache.thrift.server.AbstractNonblockingServer.AsyncFrameBuffer fb, final int seqid) {\n");
+            sb.append("        final org.apache.thrift.AsyncProcessFunction fcall = this;\n");
+            sb.append("        return new org.apache.thrift.async.AsyncMethodCallback<").append(resultWrapperClass).append(">() { \n");
+            sb.append("          @Override\n");
+            sb.append("          public void onComplete(").append(resultWrapperClass).append(" o) {\n");
+            sb.append("            ").append(fn.getName()).append("_result result = new ").append(fn.getName()).append("_result();\n");
+            if (!resultWrapperClass.equals("Void")) {
+                sb.append("            result.success = o;\n");
+                JavaTypeResolution fnReturnType = resolveType(fn.getReturnType());
+                if (isPrimitive(fnReturnType.javaType)) {
+                    sb.append("            result.setSuccessIsSet(true);\n");
+                }
+            }
+            sb.append("            try {\n");
+            sb.append("              fcall.sendResponse(fb, result, org.apache.thrift.protocol.TMessageType.REPLY,seqid);\n");
+            sb.append("            } catch (org.apache.thrift.transport.TTransportException e) {\n");
+            sb.append("              _LOGGER.error(\"TTransportException writing to internal frame buffer\", e);\n");
+            sb.append("              fb.close();\n");
+            sb.append("            } catch (java.lang.Exception e) {\n");
+            sb.append("              _LOGGER.error(\"Exception writing to internal frame buffer\", e);\n");
+            sb.append("              onError(e);\n");
+            sb.append("            }\n");
+            sb.append("          }\n");
+            sb.append("          @Override\n");
+            sb.append("          public void onError(java.lang.Exception e) {\n");
+            sb.append("            byte msgType = org.apache.thrift.protocol.TMessageType.REPLY;\n");
+            sb.append("            org.apache.thrift.TSerializable msg;\n");
+            sb.append("            ").append(fn.getName()).append("_result result = new ").append(fn.getName()).append("_result();\n");
+            sb.append("            if (e instanceof org.apache.thrift.transport.TTransportException) {\n");
+            sb.append("              _LOGGER.error(\"TTransportException inside handler\", e);\n");
+            sb.append("              fb.close();\n");
+            sb.append("              return;\n");
+            sb.append("            } else if (e instanceof org.apache.thrift.TApplicationException) {\n");
+            sb.append("              _LOGGER.error(\"TApplicationException inside handler\", e);\n");
+            sb.append("              msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;\n");
+            sb.append("              msg = (org.apache.thrift.TApplicationException)e;\n");
+            sb.append("            } else {\n");
+            sb.append("              _LOGGER.error(\"Exception inside handler\", e);\n");
+            sb.append("              msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;\n");
+            sb.append("              msg = new org.apache.thrift.TApplicationException(org.apache.thrift.TApplicationException.INTERNAL_ERROR, e.getMessage());\n");
+            sb.append("            }\n");
+            sb.append("            try {\n");
+            sb.append("              fcall.sendResponse(fb,msg,msgType,seqid);\n");
+            sb.append("            } catch (java.lang.Exception ex) {\n");
+            sb.append("              _LOGGER.error(\"Exception writing to internal frame buffer\", ex);\n");
+            sb.append("              fb.close();\n");
+            sb.append("            }\n");
+            sb.append("          }\n");
+            sb.append("        };\n");
+            sb.append("      }\n\n");
+            sb.append("      @Override\n");
+            sb.append("      protected boolean isOneway() {\n");
+            sb.append("        return ").append(fn.getOneway() == FunctionNode.Oneway.ONEWAY).append(";\n");
+            sb.append("      }\n\n");
+            sb.append("      @Override\n");
+            sb.append("      public void start(I iface, ").append(argsStructName).append(" args, org.apache.thrift.async.AsyncMethodCallback<").append(resultWrapperClass).append("> resultHandler) throws org.apache.thrift.TException {\n");
+            StringBuilder argPassingSb = new StringBuilder();
+            for(int i=0; i<fn.getParameters().size(); i++) {
+                argPassingSb.append("args.").append(fn.getParameters().get(i).getName()).append(i < fn.getParameters().size() -1 ? ", " : "");
+            }
+            if (fn.getParameters().size() > 0 || !argPassingSb.toString().isEmpty()) {
+                argPassingSb.append(",");
+            }
+            sb.append("        iface.").append(fn.getName()).append("(").append(argPassingSb.toString()).append("resultHandler);\n");
+            sb.append("      }\n");
+            sb.append("    }\n\n");
+        }
+
         sb.append("  }\n\n");
     }
 
@@ -529,12 +655,14 @@ public class ServiceGenerator {
     }
 
     private void generateFnStruct(String structName, List<FieldNode> fields, boolean isArgs) {
-        sb.append("  public static class ").append(structName).append(" implements TBase<").append(structName).append(", ").append(structName).append("._Fields>, java.io.Serializable, Cloneable, Comparable<").append(structName).append("> {\n");
-        sb.append("    private static final TStruct STRUCT_DESC = new TStruct(\"").append(structName).append("\");\n");
+        sb.append("  @SuppressWarnings({\"cast\", \"rawtypes\", \"serial\", \"unchecked\", \"unused\"})\n");
+        sb.append("  public static class ").append(structName).append(" implements org.apache.thrift.TBase<").append(structName).append(", ").append(structName).append("._Fields>, java.io.Serializable, Cloneable, Comparable<").append(structName).append(">   {\n");
+        sb.append("    private static final org.apache.thrift.protocol.TStruct STRUCT_DESC = new org.apache.thrift.protocol.TStruct(\"").append(structName).append("\");\n\n");
 
         Map<FieldNode, JavaTypeResolution> fieldResolutions = new HashMap<>();
         int bitFieldIndex = 0;
         List<String> issetConstants = new ArrayList<>();
+        boolean hasIssetBitfield = false;
 
         for(FieldNode field : fields) {
             JavaTypeResolution typeRes = resolveType(field.getType());
@@ -546,20 +674,29 @@ public class ServiceGenerator {
                  fieldIdVal = field.getId().shortValue();
              }
 
-            sb.append("    private static final TField ").append(toAllCapsUnderscore(field.getName())).append("_FIELD_DESC = new TField(\"").append(field.getName()).append("\", ").append(typeRes.thriftType).append(", (short)").append(fieldIdVal).append(");\n");
-            sb.append("    public ").append(typeRes.javaType).append(" ").append(field.getName()).append(";\n");
+            sb.append("    private static final org.apache.thrift.protocol.TField ").append(toAllCapsUnderscore(field.getName())).append("_FIELD_DESC = new org.apache.thrift.protocol.TField(\"").append(field.getName()).append("\", org.apache.thrift.protocol.TType.").append(getTTypeConstant(typeRes.thriftType)).append(", (short)").append(fieldIdVal).append(");\n");
             if (isPrimitive(typeRes.javaType)) {
                  issetConstants.add("    private static final int __" + field.getName().toUpperCase(Locale.ROOT) + "_ISSET_ID = " + bitFieldIndex++ + ";\n");
+                 hasIssetBitfield = true;
             }
         }
-        if (!issetConstants.isEmpty()) {
-            sb.append("    private byte __isset_bitfield = 0;\n");
-            for(String s : issetConstants) { sb.append(s); }
-            sb.append("\n");
-        } else if (!isArgs && fields.stream().anyMatch(f -> "success".equals(f.getName()) && isPrimitive(fieldResolutions.get(f).javaType))) {
-             sb.append("    private byte __isset_bitfield = 0;\n\n");
-        }
 
+        sb.append("\n");
+        sb.append("    private static final org.apache.thrift.scheme.SchemeFactory STANDARD_SCHEME_FACTORY = new ").append(structName).append("StandardSchemeFactory();\n");
+        sb.append("    private static final org.apache.thrift.scheme.SchemeFactory TUPLE_SCHEME_FACTORY = new ").append(structName).append("TupleSchemeFactory();\n");
+        sb.append("\n");
+
+        for(FieldNode field : fields) {
+            JavaTypeResolution typeRes = fieldResolutions.get(field);
+            if (!isPrimitive(typeRes.javaType)) {
+                sb.append("    public @org.apache.thrift.annotation.Nullable ").append(typeRes.javaType).append(" ").append(field.getName()).append("; // required\n");
+            } else {
+                sb.append("    public ").append(typeRes.javaType).append(" ").append(field.getName()).append("; // required\n");
+            }
+        }
+        sb.append("\n");
+
+        sb.append("    /** The set of fields this struct contains, along with convenience methods for finding and manipulating them. */\n");
         sb.append("    public enum _Fields implements org.apache.thrift.TFieldIdEnum {\n");
         for(int i=0; i<fields.size(); i++) {
             FieldNode field = fields.get(i);
@@ -570,17 +707,81 @@ public class ServiceGenerator {
             }
             sb.append("      ").append(toAllCapsUnderscore(field.getName())).append("((short)").append(fieldIdVal).append(", \"").append(field.getName()).append("\")").append(i == fields.size() -1 ? ";\n" : ",\n");
         }
-        sb.append("      private static final Map<String, _Fields> byName = new HashMap<String, _Fields>();\n");
-        sb.append("      static { for (_Fields field : EnumSet.allOf(_Fields.class)) { byName.put(field.getFieldName(), field); } }\n");
-        sb.append("      @org.apache.thrift.annotation.Nullable public static _Fields findByThriftId(int fieldId) { /* TODO */ return null; }\n");
-        sb.append("      public static _Fields findByThriftIdOrThrow(int fieldId) { _Fields fields = findByThriftId(fieldId); if (fields == null) throw new IllegalArgumentException(\"Field \" + fieldId + \" doesn't exist!\"); return fields; }\n");
-        sb.append("      @org.apache.thrift.annotation.Nullable public static _Fields findByName(String name) { return byName.get(name); }\n");
-        sb.append("      private final short _thriftId; private final String _fieldName;\n");
-        sb.append("      _Fields(short thriftId, String fieldName) { this._thriftId = thriftId; this._fieldName = fieldName; }\n");
-        sb.append("      @Override public short getThriftFieldId() { return _thriftId; }\n      @Override public String getFieldName() { return _fieldName; }\n    }\n\n");
+        sb.append("\n");
+        sb.append("      private static final java.util.Map<java.lang.String, _Fields> byName = new java.util.HashMap<java.lang.String, _Fields>();\n");
+        sb.append("\n");
+        sb.append("      static {\n");
+        sb.append("        for (_Fields field : java.util.EnumSet.allOf(_Fields.class)) {\n");
+        sb.append("          byName.put(field.getFieldName(), field);\n");
+        sb.append("        }\n");
+        sb.append("      }\n");
+        sb.append("\n");
+        sb.append("      /**\n");
+        sb.append("       * Find the _Fields constant that matches fieldId, or null if its not found.\n");
+        sb.append("       */\n");
+        sb.append("      @org.apache.thrift.annotation.Nullable\n");
+        sb.append("      public static _Fields findByThriftId(int fieldId) {\n");
+        sb.append("        switch(fieldId) {\n");
+        for(int i=0; i<fields.size(); i++) {
+            FieldNode field = fields.get(i);
+            Integer fieldIdInt = field.getId();
+            short fieldIdVal = (fieldIdInt != null) ? fieldIdInt.shortValue() : (isArgs ? (short)(i + 1) : (short)0);
+            if (!isArgs && !"success".equals(field.getName()) && field instanceof InternalFieldNode) {
+                 fieldIdVal = field.getId().shortValue();
+            }
+            sb.append("          case ").append(fieldIdVal).append(": // ").append(toAllCapsUnderscore(field.getName())).append("\n");
+            sb.append("            return ").append(toAllCapsUnderscore(field.getName())).append(";\n");
+        }
+        sb.append("          default:\n");
+        sb.append("            return null;\n");
+        sb.append("        }\n");
+        sb.append("      }\n");
+        sb.append("\n");
+        sb.append("      /**\n");
+        sb.append("       * Find the _Fields constant that matches fieldId, throwing an exception\n");
+        sb.append("       * if it is not found.\n");
+        sb.append("       */\n");
+        sb.append("      public static _Fields findByThriftIdOrThrow(int fieldId) {\n");
+        sb.append("        _Fields fields = findByThriftId(fieldId);\n");
+        sb.append("        if (fields == null) throw new java.lang.IllegalArgumentException(\"Field \" + fieldId + \" doesn't exist!\");\n");
+        sb.append("        return fields;\n");
+        sb.append("      }\n");
+        sb.append("\n");
+        sb.append("      /**\n");
+        sb.append("       * Find the _Fields constant that matches name, or null if its not found.\n");
+        sb.append("       */\n");
+        sb.append("      @org.apache.thrift.annotation.Nullable\n");
+        sb.append("      public static _Fields findByName(java.lang.String name) {\n");
+        sb.append("        return byName.get(name);\n");
+        sb.append("      }\n");
+        sb.append("\n");
+        sb.append("      private final short _thriftId;\n");
+        sb.append("      private final java.lang.String _fieldName;\n");
+        sb.append("\n");
+        sb.append("      _Fields(short thriftId, java.lang.String fieldName) {\n");
+        sb.append("        _thriftId = thriftId;\n");
+        sb.append("        _fieldName = fieldName;\n");
+        sb.append("      }\n");
+        sb.append("\n");
+        sb.append("      @Override\n");
+        sb.append("      public short getThriftFieldId() {\n");
+        sb.append("        return _thriftId;\n");
+        sb.append("      }\n");
+        sb.append("\n");
+        sb.append("      @Override\n");
+        sb.append("      public java.lang.String getFieldName() {\n");
+        sb.append("        return _fieldName;\n");
+        sb.append("      }\n");
+        sb.append("    }\n\n");
 
-        sb.append("    public static final Map<_Fields, org.apache.thrift.meta_data.FieldMetaData> metaDataMap;\n");
-        sb.append("    static {\n      Map<_Fields, org.apache.thrift.meta_data.FieldMetaData> tmpMap = new EnumMap<_Fields, org.apache.thrift.meta_data.FieldMetaData>(_Fields.class);\n");
+        // Add isset declarations after _Fields enum
+        if (hasIssetBitfield) {
+            sb.append("    // isset id assignments\n");
+            for(String s : issetConstants) { sb.append(s); }
+            sb.append("    private byte __isset_bitfield = 0;\n");
+        }
+        sb.append("    public static final java.util.Map<_Fields, org.apache.thrift.meta_data.FieldMetaData> metaDataMap;\n");
+        sb.append("    static {\n      java.util.Map<_Fields, org.apache.thrift.meta_data.FieldMetaData> tmpMap = new java.util.EnumMap<_Fields, org.apache.thrift.meta_data.FieldMetaData>(_Fields.class);\n");
         for(FieldNode field : fields) {
             JavaTypeResolution typeRes = fieldResolutions.get(field);
             com.github.decster.ast.FieldNode.Requirement reqEnum = field.getRequirement();
@@ -590,45 +791,205 @@ public class ServiceGenerator {
             } else {
                 requirementStr = "OPTIONAL";
             }
-            // Use simple name for FieldMetaData, relying on import
-            sb.append("      tmpMap.put(_Fields.").append(toAllCapsUnderscore(field.getName())).append(", new FieldMetaData(\"").append(field.getName()).append("\", TFieldRequirementType.").append(requirementStr).append(", ").append(typeRes.fieldMetaDataType).append("));\n");
+            // Use fully qualified names for types
+            sb.append("      tmpMap.put(_Fields.").append(toAllCapsUnderscore(field.getName())).append(", new org.apache.thrift.meta_data.FieldMetaData(\"").append(field.getName()).append("\", org.apache.thrift.TFieldRequirementType.").append(requirementStr).append(", \n");
+            sb.append("          ").append(typeRes.fieldMetaDataType).append("));\n");
         }
-        sb.append("      metaDataMap = Collections.unmodifiableMap(tmpMap);\n");
+        sb.append("      metaDataMap = java.util.Collections.unmodifiableMap(tmpMap);\n");
         sb.append("      org.apache.thrift.meta_data.FieldMetaData.addStructMetaDataMap(").append(structName).append(".class, metaDataMap);\n    }\n\n");
 
-        sb.append("    public ").append(structName).append("() {}\n\n");
+        sb.append("    public ").append(structName).append("() {\n    }\n\n");
+
+        // Add constructor with all fields
+        if (!fields.isEmpty()) {
+            sb.append("    public ").append(structName).append("(\n");
+            for (int i = 0; i < fields.size(); i++) {
+                FieldNode field = fields.get(i);
+                JavaTypeResolution typeRes = fieldResolutions.get(field);
+                sb.append("      ");
+                if (!isPrimitive(typeRes.javaType)) {
+                    sb.append("java.lang.").append(typeRes.javaType.substring(typeRes.javaType.lastIndexOf('.') + 1));
+                } else {
+                    sb.append(typeRes.javaType);
+                }
+                sb.append(" ").append(field.getName());
+                if (i < fields.size() - 1) {
+                    sb.append(",\n");
+                } else {
+                    sb.append(")\n");
+                }
+            }
+            sb.append("    {\n");
+            sb.append("      this();\n");
+            for (FieldNode field : fields) {
+                sb.append("      this.").append(field.getName()).append(" = ").append(field.getName()).append(";\n");
+                JavaTypeResolution typeRes = fieldResolutions.get(field);
+                if (isPrimitive(typeRes.javaType)) {
+                    sb.append("      set").append(capitalize(field.getName())).append("IsSet(true);\n");
+                }
+            }
+            sb.append("    }\n\n");
+
+            // Add copy constructor
+            sb.append("    /**\n");
+            sb.append("     * Performs a deep copy on <i>other</i>.\n");
+            sb.append("     */\n");
+            sb.append("    public ").append(structName).append("(").append(structName).append(" other) {\n");
+            if (hasIssetBitfield) {
+                sb.append("      __isset_bitfield = other.__isset_bitfield;\n");
+            }
+            for (FieldNode field : fields) {
+                JavaTypeResolution typeRes = fieldResolutions.get(field);
+                if (isPrimitive(typeRes.javaType)) {
+                    sb.append("      this.").append(field.getName()).append(" = other.").append(field.getName()).append(";\n");
+                } else {
+                    sb.append("      if (other.isSet").append(capitalize(field.getName())).append("()) {\n");
+                    sb.append("        this.").append(field.getName()).append(" = other.").append(field.getName()).append(";\n");
+                    sb.append("      }\n");
+                }
+            }
+            sb.append("    }\n\n");
+            sb.append("    @Override\n");
+            sb.append("    public ").append(structName).append(" deepCopy() {\n");
+            sb.append("      return new ").append(structName).append("(this);\n");
+            sb.append("    }\n\n");
+            sb.append("    @Override\n");
+            sb.append("    public void clear() {\n");
+            for (FieldNode field : fields) {
+                JavaTypeResolution typeRes = fieldResolutions.get(field);
+                if (isPrimitive(typeRes.javaType)) {
+                    sb.append("      set").append(capitalize(field.getName())).append("IsSet(false);\n");
+                    if (typeRes.javaType.equals("boolean")) {
+                        sb.append("      this.").append(field.getName()).append(" = false;\n");
+                    } else if (typeRes.javaType.equals("byte") || typeRes.javaType.equals("short") || 
+                              typeRes.javaType.equals("int") || typeRes.javaType.equals("long")) {
+                        sb.append("      this.").append(field.getName()).append(" = 0;\n");
+                    } else if (typeRes.javaType.equals("double")) {
+                        sb.append("      this.").append(field.getName()).append(" = 0.0;\n");
+                    }
+                } else {
+                    sb.append("      this.").append(field.getName()).append(" = null;\n");
+                }
+            }
+            sb.append("    }\n\n");
+        }
         for (FieldNode field : fields) {
             JavaTypeResolution typeRes = fieldResolutions.get(field); String capFieldName = capitalize(field.getName());
-            sb.append("    public ").append(typeRes.javaType).append(" get").append(capFieldName).append("() { return this.").append(field.getName()).append("; }\n");
+            if (!isPrimitive(typeRes.javaType)) {
+                sb.append("    @org.apache.thrift.annotation.Nullable\n");
+            }
+            sb.append("    public ").append(typeRes.javaType).append(" get").append(capFieldName).append("() {\n");
+            sb.append("      return this.").append(field.getName()).append(";\n");
+            sb.append("    }\n");
+            sb.append("\n");
             sb.append("    public ").append(structName).append(" set").append(capFieldName).append("(@org.apache.thrift.annotation.Nullable ").append(typeRes.javaType).append(" ").append(field.getName()).append(") {\n");
             sb.append("      this.").append(field.getName()).append(" = ").append(field.getName()).append(";\n");
             if (isPrimitive(typeRes.javaType)) sb.append("      set").append(capFieldName).append("IsSet(true);\n");
-            sb.append("      return this;\n    }\n");
-            sb.append("    public void unset").append(capFieldName).append("() { ");
-            if (isPrimitive(typeRes.javaType)) sb.append("__isset_bitfield = EncodingUtils.clearBit(__isset_bitfield, __").append(field.getName().toUpperCase(Locale.ROOT)).append("_ISSET_ID);\n");
-            else sb.append("this.").append(field.getName()).append(" = null;\n");
+            sb.append("      return this;\n");
             sb.append("    }\n");
+            sb.append("\n");
+            sb.append("    public void unset").append(capFieldName).append("() {\n");
+            if (isPrimitive(typeRes.javaType)) {
+                sb.append("      __isset_bitfield = EncodingUtils.clearBit(__isset_bitfield, __").append(field.getName().toUpperCase(Locale.ROOT)).append("_ISSET_ID);\n");
+            } else {
+                sb.append("      this.").append(field.getName()).append(" = null;\n");
+            }
+            sb.append("    }\n");
+            sb.append("\n");
+            sb.append("    /** Returns true if field ").append(field.getName()).append(" is set (has been assigned a value) and false otherwise */\n");
             sb.append("    public boolean isSet").append(capFieldName).append("() {\n");
-            if (isPrimitive(typeRes.javaType)) sb.append("      return EncodingUtils.testBit(__isset_bitfield, __").append(field.getName().toUpperCase(Locale.ROOT)).append("_ISSET_ID);\n");
-            else sb.append("      return this.").append(field.getName()).append(" != null;\n");
+            if (isPrimitive(typeRes.javaType)) {
+                sb.append("      return EncodingUtils.testBit(__isset_bitfield, __").append(field.getName().toUpperCase(Locale.ROOT)).append("_ISSET_ID);\n");
+            } else {
+                sb.append("      return this.").append(field.getName()).append(" != null;\n");
+            }
             sb.append("    }\n");
-            if (isPrimitive(typeRes.javaType)) sb.append("    public void set").append(capFieldName).append("IsSet(boolean value) { __isset_bitfield = EncodingUtils.setBit(__isset_bitfield, __").append(field.getName().toUpperCase(Locale.ROOT)).append("_ISSET_ID, value);}\n");
+            sb.append("\n");
+            sb.append("    public void set").append(capFieldName).append("IsSet(boolean value) {\n");
+            if (isPrimitive(typeRes.javaType)) {
+                sb.append("      __isset_bitfield = EncodingUtils.setBit(__isset_bitfield, __").append(field.getName().toUpperCase(Locale.ROOT)).append("_ISSET_ID, value);\n");
+            } else {
+                sb.append("      if (!value) {\n");
+                sb.append("        this.").append(field.getName()).append(" = null;\n");
+                sb.append("      }\n");
+            }
+            sb.append("    }\n");
         }
 
-        sb.append("    @Override public void read(org.apache.thrift.protocol.TProtocol iprot) throws TException { TProtocolUtil.skip(iprot, TType.STRUCT); /* TODO: Implement full read for ").append(structName).append(" */ }\n");
-        sb.append("    @Override public void write(org.apache.thrift.protocol.TProtocol oprot) throws TException { oprot.writeStructBegin(STRUCT_DESC); /* TODO: Implement full write for ").append(structName).append(" */ oprot.writeFieldStop(); oprot.writeStructEnd(); }\n");
-        sb.append("    @Override public String toString() { return \"").append(structName).append("(...)\"; }\n");
-        sb.append("    public void validate() throws TException {} \n");
-        sb.append("    @Override public int compareTo(").append(structName).append(" other){ if (!getClass().equals(other.getClass())) { return getClass().getName().compareTo(other.getClass().getName()); } /* TODO */ return 0; } \n");
-        sb.append("    @Override public boolean equals(Object o){ if (o == this) return true; if (!(o instanceof ").append(structName).append(")) return false; return this.equals((").append(structName).append(")o); } \n");
-        sb.append("    public boolean equals(").append(structName).append(" o){ if (o == null) return false; if (this == o) return true; /* TODO */ return true; } \n");
-        sb.append("    @Override public int hashCode(){ /* TODO */ return 0; } \n");
-        sb.append("    @org.apache.thrift.annotation.Nullable @Override public _Fields fieldForId(int fieldId) { return _Fields.findByThriftId(fieldId); }\n");
-        sb.append("    @Override public void clear() {/* TODO */}\n");
-        sb.append("    @org.apache.thrift.annotation.Nullable @Override public Object getFieldValue(_Fields field) {/* TODO */return null;}\n");
-        sb.append("    @Override public void setFieldValue(_Fields field, @org.apache.thrift.annotation.Nullable Object value) {/* TODO */}\n");
-        sb.append("    @Override public boolean isSet(_Fields field) {/* TODO */return false;}\n");
-        sb.append("    @SuppressWarnings(\"unchecked\")\n    public ").append(structName).append(" deepCopy() { /* TODO */ return new ").append(structName).append("(this); } \n");
+        sb.append("\n");
+        sb.append("    @Override\n");
+        sb.append("    public void read(org.apache.thrift.protocol.TProtocol iprot) throws TException {\n");
+        sb.append("      TProtocolUtil.skip(iprot, TType.STRUCT); /* TODO: Implement full read for ").append(structName).append(" */\n");
+        sb.append("    }\n");
+        sb.append("\n");
+        sb.append("    @Override\n");
+        sb.append("    public void write(org.apache.thrift.protocol.TProtocol oprot) throws TException {\n");
+        sb.append("      oprot.writeStructBegin(STRUCT_DESC);\n");
+        sb.append("      /* TODO: Implement full write for ").append(structName).append(" */\n");
+        sb.append("      oprot.writeFieldStop();\n");
+        sb.append("      oprot.writeStructEnd();\n");
+        sb.append("    }\n");
+        sb.append("\n");
+        sb.append("    @Override\n");
+        sb.append("    public String toString() {\n");
+        sb.append("      return \"").append(structName).append("(...)\";\n");
+        sb.append("    }\n");
+        sb.append("\n");
+        sb.append("    public void validate() throws TException {\n");
+        sb.append("    }\n");
+        sb.append("\n");
+        sb.append("    @Override\n");
+        sb.append("    public int compareTo(").append(structName).append(" other) {\n");
+        sb.append("      if (!getClass().equals(other.getClass())) {\n");
+        sb.append("        return getClass().getName().compareTo(other.getClass().getName());\n");
+        sb.append("      }\n");
+        sb.append("      /* TODO */\n");
+        sb.append("      return 0;\n");
+        sb.append("    }\n");
+        sb.append("\n");
+        sb.append("    @Override\n");
+        sb.append("    public boolean equals(Object o) {\n");
+        sb.append("      if (o == this) return true;\n");
+        sb.append("      if (!(o instanceof ").append(structName).append(")) return false;\n");
+        sb.append("      return this.equals((").append(structName).append(")o);\n");
+        sb.append("    }\n");
+        sb.append("\n");
+        sb.append("    public boolean equals(").append(structName).append(" o) {\n");
+        sb.append("      if (o == null) return false;\n");
+        sb.append("      if (this == o) return true;\n");
+        sb.append("      /* TODO */\n");
+        sb.append("      return true;\n");
+        sb.append("    }\n");
+        sb.append("\n");
+        sb.append("    @Override\n");
+        sb.append("    public int hashCode() {\n");
+        sb.append("      /* TODO */\n");
+        sb.append("      return 0;\n");
+        sb.append("    }\n");
+        sb.append("\n");
+        sb.append("    @org.apache.thrift.annotation.Nullable\n");
+        sb.append("    @Override\n");
+        sb.append("    public _Fields fieldForId(int fieldId) {\n");
+        sb.append("      return _Fields.findByThriftId(fieldId);\n");
+        sb.append("    }\n");
+        sb.append("\n");
+        sb.append("    @org.apache.thrift.annotation.Nullable\n");
+        sb.append("    @Override\n");
+        sb.append("    public Object getFieldValue(_Fields field) {\n");
+        sb.append("      /* TODO */\n");
+        sb.append("      return null;\n");
+        sb.append("    }\n");
+        sb.append("\n");
+        sb.append("    @Override\n");
+        sb.append("    public void setFieldValue(_Fields field, @org.apache.thrift.annotation.Nullable Object value) {\n");
+        sb.append("      /* TODO */\n");
+        sb.append("    }\n");
+        sb.append("\n");
+        sb.append("    @Override\n");
+        sb.append("    public boolean isSet(_Fields field) {\n");
+        sb.append("      /* TODO */\n");
+        sb.append("      return false;\n");
+        sb.append("    }\n");
 
         sb.append("  }\n\n");
     }
@@ -646,5 +1007,24 @@ public class ServiceGenerator {
             this.setId((int)id);
         }
         // All methods are inherited.
+    }
+
+    private String getTTypeConstant(byte thriftType) {
+        switch (thriftType) {
+            case TType.BOOL: return "BOOL";
+            case TType.BYTE: return "BYTE";
+            case TType.I16: return "I16";
+            case TType.I32: return "I32";
+            case TType.I64: return "I64";
+            case TType.DOUBLE: return "DOUBLE";
+            case TType.STRING: return "STRING";
+            case TType.STRUCT: return "STRUCT";
+            case TType.MAP: return "MAP";
+            case TType.SET: return "SET";
+            case TType.LIST: return "LIST";
+            case TType.ENUM: return "ENUM";
+            case TType.VOID: return "VOID";
+            default: return String.valueOf(thriftType);
+        }
     }
 }

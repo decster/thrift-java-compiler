@@ -3,6 +3,10 @@ package com.github.decster;
 import com.github.decster.ast.*;
 import com.github.decster.parser.*;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
 import org.antlr.v4.runtime.Token;
 
 /**
@@ -18,13 +22,22 @@ public class ThriftAstBuilder {
    * @return A Document object representing the AST
    * @throws IOException If parsing fails
    */
-  public static DocumentNode buildFromString(String content) throws IOException {
+  public static DocumentNode buildFromString(String content, String filePath) throws IOException {
     try {
       ThriftParser.DocumentContext parseTree = ThriftCompiler.parse(content);
-      return (DocumentNode) new AstVisitor().visit(parseTree);
+      DocumentNode node = (DocumentNode) new AstVisitor().visit(parseTree);
+      Path path = Paths.get(filePath);
+      String fileName = path.getFileName().toString();
+      String nameWithoutExtension = fileName.substring(0, fileName.lastIndexOf('.'));
+      node.setName(nameWithoutExtension);
+      return node;
     } catch (RuntimeException e) {
       throw new IOException("Failed to parse Thrift content", e);
     }
+  }
+
+  public static DocumentNode buildFromString(String content) throws IOException {
+    return buildFromString(content, "unknown.thrift");
   }
 
   /**
@@ -35,13 +48,12 @@ public class ThriftAstBuilder {
    * @throws IOException If the file cannot be read or parsing fails
    */
   public static DocumentNode buildFromFile(String filePath) throws IOException {
-    try {
-      ThriftParser.DocumentContext parseTree =
-          ThriftCompiler.parseFile(filePath);
-      return (DocumentNode) new AstVisitor().visit(parseTree);
-    } catch (RuntimeException e) {
-      throw new IOException("Failed to parse Thrift file: " + filePath, e);
+    Path path = Paths.get(filePath);
+    if (!Files.exists(path)) {
+      throw new IOException("Input file not found: " + filePath);
     }
+    String content = Files.readString(path);
+    return buildFromString(content, filePath);
   }
 
   /**

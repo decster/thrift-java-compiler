@@ -108,8 +108,8 @@ public class ThriftAstBuilderTest {
 
     @Test
     void testParsingThriftTestFile() throws IOException {
-        // Load the thrift_test.thrift file from resources
-        URL url = getClass().getClassLoader().getResource("parser_tests/thrift_test.thrift");
+        // Load the complex1.thrift file from resources
+        URL url = getClass().getClassLoader().getResource("multi_file_tests/complex1.thrift");
         assertNotNull(url, "Test file not found in resources");
 
         Path filePath = Paths.get(url.getPath());
