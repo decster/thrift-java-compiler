@@ -882,7 +882,11 @@ public class ServiceGenerator implements Generator {
             sb.append("      return this.").append(field.getName()).append(";\n");
             sb.append("    }\n");
             sb.append("\n");
-            sb.append("    public ").append(structName).append(" set").append(capFieldName).append("(@org.apache.thrift.annotation.Nullable ").append(typeRes.javaType).append(" ").append(field.getName()).append(") {\n");
+            sb.append("    public ").append(structName).append(" set").append(capFieldName).append("(");
+            if (!isPrimitive(typeRes.javaType)) {
+                sb.append("@org.apache.thrift.annotation.Nullable ");
+            }
+            sb.append(typeRes.javaType).append(" ").append(field.getName()).append(") {\n");
             sb.append("      this.").append(field.getName()).append(" = ").append(field.getName()).append(";\n");
             if (isPrimitive(typeRes.javaType)) sb.append("      set").append(capFieldName).append("IsSet(true);\n");
             sb.append("      return this;\n");
@@ -890,7 +894,7 @@ public class ServiceGenerator implements Generator {
             sb.append("\n");
             sb.append("    public void unset").append(capFieldName).append("() {\n");
             if (isPrimitive(typeRes.javaType)) {
-                sb.append("      __isset_bitfield = EncodingUtils.clearBit(__isset_bitfield, __").append(field.getName().toUpperCase(Locale.ROOT)).append("_ISSET_ID);\n");
+                sb.append("      __isset_bitfield = org.apache.thrift.EncodingUtils.clearBit(__isset_bitfield, __").append(field.getName().toUpperCase(Locale.ROOT)).append("_ISSET_ID);\n");
             } else {
                 sb.append("      this.").append(field.getName()).append(" = null;\n");
             }
@@ -899,7 +903,7 @@ public class ServiceGenerator implements Generator {
             sb.append("    /** Returns true if field ").append(field.getName()).append(" is set (has been assigned a value) and false otherwise */\n");
             sb.append("    public boolean isSet").append(capFieldName).append("() {\n");
             if (isPrimitive(typeRes.javaType)) {
-                sb.append("      return EncodingUtils.testBit(__isset_bitfield, __").append(field.getName().toUpperCase(Locale.ROOT)).append("_ISSET_ID);\n");
+                sb.append("      return org.apache.thrift.EncodingUtils.testBit(__isset_bitfield, __").append(field.getName().toUpperCase(Locale.ROOT)).append("_ISSET_ID);\n");
             } else {
                 sb.append("      return this.").append(field.getName()).append(" != null;\n");
             }
@@ -907,15 +911,108 @@ public class ServiceGenerator implements Generator {
             sb.append("\n");
             sb.append("    public void set").append(capFieldName).append("IsSet(boolean value) {\n");
             if (isPrimitive(typeRes.javaType)) {
-                sb.append("      __isset_bitfield = EncodingUtils.setBit(__isset_bitfield, __").append(field.getName().toUpperCase(Locale.ROOT)).append("_ISSET_ID, value);\n");
+                sb.append("      __isset_bitfield = org.apache.thrift.EncodingUtils.setBit(__isset_bitfield, __").append(field.getName().toUpperCase(Locale.ROOT)).append("_ISSET_ID, value);\n");
             } else {
                 sb.append("      if (!value) {\n");
                 sb.append("        this.").append(field.getName()).append(" = null;\n");
                 sb.append("      }\n");
             }
-            sb.append("    }\n");
+            sb.append("    }\n\n");
         }
 
+        sb.append("");
+        sb.append("    @Override\n");
+        sb.append("    public void setFieldValue(_Fields field, @org.apache.thrift.annotation.Nullable java.lang.Object value) {\n");
+        sb.append("      switch (field) {\n");
+        for (FieldNode field : fields) {
+            JavaTypeResolution typeRes = fieldResolutions.get(field);
+            String capFieldName = capitalize(field.getName());
+            sb.append("      case ").append(toAllCapsUnderscore(field.getName())).append(":\n");
+            sb.append("        if (value == null) {\n");
+            sb.append("          unset").append(capFieldName).append("();\n");
+            sb.append("        } else {\n");
+            if (isPrimitive(typeRes.javaType)) {
+                if (typeRes.javaType.equals("boolean")) {
+                    sb.append("          set").append(capFieldName).append("((java.lang.Boolean)value);\n");
+                } else if (typeRes.javaType.equals("byte")) {
+                    sb.append("          set").append(capFieldName).append("((java.lang.Byte)value);\n");
+                } else if (typeRes.javaType.equals("short")) {
+                    sb.append("          set").append(capFieldName).append("((java.lang.Short)value);\n");
+                } else if (typeRes.javaType.equals("int")) {
+                    sb.append("          set").append(capFieldName).append("((java.lang.Integer)value);\n");
+                } else if (typeRes.javaType.equals("long")) {
+                    sb.append("          set").append(capFieldName).append("((java.lang.Long)value);\n");
+                } else if (typeRes.javaType.equals("double")) {
+                    sb.append("          set").append(capFieldName).append("((java.lang.Double)value);\n");
+                }
+            } else {
+                sb.append("          set").append(capFieldName).append("((").append(typeRes.javaType).append(")value);\n");
+            }
+            sb.append("        }\n");
+            sb.append("        break;\n");
+            sb.append("\n");
+        }
+        sb.append("      }\n");
+        sb.append("    }\n");
+        sb.append("\n");
+        sb.append("    @org.apache.thrift.annotation.Nullable\n");
+        sb.append("    @Override\n");
+        sb.append("    public java.lang.Object getFieldValue(_Fields field) {\n");
+        sb.append("      switch (field) {\n");
+        for (FieldNode field : fields) {
+            String capFieldName = capitalize(field.getName());
+            sb.append("      case ").append(toAllCapsUnderscore(field.getName())).append(":\n");
+            sb.append("        return get").append(capFieldName).append("();\n");
+            sb.append("\n");
+        }
+        sb.append("      }\n");
+        sb.append("      throw new java.lang.IllegalStateException();\n");
+        sb.append("    }\n");
+        sb.append("\n");
+        sb.append("    /** Returns true if field corresponding to fieldID is set (has been assigned a value) and false otherwise */\n");
+        sb.append("    @Override\n");
+        sb.append("    public boolean isSet(_Fields field) {\n");
+        sb.append("      if (field == null) {\n");
+        sb.append("        throw new java.lang.IllegalArgumentException();\n");
+        sb.append("      }\n");
+        sb.append("\n");
+        sb.append("      switch (field) {\n");
+        for (FieldNode field : fields) {
+            String capFieldName = capitalize(field.getName());
+            sb.append("      case ").append(toAllCapsUnderscore(field.getName())).append(":\n");
+            sb.append("        return isSet").append(capFieldName).append("();\n");
+        }
+        sb.append("      }\n");
+        sb.append("      throw new java.lang.IllegalStateException();\n");
+        sb.append("    }\n");
+        sb.append("\n");
+        sb.append("    @Override\n");
+        sb.append("    public boolean equals(java.lang.Object that) {\n");
+        sb.append("      if (that instanceof ").append(structName).append(")\n");
+        sb.append("        return this.equals((").append(structName).append(")that);\n");
+        sb.append("      return false;\n");
+        sb.append("    }\n");
+        sb.append("\n");
+        sb.append("    public boolean equals(").append(structName).append(" that) {\n");
+        sb.append("      if (that == null)\n");
+        sb.append("        return false;\n");
+        sb.append("      if (this == that)\n");
+        sb.append("        return true;\n");
+        sb.append("      /* TODO */\n");
+        sb.append("      return true;\n");
+        sb.append("    }\n");
+        sb.append("\n");
+        sb.append("    @Override\n");
+        sb.append("    public int hashCode() {\n");
+        sb.append("      /* TODO */\n");
+        sb.append("      return 0;\n");
+        sb.append("    }\n");
+        sb.append("\n");
+        sb.append("    @org.apache.thrift.annotation.Nullable\n");
+        sb.append("    @Override\n");
+        sb.append("    public _Fields fieldForId(int fieldId) {\n");
+        sb.append("      return _Fields.findByThriftId(fieldId);\n");
+        sb.append("    }\n");
         sb.append("\n");
         sb.append("    @Override\n");
         sb.append("    public void read(org.apache.thrift.protocol.TProtocol iprot) throws TException {\n");
@@ -947,49 +1044,6 @@ public class ServiceGenerator implements Generator {
         sb.append("      return 0;\n");
         sb.append("    }\n");
         sb.append("\n");
-        sb.append("    @Override\n");
-        sb.append("    public boolean equals(Object o) {\n");
-        sb.append("      if (o == this) return true;\n");
-        sb.append("      if (!(o instanceof ").append(structName).append(")) return false;\n");
-        sb.append("      return this.equals((").append(structName).append(")o);\n");
-        sb.append("    }\n");
-        sb.append("\n");
-        sb.append("    public boolean equals(").append(structName).append(" o) {\n");
-        sb.append("      if (o == null) return false;\n");
-        sb.append("      if (this == o) return true;\n");
-        sb.append("      /* TODO */\n");
-        sb.append("      return true;\n");
-        sb.append("    }\n");
-        sb.append("\n");
-        sb.append("    @Override\n");
-        sb.append("    public int hashCode() {\n");
-        sb.append("      /* TODO */\n");
-        sb.append("      return 0;\n");
-        sb.append("    }\n");
-        sb.append("\n");
-        sb.append("    @org.apache.thrift.annotation.Nullable\n");
-        sb.append("    @Override\n");
-        sb.append("    public _Fields fieldForId(int fieldId) {\n");
-        sb.append("      return _Fields.findByThriftId(fieldId);\n");
-        sb.append("    }\n");
-        sb.append("\n");
-        sb.append("    @org.apache.thrift.annotation.Nullable\n");
-        sb.append("    @Override\n");
-        sb.append("    public Object getFieldValue(_Fields field) {\n");
-        sb.append("      /* TODO */\n");
-        sb.append("      return null;\n");
-        sb.append("    }\n");
-        sb.append("\n");
-        sb.append("    @Override\n");
-        sb.append("    public void setFieldValue(_Fields field, @org.apache.thrift.annotation.Nullable Object value) {\n");
-        sb.append("      /* TODO */\n");
-        sb.append("    }\n");
-        sb.append("\n");
-        sb.append("    @Override\n");
-        sb.append("    public boolean isSet(_Fields field) {\n");
-        sb.append("      /* TODO */\n");
-        sb.append("      return false;\n");
-        sb.append("    }\n");
 
         sb.append("  }\n\n");
     }
