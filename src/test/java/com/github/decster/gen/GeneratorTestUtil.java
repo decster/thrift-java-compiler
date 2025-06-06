@@ -3,7 +3,7 @@ package com.github.decster.gen;
 import org.junit.jupiter.api.Assertions;
 
 public class GeneratorTestUtil {
-    public static void assertEqualsLineByLine(String generatedCode, String expectedCode) {
+    public static void assertEqualsLineByLine(String file, String generatedCode, String expectedCode) {
         String[] generatedLines = generatedCode.split("\n");
         String[] expectedLines = expectedCode.split("\n");
         // compare line by line, if line not equal, fail with surrounding 4 lines as context
@@ -12,6 +12,7 @@ public class GeneratorTestUtil {
             String expectedLine = i < expectedLines.length ? expectedLines[i] : "";
             if (!generatedLine.equals(expectedLine)) {
                 StringBuilder context = new StringBuilder();
+                context.append("File: ").append(file).append("\n");
                 context.append("Difference at line ").append(i + 1).append(":\n");
                 int start = Math.max(0, i - 4);
                 int end = Math.min(Math.max(generatedLines.length, expectedLines.length), i + 5);

@@ -28,6 +28,7 @@ import com.github.decster.ast.TypeAnnotationNode;
 import com.github.decster.ast.TypeNode;
 import com.github.decster.ast.BaseTypeNode;
 import com.github.decster.ast.MapTypeNode;
+import org.apache.thrift.TFieldRequirementType;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,7 +39,7 @@ import java.util.Map;
  * This class mirrors the functionality of the C++ implementation
  * in t_java_generator.cc
  */
-public class StructLikeGenerator {
+public class StructLikeGenerator implements Generator {
 
     // Configuration options
     private boolean beanStyle;
@@ -93,6 +94,7 @@ public class StructLikeGenerator {
         return prefix + (tempVarCounter++);
     }
 
+    @Override
     public String generate() {
         this.tempVarCounter = 0; // Reset for each generation run
         out.append("/**\n");
@@ -103,17 +105,7 @@ public class StructLikeGenerator {
         out.append(" */\n");
         out.append("package ").append(packageName).append(";\n\n");
 
-        boolean needsBitSetImport = false;
-        if (structLikeNode != null && structLikeNode.getFields() != null && !structLikeNode.getFields().isEmpty()) {
-             int fieldCountForIsset = getIssetHandledFieldCount();
-             IssetType issetStorageType = determineIssetStorageType(fieldCountForIsset);
-            if (issetStorageType == IssetType.BITSET) {
-                needsBitSetImport = true;
-            }
-        }
-        if (needsBitSetImport) {
-            out.append("import java.util.BitSet;\n");
-        }
+        // We don't need to import BitSet, we'll use the fully qualified name
 
         generateStructDefinition(structLikeNode, structLikeNode instanceof ExceptionNode, false, false);
         return out.toString();
@@ -364,8 +356,7 @@ public class StructLikeGenerator {
             // boolean issetIdsWerePrinted = false; // Not strictly needed with current logic
             for (FieldNode field : fields) {
                 if (fieldNeedsIssetHandling(field)) {
-                    String originalFieldName = field.getName();
-                    String issetIdConstant = "__" + constantName(originalFieldName).toUpperCase() + "_ISSET_ID";
+                    String issetIdConstant = issetFieldId(field);
                     out.append(indent()).append("private static final int ").append(issetIdConstant)
                             .append(" = ").append(currentIssetIndex++).append(";\n");
                     // issetIdsWerePrinted = true;
@@ -415,7 +406,7 @@ public class StructLikeGenerator {
                 for (FieldNode field : fields) {
                     String originalFieldName = field.getName(); // Use original name
                     if (field.getRequirement() == FieldNode.Requirement.OPTIONAL) {
-                        if (!firstOptional) output.append(", ");
+                        if (!firstOptional) output.append(",");
                         output.append("_Fields.").append(constantName(originalFieldName).toUpperCase());
                         firstOptional = false;
                     }
@@ -472,12 +463,14 @@ public class StructLikeGenerator {
         } else if (trueType.isContainer()) {
             if (trueType.isList()) {
                 TypeNode elemType = trueType.getChildNodes().get(0);
-                sb.append("new org.apache.thrift.meta_data.ListMetaData(org.apache.thrift.protocol.TType.LIST, ")
-                        .append(generateFieldValueMetaData(elemType)).append(")");
+                String elemMeta = generateFieldValueMetaData(elemType);
+                sb.append("new org.apache.thrift.meta_data.ListMetaData(org.apache.thrift.protocol.TType.LIST, \n")
+                  .append("            ").append(elemMeta).append(")");
             } else if (trueType.isSet()) {
                 TypeNode elemType = trueType.getChildNodes().get(0);
-                sb.append("new org.apache.thrift.meta_data.SetMetaData(org.apache.thrift.protocol.TType.SET, ")
-                        .append(generateFieldValueMetaData(elemType)).append(")");
+                String elemMeta = generateFieldValueMetaData(elemType);
+                sb.append("new org.apache.thrift.meta_data.SetMetaData(org.apache.thrift.protocol.TType.SET, \n")
+                  .append("            ").append(elemMeta).append(")");
             } else { // Map
                 TypeNode keyType = trueType.getChildNodes().get(0);
                 TypeNode valType = trueType.getChildNodes().get(1);
@@ -493,7 +486,7 @@ public class StructLikeGenerator {
         } else {
             sb.append("new org.apache.thrift.meta_data.FieldValueMetaData(").append(typeToEnum(trueType));
             if (trueType.isBinary()) {
-                sb.append(", true");
+                sb.append("            , true");
             }
             if (type.isTypedef() && !type.getName().equals(trueType.getName())) {
                 sb.append(", \"").append(type.getName()).append("\"");
@@ -617,7 +610,7 @@ public class StructLikeGenerator {
             if (issetStorageType == IssetType.PRIMITIVE) {
                 out.append(indent()).append("__isset_bitfield = other.__isset_bitfield;\n");
             } else if (issetStorageType == IssetType.BITSET) {
-                out.append(indent()).append("__isset_bit_vector = new java.util.BitSet(other.__isset_bit_vector.length());\n");
+                out.append(indent()).append("__isset_bit_vector.clear();\n");
                 out.append(indent()).append("__isset_bit_vector.or(other.__isset_bit_vector);\n");
             }
         }
@@ -627,15 +620,18 @@ public class StructLikeGenerator {
             TypeNode fieldType = field.getType();
             String capName = capitalizedName(originalFieldName);
 
-            boolean needsIsSetCheck = typeCanBeNull(fieldType) || field.getRequirement() == FieldNode.Requirement.OPTIONAL;
+            String thisFieldName = "this." + originalFieldName;
+            String otherFieldName = "other." + originalFieldName;
+
+            // Use conditional checks for container fields and string fields
+            boolean needsIsSetCheck = (fieldType.isContainer() || 
+                                      (fieldType.isBaseType() && fieldType.getName().equals("string"))) && 
+                (typeCanBeNull(fieldType) || field.getRequirement() == FieldNode.Requirement.OPTIONAL);
 
             if (needsIsSetCheck) {
                 out.append(indent()).append("if (other.isSet").append(capName).append("()) {\n");
                 indentLevel++;
             }
-
-            String thisFieldName = "this." + originalFieldName;
-            String otherFieldName = "other." + originalFieldName;
 
             if (fieldType.isContainer()) {
                 generateDeepCopyContainer(fieldType, otherFieldName, "__this__"+originalFieldName);
@@ -1173,7 +1169,7 @@ public class StructLikeGenerator {
             TypeNode trueType = getTrueType(fieldType);
 
             out.append("\n");
-            if (field.getRequirement() == FieldNode.Requirement.REQUIRED && !typeCanBeNull(trueType)) {
+            if (field.getRequirement() != FieldNode.Requirement.OPTIONAL && !typeCanBeNull(trueType)) {
                 out.append(indent()).append("boolean this_present_").append(originalFieldName).append(" = true;\n");
                 out.append(indent()).append("boolean that_present_").append(originalFieldName).append(" = true;\n");
             } else {
@@ -1233,7 +1229,7 @@ public class StructLikeGenerator {
             String capName = capitalizedName(originalFieldName);
             TypeNode trueType = getTrueType(fieldType);
 
-            if (field.getRequirement() == FieldNode.Requirement.REQUIRED && !typeCanBeNull(trueType)) {
+            if (field.getRequirement() != FieldNode.Requirement.OPTIONAL && !typeCanBeNull(trueType)) {
                 out.append(indent()).append("hashCode = hashCode * ").append(PRIME_MULTIPLIER).append(" + ");
                 String fieldValue = originalFieldName; // Use direct field name for required primitives
                 if (trueType.isBaseType()) {
@@ -1244,11 +1240,13 @@ public class StructLikeGenerator {
                             break;
                         case "byte": case "i8":
                         case "short": case "i16":
+                            out.append("(int) (").append(fieldValue).append(");\n");
+                            break;
                         case "int": case "i32":
                             out.append(fieldValue).append(";\n");
                             break;
                         case "long": case "i64":
-                            out.append("org.apache.thrift.TBaseHelper.hashCode((long)").append(fieldValue).append(");\n");
+                            out.append("org.apache.thrift.TBaseHelper.hashCode(").append(fieldValue).append(");\n");
                             break;
                         case "double":
                             out.append("org.apache.thrift.TBaseHelper.hashCode(").append(fieldValue).append(");\n"); // Removed cast
@@ -1274,7 +1272,7 @@ public class StructLikeGenerator {
                     out.append(valueAccess).append(".getValue();\n");
                 } else if (trueType.isBaseType()) {
                     String baseName = trueType.getName();
-                     if (trueType.isBinary()) baseName = "binary";
+                    if (trueType.isBinary()) baseName = "binary";
                     switch (baseName) {
                         case "string":
                         case "uuid":
@@ -1282,18 +1280,20 @@ public class StructLikeGenerator {
                             out.append(valueAccess).append(".hashCode();\n");
                             break;
                         case "bool":
-                             out.append("(").append(valueAccess).append(" ? ").append(HASH_PRIME_FOR_SET_TRUE).append(" : ").append(HASH_PRIME_FOR_SET_FALSE).append("));\n");
+                             out.append("((").append(valueAccess).append(") ? ").append(HASH_PRIME_FOR_SET_TRUE).append(" : ").append(HASH_PRIME_FOR_SET_FALSE).append(");\n");
                              break;
                         case "byte": case "i8":
                         case "short": case "i16":
+                            out.append("(int) (").append(valueAccess).append(");\n");
+                            break;
                         case "int": case "i32":
-                             out.append(valueAccess).append(");\n");
+                             out.append(valueAccess).append(";\n");
                              break;
                         case "long": case "i64":
-                             out.append("org.apache.thrift.TBaseHelper.hashCode((long)").append(valueAccess).append("));\n");
+                             out.append("org.apache.thrift.TBaseHelper.hashCode(").append(valueAccess).append(");\n");
                              break;
                         case "double":
-                             out.append("org.apache.thrift.TBaseHelper.hashCode(").append(valueAccess).append("));\n"); // Removed cast
+                             out.append("org.apache.thrift.TBaseHelper.hashCode(").append(valueAccess).append(");\n"); // Removed cast
                              break;
                         default:
                             out.append("0); // Unhandled optional base type in hashCode: ").append(baseName).append("\n");
@@ -1636,7 +1636,7 @@ public class StructLikeGenerator {
                     out.append(indent()).append("}\n");
                 } else {
                     if (typeCanBeNull(trueType)) {
-                        out.append(indent()).append("if (this.").append(originalFieldName).append(" == null) {\n");
+                        out.append(indent()).append("if (").append(originalFieldName).append(" == null) {\n");
                         indentLevel++;
                         out.append(indent()).append("throw new org.apache.thrift.protocol.TProtocolException(\"Required field '")
                                 .append(originalFieldName).append("' was not present! Struct: \" + toString());\n");
@@ -1701,7 +1701,7 @@ public class StructLikeGenerator {
                 out.append(indent()).append("__isset_bitfield = 0;\n");
             } else if (issetStorageType == IssetType.BITSET) {
                 out.append(indent()).append("// it doesn't seem like you should have to do this, but java serialization is wacky, and doesn't call the default constructor.\n");
-                out.append(indent()).append("__isset_bit_vector = new java.util.BitSet(").append(numFieldsActuallyNeedingIsset).append(");\n");
+                out.append(indent()).append("__isset_bit_vector = new java.util.BitSet(1);\n");
             }
         }
 
@@ -1774,16 +1774,18 @@ public class StructLikeGenerator {
             indentLevel--;
             indentLevel--;
         }
-        out.append(indent()).append("  default:\n");
+        indentLevel++;
+        out.append(indent()).append("default:\n");
         indentLevel++;
         out.append(indent()).append("org.apache.thrift.protocol.TProtocolUtil.skip(iprot, schemeField.type);\n");
+        indentLevel--;
         indentLevel--;
         out.append(indent()).append("}\n");
         out.append(indent()).append("iprot.readFieldEnd();\n");
         indentLevel--;
         out.append(indent()).append("}\n");
         out.append(indent()).append("iprot.readStructEnd();\n");
-
+        out.append("\n");
         if (!beanStyle) {
             out.append(indent()).append("// check for required fields of primitive type, which can't be checked in the validate method\n");
             for (FieldNode field : structNode.getFields()) {
@@ -1792,7 +1794,7 @@ public class StructLikeGenerator {
                     out.append(indent()).append("if (!struct.isSet").append(capitalizedName(field.getName())).append("()) {\n");
                     indentLevel++;
                     out.append(indent()).append("throw new org.apache.thrift.protocol.TProtocolException(\"Required field '")
-                            .append(field.getName()).append("' was not found in serialized data! Struct: \" + struct.toString());\n");
+                            .append(field.getName()).append("' was not found in serialized data! Struct: \" + toString());\n");
                     indentLevel--;
                     out.append(indent()).append("}\n");
                 }
@@ -1815,19 +1817,38 @@ public class StructLikeGenerator {
             boolean isOptionalField = field.getRequirement() == FieldNode.Requirement.OPTIONAL;
             boolean isNullable = typeCanBeNull(fieldType);
 
+            if (isNullable) {
+                out.append(indent()).append("if (struct.").append(originalFieldName).append(" != null) {\n");
+                indentLevel++;
+            }
+
             if (isOptionalField) {
                 out.append(indent()).append("if (struct.isSet").append(capFieldName).append("()) {\n");
                 indentLevel++;
-            } else if (isNullable) {
-                 out.append(indent()).append("if (struct.").append(originalFieldName).append(" != null) {\n");
-                 indentLevel++;
             }
 
             out.append(indent()).append("oprot.writeFieldBegin(").append(constantName(originalFieldName).toUpperCase()).append("_FIELD_DESC);\n");
+
+            if (fieldType.isContainer()) {
+                out.append(indent()).append("{\n");
+                indentLevel++;
+            }
+
             generateStandardSchemeSerializerLogic(field, "struct");
+
+            if (fieldType.isContainer()) {
+                indentLevel--;
+                out.append(indent()).append("}\n");
+            }
+
             out.append(indent()).append("oprot.writeFieldEnd();\n");
 
-            if (isOptionalField || (isNullable && !isOptionalField)) {
+            if (isOptionalField) {
+                indentLevel--;
+                out.append(indent()).append("}\n");
+            }
+
+            if (isNullable) {
                 indentLevel--;
                 out.append(indent()).append("}\n");
             }
@@ -1858,9 +1879,8 @@ public class StructLikeGenerator {
 
         out.append(indent()).append("private static class ").append(capStructName).append("TupleScheme extends org.apache.thrift.scheme.TupleScheme<").append(structName).append("> {\n");
         indentLevel++;
-
+        out.append("\n");
         out.append(indent()).append(javaOverrideAnnotation()).append("\n");
-        out.append(indent()).append("@SuppressWarnings(\"unchecked\")\n");
         out.append(indent()).append("public void write(org.apache.thrift.protocol.TProtocol prot, ").append(structName).append(" struct) throws org.apache.thrift.TException {\n");
         indentLevel++;
         out.append(indent()).append("org.apache.thrift.protocol.TTupleProtocol oprot = (org.apache.thrift.protocol.TTupleProtocol) prot;\n");
@@ -1869,7 +1889,7 @@ public class StructLikeGenerator {
         List<FieldNode> requiredOrDefFields = new ArrayList<>();
 
         for (FieldNode field : structNode.getFields()) {
-            if (field.getRequirement() == FieldNode.Requirement.OPTIONAL) {
+            if (field.getRequirement() != FieldNode.Requirement.REQUIRED) {
                 optionalFields.add(field);
             } else {
                 requiredOrDefFields.add(field);
@@ -1877,7 +1897,14 @@ public class StructLikeGenerator {
         }
 
         for (FieldNode field : requiredOrDefFields) {
-            generateStandardSchemeSerializerLogic(field, "struct", "oprot");
+            TypeNode fieldType = field.getType();
+            TypeNode trueType = getTrueType(fieldType);
+
+            if (trueType.isContainer()) {
+                serializeTupleContainer(trueType, field.getName(), "struct", "oprot");
+            } else {
+                generateStandardSchemeSerializerLogic(field, "struct", "oprot");
+            }
         }
 
         if (!optionalFields.isEmpty()) {
@@ -1896,7 +1923,14 @@ public class StructLikeGenerator {
                 String originalFieldName = field.getName();
                 out.append(indent()).append("if (struct.isSet").append(capitalizedName(originalFieldName)).append("()) {\n");
                 indentLevel++;
-                generateStandardSchemeSerializerLogic(field, "struct", "oprot");
+                TypeNode fieldType = field.getType();
+                TypeNode trueType = getTrueType(fieldType);
+
+                if (trueType.isContainer()) {
+                    serializeTupleContainer(trueType, originalFieldName, "struct", "oprot");
+                } else {
+                    generateStandardSchemeSerializerLogic(field, "struct", "oprot");
+                }
                 indentLevel--;
                 out.append(indent()).append("}\n");
             }
@@ -1909,19 +1943,17 @@ public class StructLikeGenerator {
         indentLevel++;
         out.append(indent()).append("org.apache.thrift.protocol.TTupleProtocol iprot = (org.apache.thrift.protocol.TTupleProtocol) prot;\n");
 
-        optionalFields.clear();
-        requiredOrDefFields.clear();
-        for (FieldNode field : structNode.getFields()) {
-            if (field.getRequirement() == FieldNode.Requirement.OPTIONAL) {
-                optionalFields.add(field);
-            } else {
-                requiredOrDefFields.add(field);
-            }
-        }
 
         for (FieldNode field : requiredOrDefFields) {
             String originalFieldName = field.getName();
-            generateStandardSchemeDeserializerLogic(field, "struct", "iprot");
+            TypeNode fieldType = field.getType();
+            TypeNode trueType = getTrueType(fieldType);
+
+            if (trueType.isContainer()) {
+                deserializeTupleContainer(trueType, originalFieldName, "struct", "iprot");
+            } else {
+                generateStandardSchemeDeserializerLogic(field, "struct", "iprot");
+            }
             out.append(indent()).append("struct.set").append(capitalizedName(originalFieldName)).append("IsSet(true);\n");
         }
 
@@ -1932,7 +1964,14 @@ public class StructLikeGenerator {
                 String originalFieldName = field.getName();
                 out.append(indent()).append("if (incoming.get(").append(i).append(")) {\n");
                 indentLevel++;
-                generateStandardSchemeDeserializerLogic(field, "struct", "iprot");
+                TypeNode fieldType = field.getType();
+                TypeNode trueType = getTrueType(fieldType);
+
+                if (trueType.isContainer()) {
+                    deserializeTupleContainer(trueType, originalFieldName, "struct", "iprot");
+                } else {
+                    generateStandardSchemeDeserializerLogic(field, "struct", "iprot");
+                }
                 out.append(indent()).append("struct.set").append(capitalizedName(originalFieldName)).append("IsSet(true);\n");
                 indentLevel--;
                 out.append(indent()).append("}\n");
@@ -1958,16 +1997,22 @@ public class StructLikeGenerator {
             String baseName = trueType.getName();
             if (trueType.isBinary()) baseName = "binary";
 
+            StringBuilder sb = new StringBuilder(indent());
+            if (!structVarName.isEmpty()) {
+                sb.append(structVarName).append(".");
+            }
+            sb.append(originalFieldName).append(" = ").append(protVarName);
+
             switch (baseName) {
-                case "bool": out.append(indent()).append(structVarName).append(".").append(originalFieldName).append(" = ").append(protVarName).append(".readBool();\n"); break;
-                case "byte": case "i8": out.append(indent()).append(structVarName).append(".").append(originalFieldName).append(" = ").append(protVarName).append(".readByte();\n"); break;
-                case "i16": out.append(indent()).append(structVarName).append(".").append(originalFieldName).append(" = ").append(protVarName).append(".readI16();\n"); break;
-                case "i32": out.append(indent()).append(structVarName).append(".").append(originalFieldName).append(" = ").append(protVarName).append(".readI32();\n"); break;
-                case "i64": out.append(indent()).append(structVarName).append(".").append(originalFieldName).append(" = ").append(protVarName).append(".readI64();\n"); break;
-                case "double": out.append(indent()).append(structVarName).append(".").append(originalFieldName).append(" = ").append(protVarName).append(".readDouble();\n"); break;
-                case "string": out.append(indent()).append(structVarName).append(".").append(originalFieldName).append(" = ").append(protVarName).append(".readString();\n"); break;
-                case "binary": out.append(indent()).append(structVarName).append(".").append(originalFieldName).append(" = ").append(protVarName).append(".readBinary();\n"); break;
-                case "uuid": out.append(indent()).append(structVarName).append(".").append(originalFieldName).append(" = ").append(protVarName).append(".readUuid();\n"); break;
+                case "bool": out.append(sb).append(".readBool();\n"); break;
+                case "byte": case "i8": out.append(sb).append(".readByte();\n"); break;
+                case "i16": out.append(sb).append(".readI16();\n"); break;
+                case "i32": out.append(sb).append(".readI32();\n"); break;
+                case "i64": out.append(sb).append(".readI64();\n"); break;
+                case "double": out.append(sb).append(".readDouble();\n"); break;
+                case "string": out.append(sb).append(".readString();\n"); break;
+                case "binary": out.append(sb).append(".readBinary();\n"); break;
+                case "uuid": out.append(sb).append(".readUuid();\n"); break;
                 default: throw new RuntimeException("Unhandled base type for deserialization: " + baseName);
             }
         } else if (trueType.isEnum()) {
@@ -1995,16 +2040,18 @@ public class StructLikeGenerator {
             String baseName = trueType.getName();
             if (trueType.isBinary()) baseName = "binary";
 
+            String fieldAccess = structVarName.isEmpty() ? originalFieldName : structVarName + "." + originalFieldName;
+
             switch (baseName) {
-                case "bool": out.append(indent()).append(protVarName).append(".writeBool(").append(structVarName).append(".").append(originalFieldName).append(");\n"); break;
-                case "byte": case "i8": out.append(indent()).append(protVarName).append(".writeByte(").append(structVarName).append(".").append(originalFieldName).append(");\n"); break;
-                case "i16": out.append(indent()).append(protVarName).append(".writeI16(").append(structVarName).append(".").append(originalFieldName).append(");\n"); break;
-                case "i32": out.append(indent()).append(protVarName).append(".writeI32(").append(structVarName).append(".").append(originalFieldName).append(");\n"); break;
-                case "i64": out.append(indent()).append(protVarName).append(".writeI64(").append(structVarName).append(".").append(originalFieldName).append(");\n"); break;
-                case "double": out.append(indent()).append(protVarName).append(".writeDouble(").append(structVarName).append(".").append(originalFieldName).append(");\n"); break;
-                case "string": out.append(indent()).append(protVarName).append(".writeString(").append(structVarName).append(".").append(originalFieldName).append(");\n"); break;
-                case "binary": out.append(indent()).append(protVarName).append(".writeBinary(").append(structVarName).append(".").append(originalFieldName).append(");\n"); break;
-                case "uuid": out.append(indent()).append(protVarName).append(".writeUuid(").append(structVarName).append(".").append(originalFieldName).append(");\n"); break;
+                case "bool": out.append(indent()).append(protVarName).append(".writeBool(").append(fieldAccess).append(");\n"); break;
+                case "byte": case "i8": out.append(indent()).append(protVarName).append(".writeByte(").append(fieldAccess).append(");\n"); break;
+                case "i16": out.append(indent()).append(protVarName).append(".writeI16(").append(fieldAccess).append(");\n"); break;
+                case "i32": out.append(indent()).append(protVarName).append(".writeI32(").append(fieldAccess).append(");\n"); break;
+                case "i64": out.append(indent()).append(protVarName).append(".writeI64(").append(fieldAccess).append(");\n"); break;
+                case "double": out.append(indent()).append(protVarName).append(".writeDouble(").append(fieldAccess).append(");\n"); break;
+                case "string": out.append(indent()).append(protVarName).append(".writeString(").append(fieldAccess).append(");\n"); break;
+                case "binary": out.append(indent()).append(protVarName).append(".writeBinary(").append(fieldAccess).append(");\n"); break;
+                case "uuid": out.append(indent()).append(protVarName).append(".writeUuid(").append(fieldAccess).append(");\n"); break;
                 default: throw new RuntimeException("Unhandled base type for serialization: " + baseName);
             }
         } else if (trueType.isEnum()) {
@@ -2061,17 +2108,76 @@ public class StructLikeGenerator {
             TypeNode keyType = getTrueType(containerType.getChildNodes().get(0));
             TypeNode valType = getTrueType(containerType.getChildNodes().get(1));
 
-            out.append(indent()).append(getTypeName(keyType, true, false, false, true))
+            StringBuilder keyDecl = new StringBuilder(indent());
+            if (typeCanBeNull(keyType)) {
+                keyDecl.append(javaNullableAnnotation()).append(" ");
+            }
+            keyDecl.append(getTypeName(keyType, true, false, false, true))
                     .append(" ").append(tmpKeyVar).append(";\n");
-            out.append(indent()).append(getTypeName(valType, true, false, false, true))
+            out.append(keyDecl);
+            out.append(indent()).append(getTypeName(valType, false, false, false, true))
                     .append(" ").append(tmpValVar).append(";\n");
 
-            out.append(indent()).append("for (int _i = 0; _i < ").append(tempObj).append(".size; ++_i)\n");
+            String loopVar = getNextTempVarName("_i");
+            out.append(indent()).append("for (int ").append(loopVar).append(" = 0; ").append(loopVar).append(" < ").append(tempObj).append(".size; ++").append(loopVar).append(")\n");
             out.append(indent()).append("{\n");
             indentLevel++;
 
-            generateStandardSchemeDeserializerLogic(new FieldNode(keyType, tmpKeyVar), "", protVarName);
-            generateStandardSchemeDeserializerLogic(new FieldNode(valType, tmpValVar), "", protVarName);
+            // Read key
+            if (keyType.isBaseType()) {
+                String baseName = keyType.getName();
+                if (keyType.isBinary()) baseName = "binary";
+
+                switch (baseName) {
+                    case "bool": out.append(indent()).append(tmpKeyVar).append(" = ").append(protVarName).append(".readBool();\n"); break;
+                    case "byte": case "i8": out.append(indent()).append(tmpKeyVar).append(" = ").append(protVarName).append(".readByte();\n"); break;
+                    case "i16": out.append(indent()).append(tmpKeyVar).append(" = ").append(protVarName).append(".readI16();\n"); break;
+                    case "i32": out.append(indent()).append(tmpKeyVar).append(" = ").append(protVarName).append(".readI32();\n"); break;
+                    case "i64": out.append(indent()).append(tmpKeyVar).append(" = ").append(protVarName).append(".readI64();\n"); break;
+                    case "double": out.append(indent()).append(tmpKeyVar).append(" = ").append(protVarName).append(".readDouble();\n"); break;
+                    case "string": out.append(indent()).append(tmpKeyVar).append(" = ").append(protVarName).append(".readString();\n"); break;
+                    case "binary": out.append(indent()).append(tmpKeyVar).append(" = ").append(protVarName).append(".readBinary();\n"); break;
+                    case "uuid": out.append(indent()).append(tmpKeyVar).append(" = ").append(protVarName).append(".readUuid();\n"); break;
+                    default: throw new RuntimeException("Unhandled base type for deserialization: " + baseName);
+                }
+            } else if (keyType.isEnum()) {
+                out.append(indent()).append(tmpKeyVar).append(" = ").append(getTypeName(keyType)).append(".findByValue(").append(protVarName).append(".readI32());\n");
+            } else if (keyType.isStruct() || keyType.isException()) {
+                out.append(indent()).append(tmpKeyVar).append(" = new ").append(getTypeName(keyType)).append("();\n");
+                out.append(indent()).append(tmpKeyVar).append(".read(").append(protVarName).append(");\n");
+            } else if (keyType.isContainer()) {
+                deserializeContainer(keyType, tmpKeyVar, "", protVarName);
+            } else {
+                throw new RuntimeException("Unhandled type for deserialization: " + keyType.getName());
+            }
+
+            // Read value
+            if (valType.isBaseType()) {
+                String baseName = valType.getName();
+                if (valType.isBinary()) baseName = "binary";
+
+                switch (baseName) {
+                    case "bool": out.append(indent()).append(tmpValVar).append(" = ").append(protVarName).append(".readBool();\n"); break;
+                    case "byte": case "i8": out.append(indent()).append(tmpValVar).append(" = ").append(protVarName).append(".readByte();\n"); break;
+                    case "i16": out.append(indent()).append(tmpValVar).append(" = ").append(protVarName).append(".readI16();\n"); break;
+                    case "i32": out.append(indent()).append(tmpValVar).append(" = ").append(protVarName).append(".readI32();\n"); break;
+                    case "i64": out.append(indent()).append(tmpValVar).append(" = ").append(protVarName).append(".readI64();\n"); break;
+                    case "double": out.append(indent()).append(tmpValVar).append(" = ").append(protVarName).append(".readDouble();\n"); break;
+                    case "string": out.append(indent()).append(tmpValVar).append(" = ").append(protVarName).append(".readString();\n"); break;
+                    case "binary": out.append(indent()).append(tmpValVar).append(" = ").append(protVarName).append(".readBinary();\n"); break;
+                    case "uuid": out.append(indent()).append(tmpValVar).append(" = ").append(protVarName).append(".readUuid();\n"); break;
+                    default: throw new RuntimeException("Unhandled base type for deserialization: " + baseName);
+                }
+            } else if (valType.isEnum()) {
+                out.append(indent()).append(tmpValVar).append(" = ").append(getTypeName(valType)).append(".findByValue(").append(protVarName).append(".readI32());\n");
+            } else if (valType.isStruct() || valType.isException()) {
+                out.append(indent()).append(tmpValVar).append(" = new ").append(getTypeName(valType)).append("();\n");
+                out.append(indent()).append(tmpValVar).append(".read(").append(protVarName).append(");\n");
+            } else if (valType.isContainer()) {
+                deserializeContainer(valType, tmpValVar, "", protVarName);
+            } else {
+                throw new RuntimeException("Unhandled type for deserialization: " + valType.getName());
+            }
 
             boolean isKeyEnum = getTrueType(keyType).isEnum();
             if (isKeyEnum) {
@@ -2098,15 +2204,23 @@ public class StructLikeGenerator {
                         .append(getTypeName(elemType, true, false, true, true)).append(");\n");
             } else {
                 out.append(indent()).append(structVarName).append(".").append(fieldJavaName)
-                        .append(" = new ").append(initTypeName).append("(").append(tempObj).append(".size);\n");
+                        .append(" = new ").append(initTypeName).append("(2*").append(tempObj).append(".size);\n");
             }
 
             // Deserialize set elements
             String tmpElemVar = getNextTempVarName("_elem");
-            out.append(indent()).append(getTypeName(elemType, true, false, false, true))
+            TypeNode trueElemType = getTrueType(elemType);
+            boolean isPrimitive = trueElemType.isBaseType() && !trueElemType.isBinary() && !trueElemType.getName().equals("string") && !trueElemType.getName().equals("uuid");
+            StringBuilder elemDecl = new StringBuilder(indent());
+            if (typeCanBeNull(trueElemType)) {
+                elemDecl.append("@org.apache.thrift.annotation.Nullable ");
+            }
+            elemDecl.append(getTypeName(elemType, !isPrimitive, false, false, true))
                     .append(" ").append(tmpElemVar).append(";\n");
+            out.append(elemDecl);
 
-            out.append(indent()).append("for (int _i = 0; _i < ").append(tempObj).append(".size; ++_i)\n");
+            String loopVar = getNextTempVarName("_i");
+            out.append(indent()).append("for (int ").append(loopVar).append(" = 0; ").append(loopVar).append(" < ").append(tempObj).append(".size; ++").append(loopVar).append(")\n");
             out.append(indent()).append("{\n");
             indentLevel++;
 
@@ -2136,10 +2250,13 @@ public class StructLikeGenerator {
 
             // Deserialize list elements
             String tmpElemVar = getNextTempVarName("_elem");
-            out.append(indent()).append(getTypeName(elemType, true, false, false, true))
+            TypeNode trueElemType = getTrueType(elemType);
+            boolean isPrimitive = trueElemType.isBaseType() && !trueElemType.isBinary() && !trueElemType.getName().equals("string") && !trueElemType.getName().equals("uuid");
+            out.append(indent()).append(getTypeName(elemType, !isPrimitive, false, false, true))
                     .append(" ").append(tmpElemVar).append(";\n");
 
-            out.append(indent()).append("for (int _i = 0; _i < ").append(tempObj).append(".size; ++_i)\n");
+            String loopVar = getNextTempVarName("_i");
+            out.append(indent()).append("for (int ").append(loopVar).append(" = 0; ").append(loopVar).append(" < ").append(tempObj).append(".size; ++").append(loopVar).append(")\n");
             out.append(indent()).append("{\n");
             indentLevel++;
 
@@ -2177,12 +2294,445 @@ public class StructLikeGenerator {
         scope_down();
     }
 
+    private void deserializeTupleContainer(TypeNode containerType, String fieldJavaName, String structVarName, String protVarName) {
+        scope_up();
+
+        String tempObj = "";
+        if (containerType.isMap()) {
+            tempObj = getNextTempVarName("_map");
+        } else if (containerType.isSet()) {
+            tempObj = getNextTempVarName("_set");
+        } else if (containerType.isList()) {
+            tempObj = getNextTempVarName("_list");
+        }
+
+        // Declare variables, read header
+        if (containerType.isMap()) {
+            TypeNode keyType = getTrueType(containerType.getChildNodes().get(0));
+            TypeNode valType = getTrueType(containerType.getChildNodes().get(1));
+            out.append(indent()).append("org.apache.thrift.protocol.TMap ").append(tempObj).append(" = ")
+                    .append(protVarName).append(".readMapBegin(").append(typeToEnum(keyType)).append(", ").append(typeToEnum(valType)).append("); \n");
+        } else if (containerType.isSet()) {
+            TypeNode elemType = getTrueType(containerType.getChildNodes().get(0));
+            out.append(indent()).append("org.apache.thrift.protocol.TSet ").append(tempObj).append(" = ")
+                    .append(protVarName).append(".readSetBegin(").append(typeToEnum(elemType)).append(");\n");
+        } else if (containerType.isList()) {
+            TypeNode elemType = getTrueType(containerType.getChildNodes().get(0));
+            out.append(indent()).append("org.apache.thrift.protocol.TList ").append(tempObj).append(" = ")
+                    .append(protVarName).append(".readListBegin(").append(typeToEnum(elemType)).append(");\n");
+        }
+
+        // Initialize the collection
+        String initTypeName = getTypeName(containerType, false, true, false, false);
+        if (containerType.isMap()) {
+            if (initTypeName.startsWith("java.util.EnumMap")) {
+                TypeNode keyType = getTrueType(containerType.getChildNodes().get(0));
+                out.append(indent()).append(structVarName).append(".").append(fieldJavaName)
+                        .append(" = new ").append(initTypeName).append("(")
+                        .append(getTypeName(keyType, true, false, true, true)).append(");\n");
+            } else {
+                out.append(indent()).append(structVarName).append(".").append(fieldJavaName)
+                        .append(" = new ").append(initTypeName).append("(2*").append(tempObj).append(".size);\n");
+            }
+
+            // Deserialize map elements
+            String tmpKeyVar = getNextTempVarName("_key");
+            String tmpValVar = getNextTempVarName("_val");
+            TypeNode keyType = getTrueType(containerType.getChildNodes().get(0));
+            TypeNode valType = getTrueType(containerType.getChildNodes().get(1));
+
+            StringBuilder keyDecl = new StringBuilder(indent());
+            if (typeCanBeNull(keyType)) {
+                keyDecl.append(javaNullableAnnotation()).append(" ");
+            }
+            keyDecl.append(getTypeName(keyType, true, false, false, true))
+                    .append(" ").append(tmpKeyVar).append(";\n");
+            out.append(keyDecl);
+            out.append(indent()).append(getTypeName(valType, false, false, false, true))
+                    .append(" ").append(tmpValVar).append(";\n");
+
+            String loopVar = getNextTempVarName("_i");
+            out.append(indent()).append("for (int ").append(loopVar).append(" = 0; ").append(loopVar).append(" < ").append(tempObj).append(".size; ++").append(loopVar).append(")\n");
+            out.append(indent()).append("{\n");
+            indentLevel++;
+
+            // Read key
+            if (keyType.isBaseType()) {
+                String baseName = keyType.getName();
+                if (keyType.isBinary()) baseName = "binary";
+
+                switch (baseName) {
+                    case "bool": out.append(indent()).append(tmpKeyVar).append(" = ").append(protVarName).append(".readBool();\n"); break;
+                    case "byte": case "i8": out.append(indent()).append(tmpKeyVar).append(" = ").append(protVarName).append(".readByte();\n"); break;
+                    case "i16": out.append(indent()).append(tmpKeyVar).append(" = ").append(protVarName).append(".readI16();\n"); break;
+                    case "i32": out.append(indent()).append(tmpKeyVar).append(" = ").append(protVarName).append(".readI32();\n"); break;
+                    case "i64": out.append(indent()).append(tmpKeyVar).append(" = ").append(protVarName).append(".readI64();\n"); break;
+                    case "double": out.append(indent()).append(tmpKeyVar).append(" = ").append(protVarName).append(".readDouble();\n"); break;
+                    case "string": out.append(indent()).append(tmpKeyVar).append(" = ").append(protVarName).append(".readString();\n"); break;
+                    case "binary": out.append(indent()).append(tmpKeyVar).append(" = ").append(protVarName).append(".readBinary();\n"); break;
+                    case "uuid": out.append(indent()).append(tmpKeyVar).append(" = ").append(protVarName).append(".readUuid();\n"); break;
+                    default: throw new RuntimeException("Unhandled base type for deserialization: " + baseName);
+                }
+            } else if (keyType.isEnum()) {
+                out.append(indent()).append(tmpKeyVar).append(" = ").append(getTypeName(keyType)).append(".findByValue(").append(protVarName).append(".readI32());\n");
+            } else if (keyType.isStruct() || keyType.isException()) {
+                out.append(indent()).append(tmpKeyVar).append(" = new ").append(getTypeName(keyType)).append("();\n");
+                out.append(indent()).append(tmpKeyVar).append(".read(").append(protVarName).append(");\n");
+            } else if (keyType.isContainer()) {
+                deserializeTupleContainer(keyType, tmpKeyVar, "", protVarName);
+            } else {
+                throw new RuntimeException("Unhandled type for deserialization: " + keyType.getName());
+            }
+
+            // Read value
+            if (valType.isBaseType()) {
+                String baseName = valType.getName();
+                if (valType.isBinary()) baseName = "binary";
+
+                switch (baseName) {
+                    case "bool": out.append(indent()).append(tmpValVar).append(" = ").append(protVarName).append(".readBool();\n"); break;
+                    case "byte": case "i8": out.append(indent()).append(tmpValVar).append(" = ").append(protVarName).append(".readByte();\n"); break;
+                    case "i16": out.append(indent()).append(tmpValVar).append(" = ").append(protVarName).append(".readI16();\n"); break;
+                    case "i32": out.append(indent()).append(tmpValVar).append(" = ").append(protVarName).append(".readI32();\n"); break;
+                    case "i64": out.append(indent()).append(tmpValVar).append(" = ").append(protVarName).append(".readI64();\n"); break;
+                    case "double": out.append(indent()).append(tmpValVar).append(" = ").append(protVarName).append(".readDouble();\n"); break;
+                    case "string": out.append(indent()).append(tmpValVar).append(" = ").append(protVarName).append(".readString();\n"); break;
+                    case "binary": out.append(indent()).append(tmpValVar).append(" = ").append(protVarName).append(".readBinary();\n"); break;
+                    case "uuid": out.append(indent()).append(tmpValVar).append(" = ").append(protVarName).append(".readUuid();\n"); break;
+                    default: throw new RuntimeException("Unhandled base type for deserialization: " + baseName);
+                }
+            } else if (valType.isEnum()) {
+                out.append(indent()).append(tmpValVar).append(" = ").append(getTypeName(valType)).append(".findByValue(").append(protVarName).append(".readI32());\n");
+            } else if (valType.isStruct() || valType.isException()) {
+                out.append(indent()).append(tmpValVar).append(" = new ").append(getTypeName(valType)).append("();\n");
+                out.append(indent()).append(tmpValVar).append(".read(").append(protVarName).append(");\n");
+            } else if (valType.isContainer()) {
+                deserializeTupleContainer(valType, tmpValVar, "", protVarName);
+            } else {
+                throw new RuntimeException("Unhandled type for deserialization: " + valType.getName());
+            }
+
+            boolean isKeyEnum = getTrueType(keyType).isEnum();
+            if (isKeyEnum) {
+                out.append(indent()).append("if (").append(tmpKeyVar).append(" != null) {\n");
+                indentLevel++;
+            }
+
+            out.append(indent()).append(structVarName).append(".").append(fieldJavaName)
+                    .append(".put(").append(tmpKeyVar).append(", ").append(tmpValVar).append(");\n");
+
+            if (isKeyEnum) {
+                indentLevel--;
+                out.append(indent()).append("}\n");
+            }
+
+            indentLevel--;
+            out.append(indent()).append("}\n");
+
+        } else if (containerType.isSet()) {
+            TypeNode elemType = getTrueType(containerType.getChildNodes().get(0));
+            if (initTypeName.startsWith("java.util.EnumSet")) {
+                out.append(indent()).append(structVarName).append(".").append(fieldJavaName)
+                        .append(" = ").append(initTypeName).append(".noneOf(")
+                        .append(getTypeName(elemType, true, false, true, true)).append(");\n");
+            } else {
+                out.append(indent()).append(structVarName).append(".").append(fieldJavaName)
+                        .append(" = new ").append(initTypeName).append("(2*").append(tempObj).append(".size);\n");
+            }
+
+            // Deserialize set elements
+            String tmpElemVar = getNextTempVarName("_elem");
+            StringBuilder elemDecl = new StringBuilder(indent());
+            if (typeCanBeNull(elemType)) {
+                elemDecl.append(javaNullableAnnotation()).append(" ");
+            }
+            elemDecl.append(getTypeName(elemType, true, false, false, true))
+                    .append(" ").append(tmpElemVar).append(";\n");
+            out.append(elemDecl);
+
+            String loopVar = getNextTempVarName("_i");
+            out.append(indent()).append("for (int ").append(loopVar).append(" = 0; ").append(loopVar).append(" < ").append(tempObj).append(".size; ++").append(loopVar).append(")\n");
+            out.append(indent()).append("{\n");
+            indentLevel++;
+
+            if (elemType.isBaseType()) {
+                String baseName = elemType.getName();
+                if (elemType.isBinary()) baseName = "binary";
+
+                switch (baseName) {
+                    case "bool": out.append(indent()).append(tmpElemVar).append(" = ").append(protVarName).append(".readBool();\n"); break;
+                    case "byte": case "i8": out.append(indent()).append(tmpElemVar).append(" = ").append(protVarName).append(".readByte();\n"); break;
+                    case "i16": out.append(indent()).append(tmpElemVar).append(" = ").append(protVarName).append(".readI16();\n"); break;
+                    case "i32": out.append(indent()).append(tmpElemVar).append(" = ").append(protVarName).append(".readI32();\n"); break;
+                    case "i64": out.append(indent()).append(tmpElemVar).append(" = ").append(protVarName).append(".readI64();\n"); break;
+                    case "double": out.append(indent()).append(tmpElemVar).append(" = ").append(protVarName).append(".readDouble();\n"); break;
+                    case "string": out.append(indent()).append(tmpElemVar).append(" = ").append(protVarName).append(".readString();\n"); break;
+                    case "binary": out.append(indent()).append(tmpElemVar).append(" = ").append(protVarName).append(".readBinary();\n"); break;
+                    case "uuid": out.append(indent()).append(tmpElemVar).append(" = ").append(protVarName).append(".readUuid();\n"); break;
+                    default: throw new RuntimeException("Unhandled base type for deserialization: " + baseName);
+                }
+            } else if (elemType.isEnum()) {
+                out.append(indent()).append(tmpElemVar).append(" = ").append(getTypeName(elemType)).append(".findByValue(").append(protVarName).append(".readI32());\n");
+            } else if (elemType.isStruct() || elemType.isException()) {
+                out.append(indent()).append(tmpElemVar).append(" = new ").append(getTypeName(elemType)).append("();\n");
+                out.append(indent()).append(tmpElemVar).append(".read(").append(protVarName).append(");\n");
+            } else if (elemType.isContainer()) {
+                deserializeTupleContainer(elemType, tmpElemVar, "", protVarName);
+            } else {
+                throw new RuntimeException("Unhandled type for deserialization: " + elemType.getName());
+            }
+
+            boolean isElemEnum = getTrueType(elemType).isEnum();
+            if (isElemEnum) {
+                out.append(indent()).append("if (").append(tmpElemVar).append(" != null) {\n");
+                indentLevel++;
+            }
+
+            out.append(indent()).append(structVarName).append(".").append(fieldJavaName)
+                    .append(".add(").append(tmpElemVar).append(");\n");
+
+            if (isElemEnum) {
+                indentLevel--;
+                out.append(indent()).append("}\n");
+            }
+
+            indentLevel--;
+            out.append(indent()).append("}\n");
+
+        } else if (containerType.isList()) {
+            TypeNode elemType = getTrueType(containerType.getChildNodes().get(0));
+            out.append(indent()).append(structVarName).append(".").append(fieldJavaName)
+                    .append(" = new ").append(initTypeName).append("(").append(tempObj).append(".size);\n");
+
+            // Deserialize list elements
+            String tmpElemVar = getNextTempVarName("_elem");
+            // Use primitive types for element variables when the element type is a primitive type
+            boolean usePrimitive = elemType.isBaseType();
+            out.append(indent()).append(getTypeName(elemType, !usePrimitive, false, false, true))
+                    .append(" ").append(tmpElemVar).append(";\n");
+
+            String loopVar = getNextTempVarName("_i");
+            out.append(indent()).append("for (int ").append(loopVar).append(" = 0; ").append(loopVar).append(" < ").append(tempObj).append(".size; ++").append(loopVar).append(")\n");
+            out.append(indent()).append("{\n");
+            indentLevel++;
+
+            if (elemType.isBaseType()) {
+                String baseName = elemType.getName();
+                if (elemType.isBinary()) baseName = "binary";
+
+                switch (baseName) {
+                    case "bool": out.append(indent()).append(tmpElemVar).append(" = ").append(protVarName).append(".readBool();\n"); break;
+                    case "byte": case "i8": out.append(indent()).append(tmpElemVar).append(" = ").append(protVarName).append(".readByte();\n"); break;
+                    case "i16": out.append(indent()).append(tmpElemVar).append(" = ").append(protVarName).append(".readI16();\n"); break;
+                    case "i32": out.append(indent()).append(tmpElemVar).append(" = ").append(protVarName).append(".readI32();\n"); break;
+                    case "i64": out.append(indent()).append(tmpElemVar).append(" = ").append(protVarName).append(".readI64();\n"); break;
+                    case "double": out.append(indent()).append(tmpElemVar).append(" = ").append(protVarName).append(".readDouble();\n"); break;
+                    case "string": out.append(indent()).append(tmpElemVar).append(" = ").append(protVarName).append(".readString();\n"); break;
+                    case "binary": out.append(indent()).append(tmpElemVar).append(" = ").append(protVarName).append(".readBinary();\n"); break;
+                    case "uuid": out.append(indent()).append(tmpElemVar).append(" = ").append(protVarName).append(".readUuid();\n"); break;
+                    default: throw new RuntimeException("Unhandled base type for deserialization: " + baseName);
+                }
+            } else if (elemType.isEnum()) {
+                out.append(indent()).append(tmpElemVar).append(" = ").append(getTypeName(elemType)).append(".findByValue(").append(protVarName).append(".readI32());\n");
+            } else if (elemType.isStruct() || elemType.isException()) {
+                out.append(indent()).append(tmpElemVar).append(" = new ").append(getTypeName(elemType)).append("();\n");
+                out.append(indent()).append(tmpElemVar).append(".read(").append(protVarName).append(");\n");
+            } else if (elemType.isContainer()) {
+                deserializeTupleContainer(elemType, tmpElemVar, "", protVarName);
+            } else {
+                throw new RuntimeException("Unhandled type for deserialization: " + elemType.getName());
+            }
+
+            boolean isElemEnum = getTrueType(elemType).isEnum();
+            if (isElemEnum) {
+                out.append(indent()).append("if (").append(tmpElemVar).append(" != null) {\n");
+                indentLevel++;
+            }
+
+            out.append(indent()).append(structVarName).append(".").append(fieldJavaName)
+                    .append(".add(").append(tmpElemVar).append(");\n");
+
+            if (isElemEnum) {
+                indentLevel--;
+                out.append(indent()).append("}\n");
+            }
+
+            indentLevel--;
+            out.append(indent()).append("}\n");
+        } else {
+            throw new RuntimeException("Unknown container type for deserialization: " + containerType.getName());
+        }
+
+        scope_down();
+    }
+
+    private void serializeTupleContainer(TypeNode containerType, String fieldJavaName, String structVarName, String protVarName) {
+        String tempIterVar = getNextTempVarName("_iter");
+        if (containerType.isList()) {
+            TypeNode elemType = getTrueType(containerType.getChildNodes().get(0));
+            out.append(indent()).append("{\n");
+            indentLevel++;
+            out.append(indent()).append(protVarName).append(".writeI32(").append(structVarName).append(".").append(fieldJavaName).append(".size());\n");
+            // Use primitive types for iterator variables when the element type is a primitive type
+            boolean usePrimitive = elemType.isBaseType();
+            out.append(indent()).append("for (").append(getTypeName(elemType, !usePrimitive, false, false, true)).append(" ").append(tempIterVar).append(" : ").append(structVarName).append(".").append(fieldJavaName).append(")\n");
+            out.append(indent()).append("{\n");
+            indentLevel++;
+
+            // Write element
+            if (elemType.isBaseType()) {
+                String baseName = elemType.getName();
+                if (elemType.isBinary()) baseName = "binary";
+
+                switch (baseName) {
+                    case "bool": out.append(indent()).append(protVarName).append(".writeBool(").append(tempIterVar).append(");\n"); break;
+                    case "byte": case "i8": out.append(indent()).append(protVarName).append(".writeByte(").append(tempIterVar).append(");\n"); break;
+                    case "i16": out.append(indent()).append(protVarName).append(".writeI16(").append(tempIterVar).append(");\n"); break;
+                    case "i32": out.append(indent()).append(protVarName).append(".writeI32(").append(tempIterVar).append(");\n"); break;
+                    case "i64": out.append(indent()).append(protVarName).append(".writeI64(").append(tempIterVar).append(");\n"); break;
+                    case "double": out.append(indent()).append(protVarName).append(".writeDouble(").append(tempIterVar).append(");\n"); break;
+                    case "string": out.append(indent()).append(protVarName).append(".writeString(").append(tempIterVar).append(");\n"); break;
+                    case "binary": out.append(indent()).append(protVarName).append(".writeBinary(").append(tempIterVar).append(");\n"); break;
+                    case "uuid": out.append(indent()).append(protVarName).append(".writeUuid(").append(tempIterVar).append(");\n"); break;
+                    default: throw new RuntimeException("Unhandled base type for serialization: " + baseName);
+                }
+            } else if (elemType.isEnum()) {
+                out.append(indent()).append(protVarName).append(".writeI32(").append(tempIterVar).append(".getValue());\n");
+            } else if (elemType.isStruct() || elemType.isException()) {
+                out.append(indent()).append(tempIterVar).append(".write(").append(protVarName).append(");\n");
+            } else if (elemType.isContainer()) {
+                serializeTupleContainer(elemType, tempIterVar, "", protVarName);
+            } else {
+                throw new RuntimeException("Unhandled type for serialization: " + elemType.getName());
+            }
+
+            indentLevel--;
+            out.append(indent()).append("}\n");
+            indentLevel--;
+            out.append(indent()).append("}\n");
+        } else if (containerType.isSet()) {
+            TypeNode elemType = getTrueType(containerType.getChildNodes().get(0));
+            out.append(indent()).append("{\n");
+            indentLevel++;
+            out.append(indent()).append(protVarName).append(".writeI32(").append(structVarName).append(".").append(fieldJavaName).append(".size());\n");
+            // Use primitive types for iterator variables when the element type is a primitive type
+            boolean usePrimitive = elemType.isBaseType();
+            out.append(indent()).append("for (").append(getTypeName(elemType, !usePrimitive, false, false, true)).append(" ").append(tempIterVar).append(" : ").append(structVarName).append(".").append(fieldJavaName).append(")\n");
+            out.append(indent()).append("{\n");
+            indentLevel++;
+
+            // Write element
+            if (elemType.isBaseType()) {
+                String baseName = elemType.getName();
+                if (elemType.isBinary()) baseName = "binary";
+
+                switch (baseName) {
+                    case "bool": out.append(indent()).append(protVarName).append(".writeBool(").append(tempIterVar).append(");\n"); break;
+                    case "byte": case "i8": out.append(indent()).append(protVarName).append(".writeByte(").append(tempIterVar).append(");\n"); break;
+                    case "i16": out.append(indent()).append(protVarName).append(".writeI16(").append(tempIterVar).append(");\n"); break;
+                    case "i32": out.append(indent()).append(protVarName).append(".writeI32(").append(tempIterVar).append(");\n"); break;
+                    case "i64": out.append(indent()).append(protVarName).append(".writeI64(").append(tempIterVar).append(");\n"); break;
+                    case "double": out.append(indent()).append(protVarName).append(".writeDouble(").append(tempIterVar).append(");\n"); break;
+                    case "string": out.append(indent()).append(protVarName).append(".writeString(").append(tempIterVar).append(");\n"); break;
+                    case "binary": out.append(indent()).append(protVarName).append(".writeBinary(").append(tempIterVar).append(");\n"); break;
+                    case "uuid": out.append(indent()).append(protVarName).append(".writeUuid(").append(tempIterVar).append(");\n"); break;
+                    default: throw new RuntimeException("Unhandled base type for serialization: " + baseName);
+                }
+            } else if (elemType.isEnum()) {
+                out.append(indent()).append(protVarName).append(".writeI32(").append(tempIterVar).append(".getValue());\n");
+            } else if (elemType.isStruct() || elemType.isException()) {
+                out.append(indent()).append(tempIterVar).append(".write(").append(protVarName).append(");\n");
+            } else if (elemType.isContainer()) {
+                serializeTupleContainer(elemType, tempIterVar, "", protVarName);
+            } else {
+                throw new RuntimeException("Unhandled type for serialization: " + elemType.getName());
+            }
+
+            indentLevel--;
+            out.append(indent()).append("}\n");
+            indentLevel--;
+            out.append(indent()).append("}\n");
+        } else if (containerType.isMap()) {
+            TypeNode keyType = getTrueType(containerType.getChildNodes().get(0));
+            TypeNode valType = getTrueType(containerType.getChildNodes().get(1));
+            out.append(indent()).append("{\n");
+            indentLevel++;
+            out.append(indent()).append(protVarName).append(".writeI32(").append(structVarName).append(".").append(fieldJavaName).append(".size());\n");
+            out.append(indent()).append("for (java.util.Map.Entry<").append(getTypeName(keyType, true, false, false, true)).append(", ").append(getTypeName(valType, true, false, false, true)).append("> ").append(tempIterVar).append(" : ").append(structVarName).append(".").append(fieldJavaName).append(".entrySet())\n");
+            out.append(indent()).append("{\n");
+            indentLevel++;
+
+            // Write key
+            if (keyType.isBaseType()) {
+                String baseName = keyType.getName();
+                if (keyType.isBinary()) baseName = "binary";
+
+                switch (baseName) {
+                    case "bool": out.append(indent()).append(protVarName).append(".writeBool(").append(tempIterVar).append(".getKey());\n"); break;
+                    case "byte": case "i8": out.append(indent()).append(protVarName).append(".writeByte(").append(tempIterVar).append(".getKey());\n"); break;
+                    case "i16": out.append(indent()).append(protVarName).append(".writeI16(").append(tempIterVar).append(".getKey());\n"); break;
+                    case "i32": out.append(indent()).append(protVarName).append(".writeI32(").append(tempIterVar).append(".getKey());\n"); break;
+                    case "i64": out.append(indent()).append(protVarName).append(".writeI64(").append(tempIterVar).append(".getKey());\n"); break;
+                    case "double": out.append(indent()).append(protVarName).append(".writeDouble(").append(tempIterVar).append(".getKey());\n"); break;
+                    case "string": out.append(indent()).append(protVarName).append(".writeString(").append(tempIterVar).append(".getKey());\n"); break;
+                    case "binary": out.append(indent()).append(protVarName).append(".writeBinary(").append(tempIterVar).append(".getKey());\n"); break;
+                    case "uuid": out.append(indent()).append(protVarName).append(".writeUuid(").append(tempIterVar).append(".getKey());\n"); break;
+                    default: throw new RuntimeException("Unhandled base type for serialization: " + baseName);
+                }
+            } else if (keyType.isEnum()) {
+                out.append(indent()).append(protVarName).append(".writeI32(").append(tempIterVar).append(".getKey().getValue());\n");
+            } else if (keyType.isStruct() || keyType.isException()) {
+                out.append(indent()).append(tempIterVar).append(".getKey().write(").append(protVarName).append(");\n");
+            } else if (keyType.isContainer()) {
+                serializeTupleContainer(keyType, tempIterVar + ".getKey()", "", protVarName);
+            } else {
+                throw new RuntimeException("Unhandled type for serialization: " + keyType.getName());
+            }
+
+            // Write value
+            if (valType.isBaseType()) {
+                String baseName = valType.getName();
+                if (valType.isBinary()) baseName = "binary";
+
+                switch (baseName) {
+                    case "bool": out.append(indent()).append(protVarName).append(".writeBool(").append(tempIterVar).append(".getValue());\n"); break;
+                    case "byte": case "i8": out.append(indent()).append(protVarName).append(".writeByte(").append(tempIterVar).append(".getValue());\n"); break;
+                    case "i16": out.append(indent()).append(protVarName).append(".writeI16(").append(tempIterVar).append(".getValue());\n"); break;
+                    case "i32": out.append(indent()).append(protVarName).append(".writeI32(").append(tempIterVar).append(".getValue());\n"); break;
+                    case "i64": out.append(indent()).append(protVarName).append(".writeI64(").append(tempIterVar).append(".getValue());\n"); break;
+                    case "double": out.append(indent()).append(protVarName).append(".writeDouble(").append(tempIterVar).append(".getValue());\n"); break;
+                    case "string": out.append(indent()).append(protVarName).append(".writeString(").append(tempIterVar).append(".getValue());\n"); break;
+                    case "binary": out.append(indent()).append(protVarName).append(".writeBinary(").append(tempIterVar).append(".getValue());\n"); break;
+                    case "uuid": out.append(indent()).append(protVarName).append(".writeUuid(").append(tempIterVar).append(".getValue());\n"); break;
+                    default: throw new RuntimeException("Unhandled base type for serialization: " + baseName);
+                }
+            } else if (valType.isEnum()) {
+                out.append(indent()).append(protVarName).append(".writeI32(").append(tempIterVar).append(".getValue().getValue());\n");
+            } else if (valType.isStruct() || valType.isException()) {
+                out.append(indent()).append(tempIterVar).append(".getValue().write(").append(protVarName).append(");\n");
+            } else if (valType.isContainer()) {
+                serializeTupleContainer(valType, tempIterVar + ".getValue()", "", protVarName);
+            } else {
+                throw new RuntimeException("Unhandled type for serialization: " + valType.getName());
+            }
+
+            indentLevel--;
+            out.append(indent()).append("}\n");
+            indentLevel--;
+            out.append(indent()).append("}\n");
+        } else {
+            throw new RuntimeException("Unknown container type for serialization: " + containerType.getName());
+        }
+    }
+
     private void serializeContainer(TypeNode containerType, String fieldJavaName, String structVarName, String protVarName) {
         String tempIterVar = getNextTempVarName("_iter");
         if (containerType.isList()) {
             TypeNode elemType = getTrueType(containerType.getChildNodes().get(0));
             out.append(indent()).append(protVarName).append(".writeListBegin(new org.apache.thrift.protocol.TList(").append(typeToEnum(elemType)).append(", ").append(structVarName).append(".").append(fieldJavaName).append(".size()));\n");
-            out.append(indent()).append("for (").append(getTypeName(elemType, true, false, false, true)).append(" ").append(tempIterVar).append(" : ").append(structVarName).append(".").append(fieldJavaName).append(")\n");
+            // Use primitive types for iterator variables when the element type is a primitive type
+            boolean usePrimitive = elemType.isBaseType();
+            out.append(indent()).append("for (").append(getTypeName(elemType, !usePrimitive, false, false, true)).append(" ").append(tempIterVar).append(" : ").append(structVarName).append(".").append(fieldJavaName).append(")\n");
             out.append(indent()).append("{\n");
             indentLevel++;
             generateStandardSchemeSerializerLogic(new FieldNode(elemType, tempIterVar), "", protVarName);
@@ -2206,8 +2756,59 @@ public class StructLikeGenerator {
             out.append(indent()).append("for (java.util.Map.Entry<").append(getTypeName(keyType, true, false, false, true)).append(", ").append(getTypeName(valType, true, false, false, true)).append("> ").append(tempIterVar).append(" : ").append(structVarName).append(".").append(fieldJavaName).append(".entrySet())\n");
             out.append(indent()).append("{\n");
             indentLevel++;
-            generateStandardSchemeSerializerLogic(new FieldNode(keyType, tempIterVar + ".getKey()"), "", protVarName);
-            generateStandardSchemeSerializerLogic(new FieldNode(valType, tempIterVar + ".getValue()"), "", protVarName);
+            // Write key
+            if (keyType.isBaseType()) {
+                String baseName = keyType.getName();
+                if (keyType.isBinary()) baseName = "binary";
+
+                switch (baseName) {
+                    case "bool": out.append(indent()).append(protVarName).append(".writeBool(").append(tempIterVar).append(".getKey());\n"); break;
+                    case "byte": case "i8": out.append(indent()).append(protVarName).append(".writeByte(").append(tempIterVar).append(".getKey());\n"); break;
+                    case "i16": out.append(indent()).append(protVarName).append(".writeI16(").append(tempIterVar).append(".getKey());\n"); break;
+                    case "i32": out.append(indent()).append(protVarName).append(".writeI32(").append(tempIterVar).append(".getKey());\n"); break;
+                    case "i64": out.append(indent()).append(protVarName).append(".writeI64(").append(tempIterVar).append(".getKey());\n"); break;
+                    case "double": out.append(indent()).append(protVarName).append(".writeDouble(").append(tempIterVar).append(".getKey());\n"); break;
+                    case "string": out.append(indent()).append(protVarName).append(".writeString(").append(tempIterVar).append(".getKey());\n"); break;
+                    case "binary": out.append(indent()).append(protVarName).append(".writeBinary(").append(tempIterVar).append(".getKey());\n"); break;
+                    case "uuid": out.append(indent()).append(protVarName).append(".writeUuid(").append(tempIterVar).append(".getKey());\n"); break;
+                    default: throw new RuntimeException("Unhandled base type for serialization: " + baseName);
+                }
+            } else if (keyType.isEnum()) {
+                out.append(indent()).append(protVarName).append(".writeI32(").append(tempIterVar).append(".getKey().getValue());\n");
+            } else if (keyType.isStruct() || keyType.isException()) {
+                out.append(indent()).append(tempIterVar).append(".getKey().write(").append(protVarName).append(");\n");
+            } else if (keyType.isContainer()) {
+                serializeContainer(keyType, tempIterVar + ".getKey()", "", protVarName);
+            } else {
+                throw new RuntimeException("Unhandled type for serialization: " + keyType.getName());
+            }
+
+            // Write value
+            if (valType.isBaseType()) {
+                String baseName = valType.getName();
+                if (valType.isBinary()) baseName = "binary";
+
+                switch (baseName) {
+                    case "bool": out.append(indent()).append(protVarName).append(".writeBool(").append(tempIterVar).append(".getValue());\n"); break;
+                    case "byte": case "i8": out.append(indent()).append(protVarName).append(".writeByte(").append(tempIterVar).append(".getValue());\n"); break;
+                    case "i16": out.append(indent()).append(protVarName).append(".writeI16(").append(tempIterVar).append(".getValue());\n"); break;
+                    case "i32": out.append(indent()).append(protVarName).append(".writeI32(").append(tempIterVar).append(".getValue());\n"); break;
+                    case "i64": out.append(indent()).append(protVarName).append(".writeI64(").append(tempIterVar).append(".getValue());\n"); break;
+                    case "double": out.append(indent()).append(protVarName).append(".writeDouble(").append(tempIterVar).append(".getValue());\n"); break;
+                    case "string": out.append(indent()).append(protVarName).append(".writeString(").append(tempIterVar).append(".getValue());\n"); break;
+                    case "binary": out.append(indent()).append(protVarName).append(".writeBinary(").append(tempIterVar).append(".getValue());\n"); break;
+                    case "uuid": out.append(indent()).append(protVarName).append(".writeUuid(").append(tempIterVar).append(".getValue());\n"); break;
+                    default: throw new RuntimeException("Unhandled base type for serialization: " + baseName);
+                }
+            } else if (valType.isEnum()) {
+                out.append(indent()).append(protVarName).append(".writeI32(").append(tempIterVar).append(".getValue().getValue());\n");
+            } else if (valType.isStruct() || valType.isException()) {
+                out.append(indent()).append(tempIterVar).append(".getValue().write(").append(protVarName).append(");\n");
+            } else if (valType.isContainer()) {
+                serializeContainer(valType, tempIterVar + ".getValue()", "", protVarName);
+            } else {
+                throw new RuntimeException("Unhandled type for serialization: " + valType.getName());
+            }
             indentLevel--;
             out.append(indent()).append("}\n");
             out.append(indent()).append(protVarName).append(".writeMapEnd();\n");
@@ -2287,9 +2888,17 @@ public class StructLikeGenerator {
         return constantName.toString();
     }
 
+    private String issetConstantName(String name) {
+        StringBuilder constantName = new StringBuilder();
+        for (char c : name.toCharArray()) {
+            constantName.append(Character.toUpperCase(c));
+        }
+        return constantName.toString();
+    }
+
     private String issetFieldId(FieldNode field) {
         String originalFieldName = field.getName();
-        return "__" + constantName(originalFieldName).toUpperCase() + "_ISSET_ID";
+        return "__" + issetConstantName(originalFieldName) + "_ISSET_ID";
     }
 
     private boolean fieldNeedsIssetHandling(FieldNode field) {
@@ -2371,8 +2980,7 @@ public class StructLikeGenerator {
                 case "void": return "org.apache.thrift.protocol.TType.VOID";
                 case "string": return "org.apache.thrift.protocol.TType.STRING";
                 case "bool": return "org.apache.thrift.protocol.TType.BOOL";
-                case "byte":
-                case "i8": return "org.apache.thrift.protocol.TType.BYTE";
+                case "byte": return "org.apache.thrift.protocol.TType.BYTE";
                 case "i16": return "org.apache.thrift.protocol.TType.I16";
                 case "i32": return "org.apache.thrift.protocol.TType.I32";
                 case "i64": return "org.apache.thrift.protocol.TType.I64";
@@ -2467,7 +3075,6 @@ public class StructLikeGenerator {
         if (typeCanBeNull(type)) {
             result.append(javaNullableAnnotation()).append(" ");
         }
-
         result.append(getTypeName(type, false, init, false, false))
                 .append(" ")
                 .append(originalFieldName);
@@ -2508,8 +3115,7 @@ public class StructLikeGenerator {
         if (comment) {
             result.append(" // ");
             if (field.getRequirement() == FieldNode.Requirement.OPTIONAL) result.append("optional");
-            else if (field.getRequirement() == FieldNode.Requirement.REQUIRED) result.append("required");
-            else result.append("default");
+            else result.append("required");
         }
         return result.toString();
     }

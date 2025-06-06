@@ -30,4 +30,16 @@ public class DocumentNode extends Node {
     public void addDefinition(DefinitionNode definition) {
         this.definitions.add(definition);
     }
+
+    public String getPackageName() {
+        for (HeaderNode header : headerNodes) {
+            if (header instanceof NamespaceNode) {
+                NamespaceNode namespace = (NamespaceNode) header;
+                if (namespace.getScope().equals("java")) {
+                    return namespace.getName();
+                }
+            }
+        }
+        return null;
+    }
 }

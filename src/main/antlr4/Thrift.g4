@@ -203,6 +203,7 @@ TYPE_BOOL
 
 TYPE_BYTE
     : 'byte'
+    | 'i8'
     ;
 
 TYPE_I16
