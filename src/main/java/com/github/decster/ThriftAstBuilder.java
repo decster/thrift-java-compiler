@@ -6,6 +6,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.antlr.v4.runtime.Token;
 
@@ -60,6 +62,36 @@ public class ThriftAstBuilder {
    * Visitor implementation that builds an AST from a Thrift parse tree.
    */
   private static class AstVisitor extends ThriftBaseVisitor<Node> {
+
+    /**
+     * Helper method to process type annotations and add them to a node.
+     * 
+     * @param ctx The type_annotations context
+     * @return A list of TypeAnnotationNode objects
+     */
+    private List<TypeAnnotationNode> processTypeAnnotations(ThriftParser.Type_annotationsContext ctx) {
+      List<TypeAnnotationNode> annotations = new ArrayList<>();
+      if (ctx != null && ctx.type_annotation() != null) {
+        for (ThriftParser.Type_annotationContext annotationCtx : ctx.type_annotation()) {
+          String name = annotationCtx.IDENTIFIER().getText();
+          Object value = null;
+
+          if (annotationCtx.annotation_value() != null) {
+            if (annotationCtx.annotation_value().integer() != null) {
+              value = Integer.parseInt(annotationCtx.annotation_value().integer().getText());
+            } else if (annotationCtx.annotation_value().LITERAL() != null) {
+              value = unquoteString(annotationCtx.annotation_value().LITERAL().getText());
+            }
+          }
+
+          TypeAnnotationNode annotation = new TypeAnnotationNode(name, value);
+          setNodeLocation(annotation, annotationCtx.start);
+          annotations.add(annotation);
+        }
+      }
+      return annotations;
+    }
+
 
     @Override
     public DocumentNode visitDocument(ThriftParser.DocumentContext ctx) {
@@ -149,6 +181,15 @@ public class ThriftAstBuilder {
 
         NamespaceNode namespace = new NamespaceNode(scope, name);
         setNodeLocation(namespace, ctx.start);
+
+        // Process type annotations if present
+        if (ctx.type_annotations() != null) {
+            List<TypeAnnotationNode> annotations = processTypeAnnotations(ctx.type_annotations());
+            for (TypeAnnotationNode annotation : annotations) {
+                namespace.addAnnotation(annotation);
+            }
+        }
+
         return namespace;
     }
 
@@ -220,8 +261,24 @@ public class ThriftAstBuilder {
             enumValueNode.setValue(value);
           }
 
+          // Process type annotations for enum value if present
+          if (fieldCtx.type_annotations() != null) {
+            List<TypeAnnotationNode> annotations = processTypeAnnotations(fieldCtx.type_annotations());
+            for (TypeAnnotationNode annotation : annotations) {
+              enumValueNode.addAnnotation(annotation);
+            }
+          }
+
           setNodeLocation(enumValueNode, fieldCtx.start);
           enumDef.addValue(enumValueNode);
+        }
+      }
+
+      // Process type annotations for enum if present
+      if (ctx.type_annotations() != null) {
+        List<TypeAnnotationNode> annotations = processTypeAnnotations(ctx.type_annotations());
+        for (TypeAnnotationNode annotation : annotations) {
+          enumDef.addAnnotation(annotation);
         }
       }
 
@@ -242,6 +299,14 @@ public class ThriftAstBuilder {
         }
       }
 
+      // Process type annotations if present
+      if (ctx.type_annotations() != null) {
+        List<TypeAnnotationNode> annotations = processTypeAnnotations(ctx.type_annotations());
+        for (TypeAnnotationNode annotation : annotations) {
+          struct.addAnnotation(annotation);
+        }
+      }
+
       return struct;
     }
 
@@ -256,6 +321,14 @@ public class ThriftAstBuilder {
         for (ThriftParser.FieldContext fieldCtx : ctx.field()) {
           FieldNode fieldNode = (FieldNode)visitField(fieldCtx);
           union.addField(fieldNode);
+        }
+      }
+
+      // Process type annotations if present
+      if (ctx.type_annotations() != null) {
+        List<TypeAnnotationNode> annotations = processTypeAnnotations(ctx.type_annotations());
+        for (TypeAnnotationNode annotation : annotations) {
+          union.addAnnotation(annotation);
         }
       }
 
@@ -274,6 +347,14 @@ public class ThriftAstBuilder {
         for (ThriftParser.FieldContext fieldCtx : ctx.field()) {
           FieldNode fieldNode = (FieldNode)visitField(fieldCtx);
           exceptionNode.addField(fieldNode);
+        }
+      }
+
+      // Process type annotations if present
+      if (ctx.type_annotations() != null) {
+        List<TypeAnnotationNode> annotations = processTypeAnnotations(ctx.type_annotations());
+        for (TypeAnnotationNode annotation : annotations) {
+          exceptionNode.addAnnotation(annotation);
         }
       }
 
@@ -297,6 +378,14 @@ public class ThriftAstBuilder {
         for (ThriftParser.Function_Context funcCtx : ctx.function_()) {
           FunctionNode functionNode = (FunctionNode)visitFunction_(funcCtx);
           serviceNode.addFunction(functionNode);
+        }
+      }
+
+      // Process type annotations if present
+      if (ctx.type_annotations() != null) {
+        List<TypeAnnotationNode> annotations = processTypeAnnotations(ctx.type_annotations());
+        for (TypeAnnotationNode annotation : annotations) {
+          serviceNode.addAnnotation(annotation);
         }
       }
 
@@ -340,6 +429,14 @@ public class ThriftAstBuilder {
         // This is a placeholder
       }
 
+      // Process type annotations if present
+      if (ctx.type_annotations() != null) {
+        List<TypeAnnotationNode> annotations = processTypeAnnotations(ctx.type_annotations());
+        for (TypeAnnotationNode annotation : annotations) {
+          fieldNode.addAnnotation(annotation);
+        }
+      }
+
       setNodeLocation(fieldNode, ctx.start);
       return fieldNode;
     }
@@ -362,14 +459,24 @@ public class ThriftAstBuilder {
 
     @Override
     public Node visitContainer_type(ThriftParser.Container_typeContext ctx) {
+      TypeNode containerType = null;
+
       if (ctx.set_type() != null) {
-        return visitSet_type(ctx.set_type());
+        containerType = (TypeNode) visitSet_type(ctx.set_type());
       } else if (ctx.list_type() != null) {
-        return visitList_type(ctx.list_type());
+        containerType = (TypeNode) visitList_type(ctx.list_type());
       } else if (ctx.map_type() != null) {
-        return visitMap_type(ctx.map_type());
+        containerType = (TypeNode) visitMap_type(ctx.map_type());
       }
-      return null;
+
+      if (containerType != null && ctx.type_annotations() != null) {
+        List<TypeAnnotationNode> annotations = processTypeAnnotations(ctx.type_annotations());
+        for (TypeAnnotationNode annotation : annotations) {
+          containerType.addAnnotation(annotation);
+        }
+      }
+
+      return containerType;
     }
 
     @Override
@@ -437,6 +544,15 @@ public class ThriftAstBuilder {
 
       BaseTypeNode baseTypeNode = new BaseTypeNode(typeEnum);
       setNodeLocation(baseTypeNode, ctx.start);
+
+      // Process type annotations if present
+      if (ctx.type_annotations() != null) {
+        List<TypeAnnotationNode> annotations = processTypeAnnotations(ctx.type_annotations());
+        for (TypeAnnotationNode annotation : annotations) {
+          baseTypeNode.addAnnotation(annotation);
+        }
+      }
+
       return baseTypeNode;
     }
 
@@ -484,6 +600,14 @@ public class ThriftAstBuilder {
         }
       }
 
+      // Process type annotations if present
+      if (ctx.type_annotations() != null) {
+        List<TypeAnnotationNode> annotations = processTypeAnnotations(ctx.type_annotations());
+        for (TypeAnnotationNode annotation : annotations) {
+          functionNode.addAnnotation(annotation);
+        }
+      }
+
       return functionNode;
     }
 
@@ -494,6 +618,15 @@ public class ThriftAstBuilder {
 
       TypedefNode typedefNode = new TypedefNode(name, type);
       setNodeLocation(typedefNode, ctx.start);
+
+      // Process type annotations if present
+      if (ctx.type_annotations() != null) {
+        List<TypeAnnotationNode> annotations = processTypeAnnotations(ctx.type_annotations());
+        for (TypeAnnotationNode annotation : annotations) {
+          typedefNode.addAnnotation(annotation);
+        }
+      }
+
       return typedefNode;
     }
 

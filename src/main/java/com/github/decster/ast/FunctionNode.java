@@ -16,17 +16,16 @@ public class FunctionNode extends Node {
     private Oneway oneway;
     private TypeNode returnType;  // Can be null for void functions
     private String name;
-    private List<FieldNode> parameters;
-    private List<FieldNode> exceptions;
+    private StructNode parameters;
+    private StructNode exceptions;
     private List<TypeAnnotationNode> annotations;
-    private String docString; // Added docString field
 
     public FunctionNode(String name, TypeNode returnType) {
         this.name = name;
         this.returnType = returnType;
         this.oneway = Oneway.SYNC;
-        this.parameters = new ArrayList<>();
-        this.exceptions = new ArrayList<>();
+        this.parameters = new StructNode(name + "_args");
+        this.exceptions = new StructNode(name + "_exceptions");
         this.annotations = new ArrayList<>();
     }
 
@@ -55,35 +54,42 @@ public class FunctionNode extends Node {
     }
 
     public List<FieldNode> getParameters() {
-        return parameters;
+        return parameters.getFields();
     }
 
     public void addParameter(FieldNode parameter) {
-        this.parameters.add(parameter);
+        this.parameters.addField(parameter);
     }
 
     public List<FieldNode> getExceptions() {
-        return exceptions;
+        return exceptions.getFields();
     }
 
     public void addException(FieldNode exception) {
-        this.exceptions.add(exception);
+        this.exceptions.addField(exception);
     }
 
+    /**
+     * Returns the documentation string for this function.
+     * @return the documentation string, or null if no documentation is available
+     */
+    public String getDocString() {
+        return null;
+    }
+
+    /**
+     * Returns the list of type annotations for this function.
+     * @return the list of type annotations
+     */
     public List<TypeAnnotationNode> getAnnotations() {
         return annotations;
     }
 
+    /**
+     * Adds a type annotation to this function.
+     * @param annotation the annotation to add
+     */
     public void addAnnotation(TypeAnnotationNode annotation) {
         this.annotations.add(annotation);
-    }
-
-    // Added getter and setter for docString
-    public String getDocString() {
-        return docString;
-    }
-
-    public void setDocString(String docString) {
-        this.docString = docString;
     }
 }
