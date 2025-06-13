@@ -1,662 +1,586 @@
 package com.github.decster;
 
 import com.github.decster.ast.*;
-import com.github.decster.parser.*;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
+import com.github.decster.parser.ThriftBaseVisitor;
+import com.github.decster.parser.ThriftLexer;
+import com.github.decster.parser.ThriftParser;
+import org.antlr.v4.runtime.CharStream;
+import org.antlr.v4.runtime.CharStreams;
+import org.antlr.v4.runtime.CommonTokenStream;
 
-import org.antlr.v4.runtime.Token;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 /**
- * Builder class to convert Thrift parse trees into AST Document objects.
- * This class uses the visitor pattern to build the AST.
+ * ThriftAstBuilder is responsible for parsing Thrift files and building
+ * a TProgram AST representation.
  */
 public class ThriftAstBuilder {
-
-  /**
-   * Parse a string containing Thrift IDL and build an AST Document.
-   *
-   * @param content The Thrift IDL content as a string
-   * @return A Document object representing the AST
-   * @throws IOException If parsing fails
-   */
-  public static DocumentNode buildFromString(String content, String filePath) throws IOException {
-    try {
-      ThriftParser.DocumentContext parseTree = ThriftCompiler.parse(content);
-      DocumentNode node = (DocumentNode) new AstVisitor().visit(parseTree);
-      Path path = Paths.get(filePath);
-      String fileName = path.getFileName().toString();
-      String nameWithoutExtension = fileName.substring(0, fileName.lastIndexOf('.'));
-      node.setName(nameWithoutExtension);
-      return node;
-    } catch (RuntimeException e) {
-      throw new IOException("Failed to parse Thrift content", e);
-    }
-  }
-
-  public static DocumentNode buildFromString(String content) throws IOException {
-    return buildFromString(content, "unknown.thrift");
-  }
-
-  /**
-   * Parse a Thrift IDL file and build an AST Document.
-   *
-   * @param filePath The path to the Thrift IDL file
-   * @return A Document object representing the AST
-   * @throws IOException If the file cannot be read or parsing fails
-   */
-  public static DocumentNode buildFromFile(String filePath) throws IOException {
-    Path path = Paths.get(filePath);
-    if (!Files.exists(path)) {
-      throw new IOException("Input file not found: " + filePath);
-    }
-    String content = Files.readString(path);
-    return buildFromString(content, filePath);
-  }
-
-  /**
-   * Visitor implementation that builds an AST from a Thrift parse tree.
-   */
-  private static class AstVisitor extends ThriftBaseVisitor<Node> {
-
     /**
-     * Helper method to process type annotations and add them to a node.
-     * 
-     * @param ctx The type_annotations context
-     * @return A list of TypeAnnotationNode objects
-     */
-    private List<TypeAnnotationNode> processTypeAnnotations(ThriftParser.Type_annotationsContext ctx) {
-      List<TypeAnnotationNode> annotations = new ArrayList<>();
-      if (ctx != null && ctx.type_annotation() != null) {
-        for (ThriftParser.Type_annotationContext annotationCtx : ctx.type_annotation()) {
-          String name = annotationCtx.IDENTIFIER().getText();
-          Object value = null;
-
-          if (annotationCtx.annotation_value() != null) {
-            if (annotationCtx.annotation_value().integer() != null) {
-              value = Integer.parseInt(annotationCtx.annotation_value().integer().getText());
-            } else if (annotationCtx.annotation_value().LITERAL() != null) {
-              value = unquoteString(annotationCtx.annotation_value().LITERAL().getText());
-            }
-          }
-
-          TypeAnnotationNode annotation = new TypeAnnotationNode(name, value);
-          setNodeLocation(annotation, annotationCtx.start);
-          annotations.add(annotation);
-        }
-      }
-      return annotations;
-    }
-
-
-    @Override
-    public DocumentNode visitDocument(ThriftParser.DocumentContext ctx) {
-      DocumentNode documentNode = new DocumentNode();
-
-      // Process headers
-      for (ThriftParser.HeaderContext headerCtx : ctx.header()) {
-        Node header = visitHeader(headerCtx);
-        if (header instanceof HeaderNode) {
-          documentNode.addHeader((HeaderNode)header);
-        }
-      }
-
-      // Process definitions
-      for (ThriftParser.DefinitionContext defCtx : ctx.definition()) {
-        Node definition = visitDefinition(defCtx);
-        if (definition instanceof DefinitionNode) {
-          documentNode.addDefinition((DefinitionNode)definition);
-        }
-      }
-
-      return documentNode;
-    }
-
-    @Override
-    public Node visitHeader(ThriftParser.HeaderContext ctx) {
-      if (ctx.include_() != null) {
-        return visitInclude_(ctx.include_());
-      } else if (ctx.namespace_() != null) {
-        return visitNamespace_(ctx.namespace_());
-      } else if (ctx.cpp_include() != null) {
-        return visitCpp_include(ctx.cpp_include());
-      }
-      return null;
-    }
-
-    @Override
-    public Node visitInclude_(ThriftParser.Include_Context ctx) {
-      String path = unquoteString(ctx.LITERAL().getText());
-      Include include = new Include(path);
-      setNodeLocation(include, ctx.start);
-      return include;
-    }
-
-    @Override
-    public Node visitNamespace_(ThriftParser.Namespace_Context ctx) {
-        String scope;
-        String name;
-
-        // Handle 'namespace * identifier' form
-        if (ctx.getText().startsWith("namespace*")) {
-            scope = "*";
-            if (ctx.IDENTIFIER() != null && !ctx.IDENTIFIER().isEmpty()) {
-                name = ctx.IDENTIFIER(0).getText();
-            } else if (ctx.LITERAL() != null && !ctx.LITERAL().getText().isEmpty()) {
-                name = unquoteString(ctx.LITERAL().getText());
-            } else {
-                // Handle error case
-                throw new RuntimeException("Invalid namespace declaration: missing name");
-            }
-        }
-        // Handle 'cpp_namespace identifier' or 'php_namespace identifier'
-        else if (ctx.getText().startsWith("cpp_namespace") || ctx.getText().startsWith("php_namespace")) {
-            scope = ctx.getText().startsWith("cpp_namespace") ? "cpp" : "php";
-            if (ctx.IDENTIFIER() != null && !ctx.IDENTIFIER().isEmpty()) {
-                name = ctx.IDENTIFIER(0).getText();
-            } else {
-                throw new RuntimeException("Invalid namespace declaration: missing name");
-            }
-        }
-        // Handle regular 'namespace identifier (identifier|literal)' form
-        else {
-            if (ctx.IDENTIFIER().size() < 1) {
-                throw new RuntimeException("Invalid namespace declaration: missing scope");
-            }
-
-            scope = ctx.IDENTIFIER(0).getText();
-
-            if (ctx.IDENTIFIER().size() >= 2) {
-                name = ctx.IDENTIFIER(1).getText();
-            } else if (ctx.LITERAL() != null && !ctx.LITERAL().getText().isEmpty()) {
-                name = unquoteString(ctx.LITERAL().getText());
-            } else {
-                throw new RuntimeException("Invalid namespace declaration: missing name");
-            }
-        }
-
-        NamespaceNode namespace = new NamespaceNode(scope, name);
-        setNodeLocation(namespace, ctx.start);
-
-        // Process type annotations if present
-        if (ctx.type_annotations() != null) {
-            List<TypeAnnotationNode> annotations = processTypeAnnotations(ctx.type_annotations());
-            for (TypeAnnotationNode annotation : annotations) {
-                namespace.addAnnotation(annotation);
-            }
-        }
-
-        return namespace;
-    }
-
-    @Override
-    public Node visitCpp_include(ThriftParser.Cpp_includeContext ctx) {
-      String path = unquoteString(ctx.LITERAL().getText());
-      Include include = new Include(path); // Remove boolean argument
-      setNodeLocation(include, ctx.start);
-      return include;
-    }
-
-    @Override
-    public Node visitDefinition(ThriftParser.DefinitionContext ctx) {
-      if (ctx.const_rule() != null) {
-        return visitConst_rule(ctx.const_rule());
-      } else if (ctx.typedef_() != null) {
-        return visitTypedef_(ctx.typedef_());
-      } else if (ctx.enum_rule() != null) {
-        return visitEnum_rule(ctx.enum_rule());
-      } else if (ctx.struct_() != null) {
-        return visitStruct_(ctx.struct_());
-      } else if (ctx.union_() != null) {
-        return visitUnion_(ctx.union_());
-      } else if (ctx.exception() != null) {
-        return visitException(ctx.exception());
-      } else if (ctx.service() != null) {
-        return visitService(ctx.service());
-      }
-      return null;
-    }
-
-    @Override
-    public Node visitConst_rule(ThriftParser.Const_ruleContext ctx) {
-      String name = ctx.IDENTIFIER().getText();
-      TypeNode type = (TypeNode)visitField_type(ctx.field_type());
-
-      // Default value is null, will be set below if available
-      Object value = null;
-
-      // Handle constant value if present
-      if (ctx.const_value() != null) {
-        // For now, just store the text representation of the value
-        // In a complete implementation, we would parse this into the appropriate type
-        value = ctx.const_value().getText();
-      }
-
-      // Create the constant node with all required parameters
-      ConstNode constNode = new ConstNode(name, type, value);
-
-      setNodeLocation(constNode, ctx.start);
-      return constNode;
-    }
-
-    @Override
-    public Node visitEnum_rule(ThriftParser.Enum_ruleContext ctx) {
-      String name = ctx.IDENTIFIER().getText();
-      EnumNode enumDef = new EnumNode(name);
-      setNodeLocation(enumDef, ctx.start);
-
-      // Process enum values
-      if (ctx.enum_field() != null) {
-        for (ThriftParser.Enum_fieldContext fieldCtx : ctx.enum_field()) {
-          String valueName = fieldCtx.IDENTIFIER().getText();
-          EnumValueNode enumValueNode = new EnumValueNode(valueName);
-
-          // Set value if provided
-          if (fieldCtx.integer() != null) {
-            int value = Integer.parseInt(fieldCtx.integer().getText());
-            enumValueNode.setValue(value);
-          }
-
-          // Process type annotations for enum value if present
-          if (fieldCtx.type_annotations() != null) {
-            List<TypeAnnotationNode> annotations = processTypeAnnotations(fieldCtx.type_annotations());
-            for (TypeAnnotationNode annotation : annotations) {
-              enumValueNode.addAnnotation(annotation);
-            }
-          }
-
-          setNodeLocation(enumValueNode, fieldCtx.start);
-          enumDef.addValue(enumValueNode);
-        }
-      }
-
-      // Process type annotations for enum if present
-      if (ctx.type_annotations() != null) {
-        List<TypeAnnotationNode> annotations = processTypeAnnotations(ctx.type_annotations());
-        for (TypeAnnotationNode annotation : annotations) {
-          enumDef.addAnnotation(annotation);
-        }
-      }
-
-      return enumDef;
-    }
-
-    @Override
-    public Node visitStruct_(ThriftParser.Struct_Context ctx) {
-      String name = ctx.IDENTIFIER().getText();
-      StructNode struct = new StructNode(name);
-      setNodeLocation(struct, ctx.start);
-
-      // Process fields
-      if (ctx.field() != null) {
-        for (ThriftParser.FieldContext fieldCtx : ctx.field()) {
-          FieldNode fieldNode = (FieldNode)visitField(fieldCtx);
-          struct.addField(fieldNode);
-        }
-      }
-
-      // Process type annotations if present
-      if (ctx.type_annotations() != null) {
-        List<TypeAnnotationNode> annotations = processTypeAnnotations(ctx.type_annotations());
-        for (TypeAnnotationNode annotation : annotations) {
-          struct.addAnnotation(annotation);
-        }
-      }
-
-      return struct;
-    }
-
-    @Override
-    public Node visitUnion_(ThriftParser.Union_Context ctx) {
-      String name = ctx.IDENTIFIER().getText();
-      UnionNode union = new UnionNode(name);
-      setNodeLocation(union, ctx.start);
-
-      // Process fields
-      if (ctx.field() != null) {
-        for (ThriftParser.FieldContext fieldCtx : ctx.field()) {
-          FieldNode fieldNode = (FieldNode)visitField(fieldCtx);
-          union.addField(fieldNode);
-        }
-      }
-
-      // Process type annotations if present
-      if (ctx.type_annotations() != null) {
-        List<TypeAnnotationNode> annotations = processTypeAnnotations(ctx.type_annotations());
-        for (TypeAnnotationNode annotation : annotations) {
-          union.addAnnotation(annotation);
-        }
-      }
-
-      return union;
-    }
-
-    @Override
-    public Node visitException(ThriftParser.ExceptionContext ctx) {
-      String name = ctx.IDENTIFIER().getText();
-      ExceptionNode exceptionNode =
-          new ExceptionNode(name);
-      setNodeLocation(exceptionNode, ctx.start);
-
-      // Process fields
-      if (ctx.field() != null) {
-        for (ThriftParser.FieldContext fieldCtx : ctx.field()) {
-          FieldNode fieldNode = (FieldNode)visitField(fieldCtx);
-          exceptionNode.addField(fieldNode);
-        }
-      }
-
-      // Process type annotations if present
-      if (ctx.type_annotations() != null) {
-        List<TypeAnnotationNode> annotations = processTypeAnnotations(ctx.type_annotations());
-        for (TypeAnnotationNode annotation : annotations) {
-          exceptionNode.addAnnotation(annotation);
-        }
-      }
-
-      return exceptionNode;
-    }
-
-    @Override
-    public Node visitService(ThriftParser.ServiceContext ctx) {
-      String name = ctx.IDENTIFIER(0).getText();
-      ServiceNode serviceNode = new ServiceNode(name);
-      setNodeLocation(serviceNode, ctx.start);
-
-      // Handle service inheritance (extends)
-      if (ctx.IDENTIFIER().size() > 1) {
-        String parentName = ctx.IDENTIFIER(1).getText();
-        serviceNode.setExtendsService(parentName);
-      }
-
-      // Process functions
-      if (ctx.function_() != null) {
-        for (ThriftParser.Function_Context funcCtx : ctx.function_()) {
-          FunctionNode functionNode = (FunctionNode)visitFunction_(funcCtx);
-          serviceNode.addFunction(functionNode);
-        }
-      }
-
-      // Process type annotations if present
-      if (ctx.type_annotations() != null) {
-        List<TypeAnnotationNode> annotations = processTypeAnnotations(ctx.type_annotations());
-        for (TypeAnnotationNode annotation : annotations) {
-          serviceNode.addAnnotation(annotation);
-        }
-      }
-
-      return serviceNode;
-    }
-
-    @Override
-    public Node visitField(ThriftParser.FieldContext ctx) {
-      // Prepare type and name before constructing Field
-      TypeNode type = null;
-      String name = null;
-
-      // Set field type
-      if (ctx.field_type() != null) {
-        type = (TypeNode)visitField_type(ctx.field_type());
-      }
-
-      // Set field name
-      if (ctx.IDENTIFIER() != null) {
-        name = ctx.IDENTIFIER().getText();
-      }
-
-      FieldNode fieldNode = new FieldNode(type, name);
-
-      // Set field ID if provided
-      if (ctx.field_id() != null) {
-        int id = Integer.parseInt(ctx.field_id().integer().getText());
-        fieldNode.setId(id);
-      }
-
-      // Set field requirement
-      if (ctx.field_req() != null) {
-        String reqText = ctx.field_req().getText().toUpperCase();
-        FieldNode.Requirement req = FieldNode.Requirement.valueOf(reqText);
-        fieldNode.setRequirement(req);
-      }
-
-      // Set default value if provided
-      if (ctx.const_value() != null) {
-        // Implementation for const_value would go here
-        // This is a placeholder
-      }
-
-      // Process type annotations if present
-      if (ctx.type_annotations() != null) {
-        List<TypeAnnotationNode> annotations = processTypeAnnotations(ctx.type_annotations());
-        for (TypeAnnotationNode annotation : annotations) {
-          fieldNode.addAnnotation(annotation);
-        }
-      }
-
-      setNodeLocation(fieldNode, ctx.start);
-      return fieldNode;
-    }
-
-    @Override
-    public Node visitField_type(ThriftParser.Field_typeContext ctx) {
-      if (ctx.base_type() != null) {
-        return visitBase_type(ctx.base_type());
-      } else if (ctx.container_type() != null) {
-        return visitContainer_type(ctx.container_type());
-      } else if (ctx.IDENTIFIER() != null) {
-        // Handle identifier (custom types)
-        String typeName = ctx.IDENTIFIER().getText();
-        IdentifierTypeNode identifierType = new IdentifierTypeNode(typeName);
-        setNodeLocation(identifierType, ctx.start);
-        return identifierType;
-      }
-      return null;
-    }
-
-    @Override
-    public Node visitContainer_type(ThriftParser.Container_typeContext ctx) {
-      TypeNode containerType = null;
-
-      if (ctx.set_type() != null) {
-        containerType = (TypeNode) visitSet_type(ctx.set_type());
-      } else if (ctx.list_type() != null) {
-        containerType = (TypeNode) visitList_type(ctx.list_type());
-      } else if (ctx.map_type() != null) {
-        containerType = (TypeNode) visitMap_type(ctx.map_type());
-      }
-
-      if (containerType != null && ctx.type_annotations() != null) {
-        List<TypeAnnotationNode> annotations = processTypeAnnotations(ctx.type_annotations());
-        for (TypeAnnotationNode annotation : annotations) {
-          containerType.addAnnotation(annotation);
-        }
-      }
-
-      return containerType;
-    }
-
-    @Override
-    public Node visitSet_type(ThriftParser.Set_typeContext ctx) {
-      TypeNode elementType = null;
-      if (ctx.field_type() != null) {
-        elementType = (TypeNode)visitField_type(ctx.field_type());
-      }
-
-      SetTypeNode setType = new SetTypeNode(elementType);
-      setNodeLocation(setType, ctx.start);
-      return setType;
-    }
-
-    @Override
-    public Node visitList_type(ThriftParser.List_typeContext ctx) {
-      TypeNode elementType = null;
-      if (ctx.field_type() != null) {
-        elementType = (TypeNode)visitField_type(ctx.field_type());
-      }
-
-      ListTypeNode listType = new ListTypeNode(elementType);
-      setNodeLocation(listType, ctx.start);
-      return listType;
-    }
-
-    @Override
-    public Node visitMap_type(ThriftParser.Map_typeContext ctx) {
-      TypeNode keyType = null;
-      TypeNode valueType = null;
-
-      if (ctx.field_type().size() >= 2) {
-        keyType = (TypeNode)visitField_type(ctx.field_type(0));
-        valueType = (TypeNode)visitField_type(ctx.field_type(1));
-      }
-
-      MapTypeNode mapType = new MapTypeNode(keyType, valueType);
-      setNodeLocation(mapType, ctx.start);
-      return mapType;
-    }
-
-    @Override
-    public Node visitBase_type(ThriftParser.Base_typeContext ctx) {
-      BaseTypeNode.BaseTypeEnum typeEnum;
-
-      if (ctx.real_base_type().TYPE_BOOL() != null) {
-        typeEnum = BaseTypeNode.BaseTypeEnum.BOOL;
-      } else if (ctx.real_base_type().TYPE_BYTE() != null) {
-        typeEnum = BaseTypeNode.BaseTypeEnum.BYTE;
-      } else if (ctx.real_base_type().TYPE_I16() != null) {
-        typeEnum = BaseTypeNode.BaseTypeEnum.I16;
-      } else if (ctx.real_base_type().TYPE_I32() != null) {
-        typeEnum = BaseTypeNode.BaseTypeEnum.I32;
-      } else if (ctx.real_base_type().TYPE_I64() != null) {
-        typeEnum = BaseTypeNode.BaseTypeEnum.I64;
-      } else if (ctx.real_base_type().TYPE_DOUBLE() != null) {
-        typeEnum = BaseTypeNode.BaseTypeEnum.DOUBLE;
-      } else if (ctx.real_base_type().TYPE_STRING() != null) {
-        typeEnum = BaseTypeNode.BaseTypeEnum.STRING;
-      } else if (ctx.real_base_type().TYPE_BINARY() != null) {
-        typeEnum = BaseTypeNode.BaseTypeEnum.BINARY;
-      } else {
-        throw new IllegalArgumentException("Unknown base type");
-      }
-
-      BaseTypeNode baseTypeNode = new BaseTypeNode(typeEnum);
-      setNodeLocation(baseTypeNode, ctx.start);
-
-      // Process type annotations if present
-      if (ctx.type_annotations() != null) {
-        List<TypeAnnotationNode> annotations = processTypeAnnotations(ctx.type_annotations());
-        for (TypeAnnotationNode annotation : annotations) {
-          baseTypeNode.addAnnotation(annotation);
-        }
-      }
-
-      return baseTypeNode;
-    }
-
-    @Override
-    public Node visitFunction_(ThriftParser.Function_Context ctx) {
-      // Get return type
-      TypeNode returnType = null;
-      if (ctx.function_type() != null) {
-        if (ctx.function_type().field_type() != null) {
-          returnType = (TypeNode)visitField_type(ctx.function_type().field_type());
-        }
-      }
-
-      // Get function name
-      String name = ctx.IDENTIFIER().getText();
-
-      // Create the function
-      FunctionNode functionNode = new FunctionNode(name, returnType);
-      setNodeLocation(functionNode, ctx.start);
-
-      // Process function arguments
-      if (ctx.field() != null) {
-        for (ThriftParser.FieldContext fieldCtx : ctx.field()) {
-          FieldNode fieldNode = (FieldNode)visitField(fieldCtx);
-          functionNode.addParameter(fieldNode);
-        }
-      }
-
-      // Process exceptions
-      if (ctx.throws_list() != null && ctx.throws_list().field() != null) {
-        for (ThriftParser.FieldContext fieldCtx : ctx.throws_list().field()) {
-          FieldNode fieldNode = (FieldNode)visitField(fieldCtx);
-          functionNode.addException(fieldNode);
-        }
-      }
-
-      // Process oneway modifier
-      if (ctx.oneway() != null) {
-        if (ctx.oneway().getText().equals("oneway")) {
-          functionNode.setOneway(FunctionNode.Oneway.ONEWAY);
-        } else if (ctx.oneway().getText().equals("async")) {
-          functionNode.setOneway(FunctionNode.Oneway.ASYNC);
-        } else {
-          functionNode.setOneway(FunctionNode.Oneway.SYNC);
-        }
-      }
-
-      // Process type annotations if present
-      if (ctx.type_annotations() != null) {
-        List<TypeAnnotationNode> annotations = processTypeAnnotations(ctx.type_annotations());
-        for (TypeAnnotationNode annotation : annotations) {
-          functionNode.addAnnotation(annotation);
-        }
-      }
-
-      return functionNode;
-    }
-
-    @Override
-    public Node visitTypedef_(ThriftParser.Typedef_Context ctx) {
-      TypeNode type = (TypeNode)visitField_type(ctx.field_type());
-      String name = ctx.IDENTIFIER().getText();
-
-      TypedefNode typedefNode = new TypedefNode(name, type);
-      setNodeLocation(typedefNode, ctx.start);
-
-      // Process type annotations if present
-      if (ctx.type_annotations() != null) {
-        List<TypeAnnotationNode> annotations = processTypeAnnotations(ctx.type_annotations());
-        for (TypeAnnotationNode annotation : annotations) {
-          typedefNode.addAnnotation(annotation);
-        }
-      }
-
-      return typedefNode;
-    }
-
-    // Additional visitor methods would be implemented here
-    // This is a partial implementation
-
-    /**
-     * Helper method to set line and column information on a node.
+     * Parse a Thrift document from a file path and build a TProgram object.
      *
-     * @param node The AST node
-     * @param token The token with location information
+     * @param filePath Path to the Thrift file
+     * @return The parsed TProgram object
+     * @throws IOException If an I/O error occurs
      */
-    private void setNodeLocation(Node node, Token token) {
-      if (token != null) {
-        node.setLine(token.getLine());
-        node.setColumn(token.getCharPositionInLine());
-      }
+    public static TProgram parseFile(String filePath) throws IOException {
+        CharStream input = CharStreams.fromFileName(filePath);
+        return parse(input, filePath);
     }
 
     /**
-     * Helper method to remove quotes from a quoted string.
+     * Parse a Thrift document from a string and build a TProgram object.
      *
-     * @param quoted The quoted string
-     * @return The string without quotes
+     * @param content The Thrift document content as a string
+     * @param name The name to use for the program
+     * @return The parsed TProgram object
      */
-    private String unquoteString(String quoted) {
-      if (quoted.startsWith("\"") && quoted.endsWith("\"")) {
-        return quoted.substring(1, quoted.length() - 1);
-      }
-      return quoted;
+    public static TProgram parseString(String content, String name) {
+        CharStream input = CharStreams.fromString(content);
+        return parse(input, name);
     }
-  }
+
+    /**
+     * Parse a Thrift document from a CharStream and build a TProgram object.
+     *
+     * @param input The input CharStream
+     * @param programName The name to use for the program
+     * @return The parsed TProgram object
+     */
+    private static TProgram parse(CharStream input, String programName) {
+        ThriftLexer lexer = new ThriftLexer(input);
+        CommonTokenStream tokens = new CommonTokenStream(lexer);
+        ThriftParser parser = new ThriftParser(tokens);
+        ThriftParser.DocumentContext documentContext = parser.document();
+
+        Path path = Path.of(programName);
+        String name = path.getFileName().toString();
+        if (name.endsWith(".thrift")) {
+            name = name.substring(0, name.length() - 7);
+        }
+
+        TProgram program = new TProgram(programName, name);
+        AstVisitor visitor = new AstVisitor(program);
+        visitor.visit(documentContext);
+        return program;
+    }
+
+    /**
+     * Visitor implementation for building the AST from the ANTLR parse tree.
+     */
+    static class AstVisitor extends ThriftBaseVisitor<Object> {
+        private final TProgram program;
+        private final TScope scope;
+
+        public AstVisitor(TProgram program) {
+            this.program = program;
+            this.scope = program.getScope();
+        }
+
+        @Override
+        public Object visitDocument(ThriftParser.DocumentContext ctx) {
+            // Process headers first
+            for (ThriftParser.HeaderContext header : ctx.header()) {
+                visit(header);
+            }
+
+            // Then process definitions
+            for (ThriftParser.DefinitionContext definition : ctx.definition()) {
+                visit(definition);
+            }
+            return null;
+        }
+
+        @Override
+        public Object visitInclude_(ThriftParser.Include_Context ctx) {
+            String includePath = getStringLiteral(ctx.LITERAL().getText());
+            // In a real implementation, this would recursively parse the included file
+            // and add it to the program's includes list
+            // For simplicity, we just record the include path for now
+            // program.addInclude(new TProgram(includePath));
+            return null;
+        }
+
+        @Override
+        public Object visitNamespace_(ThriftParser.Namespace_Context ctx) {
+            String language;
+            String namespace;
+
+            if (ctx.getText().startsWith("namespace*")) {
+                language = "*";
+                if (ctx.IDENTIFIER() != null && !ctx.IDENTIFIER().isEmpty()) {
+                    namespace = ctx.IDENTIFIER().get(0).getText();
+                } else {
+                    namespace = getStringLiteral(ctx.LITERAL().getText());
+                }
+            } else if (ctx.getText().startsWith("cpp_namespace")) {
+                language = "cpp";
+                namespace = ctx.IDENTIFIER().get(0).getText();
+            } else if (ctx.getText().startsWith("php_namespace")) {
+                language = "php";
+                namespace = ctx.IDENTIFIER().get(0).getText();
+            } else {
+                language = ctx.IDENTIFIER().get(0).getText();
+                if (ctx.IDENTIFIER().size() > 1) {
+                    namespace = ctx.IDENTIFIER().get(1).getText();
+                } else {
+                    namespace = getStringLiteral(ctx.LITERAL().getText());
+                }
+            }
+
+            program.setNamespace(language, namespace);
+            return null;
+        }
+
+        @Override
+        public Object visitCpp_include(ThriftParser.Cpp_includeContext ctx) {
+            // CPP includes are not processed in Java generator
+            return null;
+        }
+
+        @Override
+        public Object visitConst_rule(ThriftParser.Const_ruleContext ctx) {
+            String name = ctx.IDENTIFIER().getText();
+            TType type = (TType) visit(ctx.field_type());
+            TConstValue value = null;
+
+            if (ctx.const_value() != null) {
+                value = (TConstValue) visit(ctx.const_value());
+            }
+
+            TConst constant = new TConst(type, name, value);
+            program.addConst(constant);
+            return constant;
+        }
+
+        @Override
+        public Object visitTypedef_(ThriftParser.Typedef_Context ctx) {
+            String name = ctx.IDENTIFIER().getText();
+            TType type = (TType) visit(ctx.field_type());
+
+            Map<String, List<String>> annotations = processTypeAnnotations(ctx.type_annotations());
+
+            TTypedef typedef = new TTypedef(program, type, name);
+            if (!annotations.isEmpty()) {
+                typedef.setAnnotations(annotations);
+            }
+
+            program.addTypedef(typedef);
+            return typedef;
+        }
+
+        @Override
+        public Object visitEnum_rule(ThriftParser.Enum_ruleContext ctx) {
+            String name = ctx.IDENTIFIER().getText();
+            TEnum enumType = new TEnum(program);
+            enumType.setName(name);
+
+            int nextValue = 0;
+            for (ThriftParser.Enum_fieldContext fieldCtx : ctx.enum_field()) {
+                String fieldName = fieldCtx.IDENTIFIER().getText();
+                int value = nextValue++;
+
+                if (fieldCtx.integer() != null) {
+                    value = Integer.parseInt(fieldCtx.integer().getText());
+                    nextValue = value + 1;
+                }
+
+                TEnumValue enumValue = new TEnumValue(fieldName, value);
+
+                if (fieldCtx.type_annotations() != null) {
+                    Map<String, List<String>> fieldAnnotations = processTypeAnnotations(fieldCtx.type_annotations());
+                    if (!fieldAnnotations.isEmpty()) {
+                        enumValue.setAnnotations(fieldAnnotations);
+                    }
+                }
+
+                enumType.append(enumValue);
+            }
+
+            Map<String, List<String>> annotations = processTypeAnnotations(ctx.type_annotations());
+            if (!annotations.isEmpty()) {
+                enumType.setAnnotations(annotations);
+            }
+
+            program.addEnum(enumType);
+            return enumType;
+        }
+
+        @Override
+        public Object visitStruct_(ThriftParser.Struct_Context ctx) {
+            String name = ctx.IDENTIFIER().getText();
+            TStruct struct = new TStruct(program, name);
+
+            for (ThriftParser.FieldContext fieldCtx : ctx.field()) {
+                TField field = (TField) visit(fieldCtx);
+                struct.append(field);
+            }
+
+            Map<String, List<String>> annotations = processTypeAnnotations(ctx.type_annotations());
+            if (!annotations.isEmpty()) {
+                struct.setAnnotations(annotations);
+            }
+
+            program.addStruct(struct);
+            return struct;
+        }
+
+        @Override
+        public Object visitUnion_(ThriftParser.Union_Context ctx) {
+            String name = ctx.IDENTIFIER().getText();
+            TStruct struct = new TStruct(program, name);
+            struct.setUnion(true);
+
+            for (ThriftParser.FieldContext fieldCtx : ctx.field()) {
+                TField field = (TField) visit(fieldCtx);
+                struct.append(field);
+            }
+
+            Map<String, List<String>> annotations = processTypeAnnotations(ctx.type_annotations());
+            if (!annotations.isEmpty()) {
+                struct.setAnnotations(annotations);
+            }
+
+            program.addStruct(struct);
+            return struct;
+        }
+
+        @Override
+        public Object visitException(ThriftParser.ExceptionContext ctx) {
+            String name = ctx.IDENTIFIER().getText();
+            TStruct struct = new TStruct(program, name);
+            struct.setXception(true);
+
+            for (ThriftParser.FieldContext fieldCtx : ctx.field()) {
+                TField field = (TField) visit(fieldCtx);
+                struct.append(field);
+            }
+
+            Map<String, List<String>> annotations = processTypeAnnotations(ctx.type_annotations());
+            if (!annotations.isEmpty()) {
+                struct.setAnnotations(annotations);
+            }
+
+            program.addXception(struct);
+            return struct;
+        }
+
+        @Override
+        public Object visitService(ThriftParser.ServiceContext ctx) {
+            String name = ctx.IDENTIFIER().get(0).getText();
+            TService service = new TService(program);
+            service.setName(name);
+
+            if (ctx.IDENTIFIER().size() > 1) {
+                // Create a reference to the parent service by name
+                // In a real implementation, we would resolve this to the actual TService object
+                TService parentService = new TService(program);
+                parentService.setName(ctx.IDENTIFIER().get(1).getText());
+                service.setExtends(parentService);
+            }
+
+            for (ThriftParser.Function_Context funcCtx : ctx.function_()) {
+                TFunction function = (TFunction) visit(funcCtx);
+                service.addFunction(function);
+            }
+
+            Map<String, List<String>> annotations = processTypeAnnotations(ctx.type_annotations());
+            if (!annotations.isEmpty()) {
+                service.setAnnotations(annotations);
+            }
+
+            program.addService(service);
+            return service;
+        }
+
+        @Override
+        public Object visitField(ThriftParser.FieldContext ctx) {
+            int id = 0;
+            if (ctx.field_id() != null) {
+                id = Integer.parseInt(ctx.field_id().integer().getText());
+            }
+
+            TField.Requirement req = TField.Requirement.OPT_IN_REQ_OUT;
+            if (ctx.field_req() != null) {
+                if (ctx.field_req().getText().equals("required")) {
+                    req = TField.Requirement.REQUIRED;
+                } else if (ctx.field_req().getText().equals("optional")) {
+                    req = TField.Requirement.OPTIONAL;
+                }
+            }
+
+            TType type = (TType) visit(ctx.field_type());
+            String name = ctx.IDENTIFIER().getText();
+
+            TField field = new TField(type, name, id);
+            field.setReq(req);
+
+            if (ctx.const_value() != null) {
+                TConstValue value = (TConstValue) visit(ctx.const_value());
+                field.setValue(value);
+            }
+
+            Map<String, List<String>> annotations = processTypeAnnotations(ctx.type_annotations());
+            if (!annotations.isEmpty()) {
+                field.setAnnotations(annotations);
+            }
+
+            return field;
+        }
+
+        @Override
+        public Object visitFunction_(ThriftParser.Function_Context ctx) {
+            String name = ctx.IDENTIFIER().getText();
+            TType returnType;
+
+            if (ctx.function_type().getText().equals("void")) {
+                // Create void return type with uppercase name "VOID"
+                returnType = new TBaseType("VOID", TBaseType.Base.TYPE_VOID);
+            } else {
+                returnType = (TType) visit(ctx.function_type().field_type());
+            }
+
+            // Create an empty argument struct
+            TStruct argStruct = new TStruct(program, name + "_args");
+
+            // Create function with proper constructor
+            TFunction function = new TFunction(returnType, name, argStruct);
+
+            if (ctx.oneway() != null) {
+                function.setOneWay(true);
+            }
+
+            // Process function parameters
+            for (ThriftParser.FieldContext fieldCtx : ctx.field()) {
+                TField field = (TField) visit(fieldCtx);
+                argStruct.append(field);
+            }
+
+            // Process throws list
+            if (ctx.throws_list() != null) {
+                // Create a struct for exceptions
+                TStruct xceptStruct = new TStruct(program, name + "_result");
+                function.setXceptions(xceptStruct);
+
+                for (ThriftParser.FieldContext fieldCtx : ctx.throws_list().field()) {
+                    TField field = (TField) visit(fieldCtx);
+                    xceptStruct.append(field);
+                }
+            }
+
+            Map<String, List<String>> annotations = processTypeAnnotations(ctx.type_annotations());
+            if (!annotations.isEmpty()) {
+                function.setAnnotations(annotations);
+            }
+
+            return function;
+        }
+
+        @Override
+        public Object visitField_type(ThriftParser.Field_typeContext ctx) {
+            if (ctx.base_type() != null) {
+                return visit(ctx.base_type());
+            } else if (ctx.container_type() != null) {
+                return visit(ctx.container_type());
+            } else if (ctx.IDENTIFIER() != null) {
+                // This is a reference to a custom type (enum, struct, etc.)
+                String typeName = ctx.IDENTIFIER().getText();
+                // In a real implementation, you would resolve this type from the scope
+                // For simplicity, we'll create a reference type
+                return new TTypeRef(program, typeName);
+            }
+            return null;
+        }
+
+        @Override
+        public Object visitBase_type(ThriftParser.Base_typeContext ctx) {
+            String typeName = ctx.real_base_type().getText();
+            TBaseType.Base baseType;
+            String typeNameUpperCase = typeName.toUpperCase();
+
+            switch (typeName) {
+                case "bool":
+                    baseType = TBaseType.Base.TYPE_BOOL;
+                    break;
+                case "byte":
+                    baseType = TBaseType.Base.TYPE_I8;
+                    break;
+                case "i8":
+                    baseType = TBaseType.Base.TYPE_I8;
+                    break;
+                case "i16":
+                    baseType = TBaseType.Base.TYPE_I16;
+                    break;
+                case "i32":
+                    baseType = TBaseType.Base.TYPE_I32;
+                    break;
+                case "i64":
+                    baseType = TBaseType.Base.TYPE_I64;
+                    break;
+                case "double":
+                    baseType = TBaseType.Base.TYPE_DOUBLE;
+                    break;
+                case "string":
+                    baseType = TBaseType.Base.TYPE_STRING;
+                    break;
+                case "binary":
+                    TBaseType binaryType = new TBaseType("BINARY", TBaseType.Base.TYPE_STRING);
+                    binaryType.setBinary(true);
+                    return binaryType;
+                case "uuid":
+                    baseType = TBaseType.Base.TYPE_UUID;
+                    break;
+                default:
+                    throw new RuntimeException("Unknown base type: " + typeName);
+            }
+
+            return new TBaseType(typeNameUpperCase, baseType);
+        }
+
+        @Override
+        public Object visitContainer_type(ThriftParser.Container_typeContext ctx) {
+            if (ctx.map_type() != null) {
+                return visit(ctx.map_type());
+            } else if (ctx.list_type() != null) {
+                return visit(ctx.list_type());
+            } else if (ctx.set_type() != null) {
+                return visit(ctx.set_type());
+            }
+            return null;
+        }
+
+        @Override
+        public Object visitMap_type(ThriftParser.Map_typeContext ctx) {
+            TType keyType = (TType) visit(ctx.field_type(0));
+            TType valueType = (TType) visit(ctx.field_type(1));
+            return new TMap(keyType, valueType);
+        }
+
+        @Override
+        public Object visitList_type(ThriftParser.List_typeContext ctx) {
+            TType elemType = (TType) visit(ctx.field_type());
+            return new TList(elemType);
+        }
+
+        @Override
+        public Object visitSet_type(ThriftParser.Set_typeContext ctx) {
+            TType elemType = (TType) visit(ctx.field_type());
+            return new TSet(elemType);
+        }
+
+        @Override
+        public Object visitConst_value(ThriftParser.Const_valueContext ctx) {
+            if (ctx.IDENTIFIER() != null) {
+                // This is a reference to another constant or enum value
+                String identifier = ctx.IDENTIFIER().getText();
+                TConstValue constValue = new TConstValue();
+                constValue.setIdentifier(identifier);
+                return constValue;
+            } else if (ctx.LITERAL() != null) {
+                // This is a string literal
+                String stringValue = getStringLiteral(ctx.LITERAL().getText());
+                return new TConstValue(stringValue);
+            } else if (ctx.integer() != null) {
+                // This is an integer value
+                long intValue = Long.parseLong(ctx.integer().getText());
+                return new TConstValue(intValue);
+            } else if (ctx.DOUBLE() != null) {
+                // This is a double value
+                double doubleValue = Double.parseDouble(ctx.DOUBLE().getText());
+                return new TConstValue(doubleValue);
+            } else if (ctx.const_list() != null) {
+                // This is a list value
+                return visit(ctx.const_list());
+            } else if (ctx.const_map() != null) {
+                // This is a map value
+                return visit(ctx.const_map());
+            }
+            return null;
+        }
+
+        @Override
+        public Object visitConst_list(ThriftParser.Const_listContext ctx) {
+            List<TConstValue> values = new ArrayList<>();
+            for (ThriftParser.Const_valueContext valueCtx : ctx.const_value()) {
+                values.add((TConstValue) visit(valueCtx));
+            }
+            TConstValue listValue = new TConstValue();
+            listValue.setList(values);
+            return listValue;
+        }
+
+        @Override
+        public Object visitConst_map(ThriftParser.Const_mapContext ctx) {
+            Map<TConstValue, TConstValue> map = new TreeMap<>();
+            for (ThriftParser.Const_map_entryContext entryCtx : ctx.const_map_entry()) {
+                TConstValue key = (TConstValue) visit(entryCtx.const_value(0));
+                TConstValue value = (TConstValue) visit(entryCtx.const_value(1));
+                map.put(key, value);
+            }
+            TConstValue mapValue = new TConstValue();
+            mapValue.setMap(map);
+            return mapValue;
+        }
+
+        @Override
+        public Map<String, List<String>> visitType_annotations(ThriftParser.Type_annotationsContext ctx) {
+            if (ctx == null) {
+                return new HashMap<>();
+            }
+
+            Map<String, List<String>> annotations = new HashMap<>();
+            for (ThriftParser.Type_annotationContext annotationCtx : ctx.type_annotation()) {
+                String key = annotationCtx.IDENTIFIER().getText();
+                String value = "";
+
+                if (annotationCtx.annotation_value() != null) {
+                    value = annotationCtx.annotation_value().LITERAL() != null ?
+                            getStringLiteral(annotationCtx.annotation_value().LITERAL().getText()) :
+                            annotationCtx.annotation_value().getText();
+                }
+
+                annotations.computeIfAbsent(key, k -> new ArrayList<>()).add(value);
+            }
+            return annotations;
+        }
+
+        /**
+         * Process type annotations and return them as a map
+         *
+         * @param ctx The type annotations context
+         * @return A map of annotation names to their values
+         */
+        private Map<String, List<String>> processTypeAnnotations(ThriftParser.Type_annotationsContext ctx) {
+            if (ctx != null) {
+                return visitType_annotations(ctx);
+            }
+            return new HashMap<>();
+        }
+
+        /**
+         * Convert a string literal (with quotes) to its actual string value
+         */
+        private String getStringLiteral(String literal) {
+            // Remove the quotes and handle escape sequences
+            return literal.substring(1, literal.length() - 1)
+                    .replace("\\\"", "\"")
+                    .replace("\\\\", "\\")
+                    .replace("\\n", "\n")
+                    .replace("\\r", "\r")
+                    .replace("\\t", "\t");
+        }
+    }
+
+    // Helper class for resolving type references
+    static class TTypeRef extends TType {
+        public TTypeRef(TProgram program, String name) {
+            setProgram(program);
+            setName(name);
+        }
+    }
 }

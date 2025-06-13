@@ -1,0 +1,56 @@
+package com.github.decster.gen;
+
+import com.github.decster.ThriftAstBuilder;
+import java.io.File;
+import java.net.URL;
+import java.nio.file.Files;
+
+import com.github.decster.ast.TProgram;
+import org.junit.jupiter.api.Test;
+
+public class JavaGeneratorTest {
+
+    @Test
+    void testGenEnum() throws Exception {
+        URL resourceUrl = JavaGeneratorTest.class.getResource("/single_file_tests");
+        String resourcePath = resourceUrl.getPath();
+        String idl = Files.readString(new File(resourcePath, "DemoEnum.thrift").toPath());
+        String genJava = Files.readString(new File(resourcePath, "com/example/thrift/DemoEnum.java").toPath());
+        TProgram program = ThriftAstBuilder.parseString(idl, "DemoEnum.thrift");
+        JavaGenerator generator = new JavaGenerator(program, "" , null);
+        generator.setTimestamp("2025-06-06");
+        JavaGenerator.GenResult result = generator.generateEnum(program.getEnums().get(0));
+        GeneratorTestUtil.assertEqualsLineByLine("DemoEnum.thrift", result.content, genJava);
+    }
+
+    @Test
+    void testGenConsts() throws Exception {
+        URL resourceUrl = JavaGeneratorTest.class.getResource("/single_file_tests");
+        String resourcePath = resourceUrl.getPath();
+        String idl = Files.readString(new File(resourcePath, "someConst.thrift").toPath());
+        String genJava = Files.readString(new File(resourcePath, "com/example/thrift/someConstConstants.java").toPath());
+        TProgram program = ThriftAstBuilder.parseString(idl, "someConst.thrift");
+        JavaGenerator generator = new JavaGenerator(program, "" , null);
+        generator.setTimestamp("2025-06-06");
+        JavaGenerator.GenResult result = generator.generateConstants();
+        GeneratorTestUtil.assertEqualsLineByLine("someConst.thrift", result.content, genJava);
+    }
+
+
+    @Test
+    void testGenStruct() throws Exception {
+        singleTestGenStruct("ManyFields");
+    }
+
+    void singleTestGenStruct(String structName) throws Exception {
+        URL resourceUrl = JavaGeneratorTest.class.getResource("/single_file_tests");
+        String resourcePath = resourceUrl.getPath();
+        String idl = Files.readString(new File(resourcePath, structName+".thrift").toPath());
+        String genJava = Files.readString(new File(resourcePath, "com/example/thrift/"+structName+".java").toPath());
+        TProgram program = ThriftAstBuilder.parseString(idl, structName+".thrift");
+        JavaGenerator generator = new JavaGenerator(program, "" , null);
+        generator.setTimestamp("2025-06-06");
+        JavaGenerator.GenResult result = generator.generateStruct(program.getStructs().get(0), false);
+        GeneratorTestUtil.assertEqualsLineByLine(structName, result.content, genJava);
+    }
+}

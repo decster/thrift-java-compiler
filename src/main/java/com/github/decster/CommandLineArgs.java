@@ -15,6 +15,9 @@ public class CommandLineArgs {
     @Parameter(names = {"-I", "--include"}, description = "Directories to search for included Thrift files")
     private List<String> includeDirs = new ArrayList<>();
 
+    @Parameter(names = {"-g", "--gen"}, description = "Generator options in the format key1:value1,key2:value2")
+    private String generatorOptions = "";
+
     // Getter for the main input file path
     public String getInputFile() {
         if (mainParameters.isEmpty()) {
@@ -38,5 +41,9 @@ public class CommandLineArgs {
 
     public List<String> getIncludeDirs() {
         return new ArrayList<>(includeDirs); // Defensive copy
+    }
+
+    public String getGeneratorOptions() {
+        return generatorOptions;
     }
 }
