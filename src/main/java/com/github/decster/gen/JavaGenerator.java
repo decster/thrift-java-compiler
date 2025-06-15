@@ -503,12 +503,12 @@ public class JavaGenerator extends Generator {
       }
 
       if (type.isContainer()) {
-        sb.append(indent())
-            .append("this.")
-            .append(makeValidJavaIdentifier(fieldName))
-            .append(" = ");
         generateDeepCopyContainer(sb, "other", fieldName, "__this__" + fieldName, type);
-        sb.append(";\n");
+        sb.append(indent())
+                .append("this.")
+                .append(makeValidJavaIdentifier(fieldName))
+                .append(" = ").append("__this__").append(fieldName)
+                .append(";\n");
       } else {
         sb.append(indent())
             .append("this.")
@@ -896,7 +896,7 @@ public class JavaGenerator extends Generator {
           sb.append(indent())
                   .append("  throw new org.apache.thrift.protocol.TProtocolException(\"Required field '")
                   .append(field.getName())
-                  .append("' was not found in serialized data! Struct: \" + struct.toString());\n");
+                  .append("' was not found in serialized data! Struct: \" + toString());\n");
           sb.append(indent()).append("}\n");
         }
       }
@@ -991,7 +991,7 @@ public class JavaGenerator extends Generator {
               i++;
             }
           }
-          sb.append(indent()).append("__isset_bit_vector = new java.util.BitSet(").append(i > 0 ? i : 1).append(");\n");
+          sb.append(indent()).append("__isset_bit_vector = new java.util.BitSet(1);\n");
           break;
       }
     }
@@ -1044,7 +1044,7 @@ public class JavaGenerator extends Generator {
           sb.append(indent()).append("}\n\n");
         } else {
           if (typeCanBeNull(field.getType())) {
-            sb.append(indent()).append("if (this.").append(makeValidJavaIdentifier(field.getName())).append(" == null) {\n");
+            sb.append(indent()).append("if (").append(makeValidJavaIdentifier(field.getName())).append(" == null) {\n");
             sb.append(indent())
                     .append("  throw new org.apache.thrift.protocol.TProtocolException(\"Required field '")
                     .append(field.getName())
@@ -1096,15 +1096,7 @@ public class JavaGenerator extends Generator {
 
       if (!firstFieldOutput) {
         sb.append(indent()).append("if (!first) sb.append(\", \");\n");
-      } else {
-        // For the very first field, don't emit the leading comma logic yet if it's optional
-        // and not set. If it *is* set, then `first` will become false.
-        // If it's not optional, it will always be part of the string.
-        if (couldBeUnset) {
-          sb.append(indent()).append("if (!first) sb.append(\", \");\n");
-        }
       }
-
 
       sb.append(indent()).append("sb.append(\"").append(field.getName()).append(":\");\n");
       boolean canBeNull = typeCanBeNull(field.getType());
@@ -1277,10 +1269,10 @@ public class JavaGenerator extends Generator {
 
       String unequal;
       if (type.isBinary()) {
-        unequal = "!java.util.Objects.equals(this." + makeValidJavaIdentifier(name) + ", that." + makeValidJavaIdentifier(name) + ")";
+        unequal = "!this." + makeValidJavaIdentifier(name) + ".equals(that." + makeValidJavaIdentifier(name) + ")";
       } else if (canBeNull) {
         // Use Objects.equals for nullable fields to handle nulls gracefully
-        unequal = "!java.util.Objects.equals(this." + makeValidJavaIdentifier(name) + ", that." + makeValidJavaIdentifier(name) + ")";
+        unequal = "!this." + makeValidJavaIdentifier(name) + ".equals(that." + makeValidJavaIdentifier(name) + ")";
       } else {
         // For primitive types
         unequal = "this." + makeValidJavaIdentifier(name) + " != that." + makeValidJavaIdentifier(name);
@@ -1325,13 +1317,13 @@ public class JavaGenerator extends Generator {
       }
 
       if (type.isEnum()) {
-        sb.append(indent()).append("hashCode = hashCode * ").append(MUL).append(" + ((").append(name).append(" != null) ? this.").append(name).append(".getValue() : 0 );\n");
+        sb.append(indent()).append("hashCode = hashCode * ").append(MUL).append(" + ").append(name).append(".getValue();\n");
       } else if (type.isBaseType()) {
         TBaseType.Base base = ((TBaseType)type).getBase();
         switch (base) {
           case TYPE_STRING:
           case TYPE_UUID: // UUIDs are typically represented as Strings or specific UUID objects
-            sb.append(indent()).append("hashCode = hashCode * ").append(MUL).append(" + ((").append(name).append(" != null) ? ").append(name).append(".hashCode() : 0);\n");
+            sb.append(indent()).append("hashCode = hashCode * ").append(MUL).append(" + ").append(name).append(".hashCode();\n");
             break;
           case TYPE_BOOL:
             sb.append(indent()).append("hashCode = hashCode * ").append(MUL).append(" + ((").append(name).append(") ? ").append(B_YES)
@@ -1358,7 +1350,7 @@ public class JavaGenerator extends Generator {
             throw new RuntimeException("compiler error: the following base type has no hashcode generator: " + base);
         }
       } else { // Containers, Structs, Exceptions (which are structs)
-        sb.append(indent()).append("hashCode = hashCode * ").append(MUL).append(" + ((").append(name).append(" != null) ? ").append(name).append(".hashCode() : 0);\n");
+        sb.append(indent()).append("hashCode = hashCode * ").append(MUL).append(" + ").append(name).append(".hashCode();\n");
       }
 
       if (isOptionalField || canBeNullField) {
@@ -2132,12 +2124,12 @@ public class JavaGenerator extends Generator {
     } else { // Base type
       sb.append("new org.apache.thrift.meta_data.FieldValueMetaData(").append(typeToEnum(ttype));
       if (ttype.isBinary()) {
-        sb.append(", true"); // Mark as binary
+        sb.append(indent()).append(", true"); // Mark as binary
       } else if (type.isTypedef()) { // Use original type for typedef name
         // In Java AST, TTypedef holds symbolic name. `type` here is the original typedef, not the resolved one.
         // `ttype` is already resolved. We need original `type` if it was a typedef.
         if (type instanceof com.github.decster.ast.TTypedef) {
-          sb.append(", \"").append(((com.github.decster.ast.TTypedef)type).getSymbolic()).append("\"");
+          sb.append(indent()).append(", \"").append(((com.github.decster.ast.TTypedef)type).getSymbolic()).append("\"");
         }
       }
       // Note: The C++ version has an `else if (type->is_typedef())` clause, which is

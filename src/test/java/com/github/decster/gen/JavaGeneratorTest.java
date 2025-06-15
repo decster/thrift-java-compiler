@@ -40,6 +40,10 @@ public class JavaGeneratorTest {
     @Test
     void testGenStruct() throws Exception {
         singleTestGenStruct("ManyFields");
+        singleTestGenStruct("ManyFields2");
+        singleTestGenStruct("ManyFields3");
+        singleTestGenStruct("Point");
+        singleTestGenStruct("Xtruct");
     }
 
     void singleTestGenStruct(String structName) throws Exception {
