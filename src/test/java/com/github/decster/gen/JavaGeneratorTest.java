@@ -46,6 +46,16 @@ public class JavaGeneratorTest {
         singleTestGenStruct("Xtruct");
     }
 
+    @Test
+    void testGenXception() throws Exception {
+        singleTestGenXception("Xception");
+    }
+
+    @Test
+    void testGenService() throws Exception {
+        singleTestGenService("DemoService");
+    }
+
     void singleTestGenStruct(String structName) throws Exception {
         URL resourceUrl = JavaGeneratorTest.class.getResource("/single_file_tests");
         String resourcePath = resourceUrl.getPath();
@@ -57,4 +67,29 @@ public class JavaGeneratorTest {
         JavaGenerator.GenResult result = generator.generateStruct(program.getStructs().get(0), false);
         GeneratorTestUtil.assertEqualsLineByLine(structName, result.content, genJava);
     }
+
+    void singleTestGenXception(String xceptionName) throws Exception {
+        URL resourceUrl = JavaGeneratorTest.class.getResource("/single_file_tests");
+        String resourcePath = resourceUrl.getPath();
+        String idl = Files.readString(new File(resourcePath, xceptionName+".thrift").toPath());
+        String genJava = Files.readString(new File(resourcePath, "com/example/thrift/"+xceptionName+".java").toPath());
+        TProgram program = ThriftAstBuilder.parseString(idl, xceptionName+".thrift");
+        JavaGenerator generator = new JavaGenerator(program, "" , null);
+        generator.setTimestamp("2025-06-06");
+        JavaGenerator.GenResult result = generator.generateStruct(program.getXceptions().get(0), true);
+        GeneratorTestUtil.assertEqualsLineByLine(xceptionName, result.content, genJava);
+    }
+
+    void singleTestGenService(String serviceName) throws Exception {
+        URL resourceUrl = JavaGeneratorTest.class.getResource("/single_file_tests");
+        String resourcePath = resourceUrl.getPath();
+        String idl = Files.readString(new File(resourcePath, serviceName+".thrift").toPath());
+        String genJava = Files.readString(new File(resourcePath, "com/example/thrift/"+serviceName+".java").toPath());
+        TProgram program = ThriftAstBuilder.parseString(idl, serviceName+".thrift");
+        JavaGenerator generator = new JavaGenerator(program, "" , null);
+        generator.setTimestamp("2025-06-06");
+        JavaGenerator.GenResult result = generator.generateService(program.getServices().get(0));
+        GeneratorTestUtil.assertEqualsLineByLine(serviceName, result.content, genJava);
+    }
+
 }

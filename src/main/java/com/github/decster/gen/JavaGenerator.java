@@ -1,19 +1,7 @@
 package com.github.decster.gen;
 
-import com.github.decster.ast.TBaseType;
-import com.github.decster.ast.TConst;
-import com.github.decster.ast.TConstValue;
-import com.github.decster.ast.TDoc;
-import com.github.decster.ast.TEnum;
-import com.github.decster.ast.TEnumValue;
-import com.github.decster.ast.TField;
-import com.github.decster.ast.TList;
-import com.github.decster.ast.TMap;
-import com.github.decster.ast.TProgram;
-import com.github.decster.ast.TService;
-import com.github.decster.ast.TSet;
-import com.github.decster.ast.TStruct;
-import com.github.decster.ast.TType;
+import com.github.decster.ast.*;
+
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -137,12 +125,7 @@ public class JavaGenerator extends Generator {
       writeToFile(result.filename, result.content);
     }
   }
-
-  public GenResult generateService(TService service) {
-    // TODO:
-    return null;
-  }
-
+  
   public GenResult generateUnion(TStruct struct) {
     // TODO:
     return null;
@@ -249,7 +232,7 @@ public class JavaGenerator extends Generator {
     sb.append(javaSuppressions());
 
     // @Generated annotation
-    if (!options.isSuppressGeneratedAnnotations()) {
+    if (!options.isSuppressGeneratedAnnotations() && !inClass) {
       sb.append(getAutogenComment());
     }
 
@@ -281,13 +264,11 @@ public class JavaGenerator extends Generator {
     if (options.isAndroidStyle()) {
       sb.append(", android.os.Parcelable");
     }
-
+    sb.append(indent());
     sb.append(" {\n");
 
     // Indentation tracking
-    indent_level = 0;
     indent_up(); // Increase to level 1 for class body content
-
     // Generate struct description
     generateStructDesc(sb, tstruct);
 
@@ -1338,7 +1319,7 @@ public class JavaGenerator extends Generator {
             break;
           case TYPE_I64:
             sb.append(indent()).append("hashCode = hashCode * ").append(MUL)
-                    .append(" + org.apache.thrift.TBaseHelper.hashCode(").append(name).append("L);\n");
+                    .append(" + org.apache.thrift.TBaseHelper.hashCode(").append(name).append(");\n");
             break;
           case TYPE_DOUBLE:
             sb.append(indent()).append("hashCode = hashCode * ").append(MUL)
@@ -1416,13 +1397,9 @@ public class JavaGenerator extends Generator {
       indent_up();
       sb.append(indent()).append("set").append(capName).append("((byte[])value);\n");
       indent_down();
-      sb.append(indent()).append("} else if (value instanceof java.nio.ByteBuffer) {\n"); // Handle ByteBuffer directly
-      indent_up();
-      sb.append(indent()).append("set").append(capName).append("((java.nio.ByteBuffer)value);\n");
-      indent_down();
       sb.append(indent()).append("} else {\n");
       indent_up();
-      sb.append(indent()).append("throw new IllegalArgumentException(\"Expected byte[] or ByteBuffer for field ").append(fieldName).append("\");\n");
+      sb.append(indent()).append("set").append(capName).append("((java.nio.ByteBuffer)value);\n");
       indent_down();
       sb.append(indent()).append("}\n");
     } else {
@@ -1627,9 +1604,9 @@ public class JavaGenerator extends Generator {
         }
         sb.append(indent()).append("public byte[] get").append(capName).append("() {\n");
         indent_up();
-        sb.append(indent()).append("set").append(capName).append("(org.apache.thrift.TBaseHelper.rightSize(this.")
+        sb.append(indent()).append("set").append(capName).append("(org.apache.thrift.TBaseHelper.rightSize(")
                 .append(makeValidJavaIdentifier(fieldName)).append("));\n");
-        sb.append(indent()).append("return this.").append(makeValidJavaIdentifier(fieldName)).append(" == null ? null : this.").append(makeValidJavaIdentifier(fieldName)).append(".array();\n");
+        sb.append(indent()).append("return ").append(makeValidJavaIdentifier(fieldName)).append(" == null ? null : ").append(makeValidJavaIdentifier(fieldName)).append(".array();\n");
         indent_down();
         sb.append(indent()).append("}\n\n");
 
@@ -1637,9 +1614,9 @@ public class JavaGenerator extends Generator {
                 .append("() {\n");
         indent_up();
         if (options.isUnsafeBinaries()) {
-          sb.append(indent()).append("return this.").append(makeValidJavaIdentifier(fieldName)).append(";\n");
+          sb.append(indent()).append("return ").append(makeValidJavaIdentifier(fieldName)).append(";\n");
         } else {
-          sb.append(indent()).append("return org.apache.thrift.TBaseHelper.copyBinary(this.").append(makeValidJavaIdentifier(fieldName)).append(");\n");
+          sb.append(indent()).append("return org.apache.thrift.TBaseHelper.copyBinary(").append(makeValidJavaIdentifier(fieldName)).append(");\n");
         }
         indent_down();
         sb.append(indent()).append("}\n\n");
@@ -1707,10 +1684,10 @@ public class JavaGenerator extends Generator {
           sb.append(typeName(tstruct));
         }
         sb.append(" set").append(capName).append("(byte[] ").append(makeValidJavaIdentifier(fieldName)).append(") {\n");
-        indent_up();
+
         sb.append(indent()).append("this.").append(makeValidJavaIdentifier(fieldName)).append(" = ").append(makeValidJavaIdentifier(fieldName))
                 .append(" == null ? (java.nio.ByteBuffer)null");
-
+        sb.append(indent());
         if (options.isUnsafeBinaries()) {
           sb.append(" : java.nio.ByteBuffer.wrap(").append(makeValidJavaIdentifier(fieldName)).append(");\n");
         } else {
@@ -1732,7 +1709,7 @@ public class JavaGenerator extends Generator {
         } else {
           sb.append(typeName(tstruct));
         }
-        sb.append(" set").append(capName).append("(java.nio.ByteBuffer ").append(makeValidJavaIdentifier(fieldName)).append(") {\n");
+        sb.append(" set").append(capName).append("(@org.apache.thrift.annotation.Nullable java.nio.ByteBuffer ").append(makeValidJavaIdentifier(fieldName)).append(") {\n");
         indent_up();
         sb.append(indent()).append("this.").append(makeValidJavaIdentifier(fieldName)).append(" = ");
         if (!options.isUnsafeBinaries()) {
@@ -2264,7 +2241,7 @@ public class JavaGenerator extends Generator {
   }
 
   String isset_field_id(TField field) {
-    return "__" + constantName(field.getName()).toUpperCase() + "_ISSET_ID";
+    return "__" + field.getName().toUpperCase() + "_ISSET_ID";
   }
 
   /**
@@ -3203,6 +3180,7 @@ public class JavaGenerator extends Generator {
         case "bool":
           return "org.apache.thrift.protocol.TType.BOOL";
         case "byte":
+        case "i8":
           return "org.apache.thrift.protocol.TType.BYTE";
         case "i16":
           return "org.apache.thrift.protocol.TType.I16";
@@ -3284,6 +3262,10 @@ public class JavaGenerator extends Generator {
     }
 
     return normalizeName(str.toString());
+  }
+
+  private String asCamelCase(String name) {
+    return asCamelCase(name, false);
   }
 
   private String asCamelCase(String name, boolean ucfirst) {
@@ -3714,7 +3696,7 @@ public class JavaGenerator extends Generator {
               .append(iterVar)
               .append(" : ")
               .append(variableName)
-              .append(".entrySet())");
+              .append(".entrySet())\n");
     } else if (ttype.isSet()) {
       TSet tset = (TSet) ttype;
       sb.append(indent())
@@ -3724,7 +3706,7 @@ public class JavaGenerator extends Generator {
               .append(iterVar)
               .append(" : ")
               .append(variableName)
-              .append(")");
+              .append(")\n");
     } else if (ttype.isList()) {
       TList tlist = (TList) ttype;
       sb.append(indent())
@@ -3734,9 +3716,9 @@ public class JavaGenerator extends Generator {
               .append(iterVar)
               .append(" : ")
               .append(variableName)
-              .append(")");
+              .append(")\n");
     }
-    sb.append(" {\n"); // Start of for-loop block
+    sb.append(indent()).append("{\n"); // Start of for-loop block
     indent_up();
 
     if (ttype.isMap()) {
@@ -3896,93 +3878,6 @@ public class JavaGenerator extends Generator {
     sb.append(indent()).append(variableName).append(".read(iprot);\n");
   }
 
-  /**
-   * Deserializes a container by reading its size and then iterating
-   *
-   * @param sb The StringBuilder to append to
-   * @param ttype The type of container
-   * @param variableName The name of the variable to hold the container instance
-   * @param hasMetaData Whether protocol metadata is present
-   */
-  private void generateDeserializeContainer(
-          StringBuilder sb, TType ttype, String variableName, boolean hasMetaData) {
-    scope_up(sb);
-
-    String protoContainerVar; // e.g., _map, _set, _list from TProtocol
-    if (ttype.isMap()) {
-      protoContainerVar = tmp("_map");
-      sb.append(indent())
-              .append("org.apache.thrift.protocol.TMap ")
-              .append(protoContainerVar)
-              .append(" = iprot.readMapBegin();\n");
-    } else if (ttype.isSet()) {
-      protoContainerVar = tmp("_set");
-      sb.append(indent())
-              .append("org.apache.thrift.protocol.TSet ")
-              .append(protoContainerVar)
-              .append(" = iprot.readSetBegin();\n");
-    } else if (ttype.isList()) {
-      protoContainerVar = tmp("_list");
-      sb.append(indent())
-              .append("org.apache.thrift.protocol.TList ")
-              .append(protoContainerVar)
-              .append(" = iprot.readListBegin();\n");
-    } else {
-      throw new RuntimeException("Unknown container type: " + ttype.getName());
-    }
-
-    // Initialize or clear the container
-    if (options.isReuseObjects()) {
-      sb.append(indent()).append("if (").append(variableName).append(" == null) {\n");
-      indent_up();
-      generateContainerInitialization(sb, ttype, variableName, protoContainerVar + ".size");
-      indent_down();
-      sb.append(indent()).append("} else {\n");
-      indent_up();
-      sb.append(indent()).append(variableName).append(".clear();\n");
-      indent_down();
-      sb.append(indent()).append("}\n");
-    } else {
-      generateContainerInitialization(sb, ttype, variableName, protoContainerVar + ".size");
-    }
-
-    // Loop and deserialize elements
-    String iVar = tmp("_i");
-    sb.append(indent())
-            .append("for (int ")
-            .append(iVar)
-            .append(" = 0; ")
-            .append(iVar)
-            .append(" < ")
-            .append(protoContainerVar)
-            .append(".size; ++")
-            .append(iVar)
-            .append(") {\n");
-    indent_up();
-
-    if (ttype.isMap()) {
-      generateDeserializeMapElement(sb, (TMap) ttype, variableName, hasMetaData);
-    } else if (ttype.isSet()) {
-      generateDeserializeSetElement(sb, (TSet) ttype, variableName, hasMetaData);
-    } else if (ttype.isList()) {
-      generateDeserializeListElement(sb, (TList) ttype, variableName, hasMetaData);
-    }
-
-    indent_down();
-    sb.append(indent()).append("}\n"); // End of for-loop
-
-    // Read container end
-    if (ttype.isMap()) {
-      sb.append(indent()).append("iprot.readMapEnd();\n");
-    } else if (ttype.isSet()) {
-      sb.append(indent()).append("iprot.readSetEnd();\n");
-    } else if (ttype.isList()) {
-      sb.append(indent()).append("iprot.readListEnd();\n");
-    }
-
-    scope_down(sb);
-  }
-
   private void generateContainerInitialization(
           StringBuilder sb, TType ttype, String variableName, String sizeExpression) {
     sb.append(indent()).append(variableName).append(" = new ");
@@ -4003,22 +3898,161 @@ public class JavaGenerator extends Generator {
       sb.append("(").append(constructorArgs).append(");\n");
     }
   }
+  private void generateDeserializeContainer(
+          StringBuilder sb, TType ttype, String variableName, boolean hasMetaData) {
+    scope_up(sb);
+
+    String protoContainerVar; // e.g., _map, _set, _list from TProtocol
+    if (ttype.isMap()) {
+      protoContainerVar = tmp("_map");
+      sb.append(indent())
+              .append("org.apache.thrift.protocol.TMap ")
+              .append(protoContainerVar)
+              .append(" = iprot.readMapBegin(");
+      if (!hasMetaData) {
+        TMap tmap = (TMap) ttype;
+        sb.append(typeToEnum(tmap.getKeyType()))
+                .append(", ")
+                .append(typeToEnum(tmap.getValueType()));
+      }
+      sb.append(");\n");
+    } else if (ttype.isSet()) {
+      protoContainerVar = tmp("_set");
+      sb.append(indent())
+              .append("org.apache.thrift.protocol.TSet ")
+              .append(protoContainerVar)
+              .append(" = iprot.readSetBegin(");
+      if (!hasMetaData) {
+        TSet tset = (TSet) ttype;
+        sb.append(typeToEnum(tset.getElemType()));
+      }
+      sb.append(");\n");
+    } else if (ttype.isList()) {
+      protoContainerVar = tmp("_list");
+      sb.append(indent())
+              .append("org.apache.thrift.protocol.TList ")
+              .append(protoContainerVar)
+              .append(" = iprot.readListBegin(");
+      if (!hasMetaData) {
+        TList tlist = (TList) ttype;
+        sb.append(typeToEnum(tlist.getElemType()));
+      }
+      sb.append(");\n");
+    } else {
+      throw new RuntimeException("Unknown container type: " + ttype.getName());
+    }
+    // Initialize or clear the container
+    if (options.isReuseObjects()) {
+      sb.append(indent()).append("if (").append(variableName).append(" == null) {\n");
+      indent_up();
+      generateContainerInitialization(sb, ttype, variableName, protoContainerVar + ".size");
+      indent_down();
+      sb.append(indent()).append("} else {\n");
+      indent_up();
+      sb.append(indent()).append(variableName).append(".clear();\n");
+      indent_down();
+      sb.append(indent()).append("}\n");
+    } else {
+      generateContainerInitialization(sb, ttype, variableName, protoContainerVar + ".size");
+    }
+
+    // Declare variables before loop
+    String keyVar = null;
+    String valVar = null;
+    String elemVar = null;
+    if (ttype.isMap()) {
+      TMap tmap = (TMap) ttype;
+      keyVar = tmp("_key");
+      valVar = tmp("_val");
+      TType keyType = getTrueType(tmap.getKeyType());
+      TType valType = getTrueType(tmap.getValueType());
+
+      // Declare key and value variables
+      sb.append(indent());
+      if (typeCanBeNull(keyType)) {
+        sb.append(javaNullableAnnotation()).append(" ");
+      }
+      sb.append(typeName(keyType)).append(" ").append(keyVar);
+      if (options.isReuseObjects() && !keyType.isBaseType()) {
+        sb.append(" = null");
+      }
+      sb.append(";\n");
+
+      sb.append(indent());
+      if (typeCanBeNull(valType)) {
+        sb.append(javaNullableAnnotation()).append(" ");
+      }
+      sb.append(typeName(valType)).append(" ").append(valVar);
+      if (options.isReuseObjects() && !valType.isBaseType()) {
+        sb.append(" = null");
+      }
+      sb.append(";\n");
+    } else { // List or Set
+      TType elementType;
+      if (ttype.isSet()) {
+        elementType = ((TSet) ttype).getElemType();
+      } else { // isList
+        elementType = ((TList) ttype).getElemType();
+      }
+      elemVar = tmp("_elem");
+      TType elemType = getTrueType(elementType);
+
+      // Declare element variable
+      sb.append(indent());
+      if (typeCanBeNull(elemType)) {
+        sb.append(javaNullableAnnotation()).append(" ");
+      }
+      sb.append(typeName(elemType)).append(" ").append(elemVar);
+      if (options.isReuseObjects() && !elemType.isBaseType()) {
+        sb.append(" = null");
+      }
+      sb.append(";\n");
+    }
+
+
+    // Loop and deserialize elements
+    String iVar = tmp("_i");
+    sb.append(indent())
+            .append("for (int ")
+            .append(iVar)
+            .append(" = 0; ")
+            .append(iVar)
+            .append(" < ")
+            .append(protoContainerVar)
+            .append(".size; ++")
+            .append(iVar)
+            .append(")\n");
+    sb.append(indent()).append("{\n");
+    indent_up();
+
+    if (ttype.isMap()) {
+      generateDeserializeMapElement(sb, (TMap) ttype, variableName, hasMetaData, keyVar, valVar);
+    } else if (ttype.isSet()) {
+      generateDeserializeSetElement(sb, (TSet) ttype, variableName, hasMetaData, elemVar);
+    } else if (ttype.isList()) {
+      generateDeserializeListElement(sb, (TList) ttype, variableName, hasMetaData, elemVar);
+    }
+
+    indent_down();
+    sb.append(indent()).append("}\n"); // End of for-loop
+
+    if (hasMetaData) {
+      // Read container end
+      if (ttype.isMap()) {
+        sb.append(indent()).append("iprot.readMapEnd();\n");
+      } else if (ttype.isSet()) {
+        sb.append(indent()).append("iprot.readSetEnd();\n");
+      } else if (ttype.isList()) {
+        sb.append(indent()).append("iprot.readListEnd();\n");
+      }
+    }
+    scope_down(sb);
+  }
 
   private void generateDeserializeMapElement(
-          StringBuilder sb, TMap tmap, String mapVarName, boolean hasMetaData) {
-    String keyVar = tmp("_key");
-    String valVar = tmp("_val");
+          StringBuilder sb, TMap tmap, String mapVarName, boolean hasMetaData, String keyVar, String valVar) {
     TType keyType = getTrueType(tmap.getKeyType());
     TType valType = getTrueType(tmap.getValueType());
-
-    // Declare key and value variables
-    sb.append(indent()).append(typeName(keyType)).append(" ").append(keyVar);
-    if (options.isReuseObjects() && !keyType.isBaseType()) sb.append(" = null");
-    sb.append(";\n");
-
-    sb.append(indent()).append(typeName(valType)).append(" ").append(valVar);
-    if (options.isReuseObjects() && !valType.isBaseType()) sb.append(" = null");
-    sb.append(";\n");
 
     // Deserialize key and value
     generateDeserializeFieldInternal(sb, keyType, keyVar, hasMetaData);
@@ -4047,14 +4081,8 @@ public class JavaGenerator extends Generator {
   }
 
   private void generateDeserializeSetElement(
-          StringBuilder sb, TSet tset, String setVarName, boolean hasMetaData) {
-    String elemVar = tmp("_elem");
+          StringBuilder sb, TSet tset, String setVarName, boolean hasMetaData, String elemVar) {
     TType elemType = getTrueType(tset.getElemType());
-
-    // Declare element variable
-    sb.append(indent()).append(typeName(elemType)).append(" ").append(elemVar);
-    if (options.isReuseObjects() && !elemType.isBaseType()) sb.append(" = null");
-    sb.append(";\n");
 
     // Deserialize element
     generateDeserializeFieldInternal(sb, elemType, elemVar, hasMetaData);
@@ -4077,14 +4105,8 @@ public class JavaGenerator extends Generator {
   }
 
   private void generateDeserializeListElement(
-          StringBuilder sb, TList tlist, String listVarName, boolean hasMetaData) {
-    String elemVar = tmp("_elem");
+          StringBuilder sb, TList tlist, String listVarName, boolean hasMetaData, String elemVar) {
     TType elemType = getTrueType(tlist.getElemType());
-
-    // Declare element variable
-    sb.append(indent()).append(typeName(elemType)).append(" ").append(elemVar);
-    if (options.isReuseObjects() && !elemType.isBaseType()) sb.append(" = null");
-    sb.append(";\n");
 
     // Deserialize element
     generateDeserializeFieldInternal(sb, elemType, elemVar, hasMetaData);
@@ -4103,5 +4125,808 @@ public class JavaGenerator extends Generator {
     if (options.isReuseObjects() && !elemType.isBaseType()) {
       sb.append(indent()).append(elemVar).append(" = null;\n");
     }
+  }
+
+  public GenResult generateService(TService tservice) {
+    String serviceName = tservice.getName();
+    StringBuilder sb = new StringBuilder();
+
+    sb.append(autogenComment());
+    sb.append(javaPackage());
+
+    if (!options.isSuppressGeneratedAnnotations()) {
+      sb.append(getAutogenComment());
+    }
+    sb.append(javaSuppressions());
+    sb.append("public class ").append(makeValidJavaIdentifier(serviceName)).append(" {\n\n");
+    indent_up();
+
+    generateServiceInterface(sb, tservice);
+    generateServiceAsyncInterface(sb, tservice);
+    if (options.isFutureIface()) {
+      generateServiceFutureInterface(sb, tservice);
+    }
+    generateServiceClient(sb, tservice);
+    generateServiceAsyncClient(sb, tservice);
+    if (options.isFutureIface()) {
+      generateServiceFutureClient(sb, tservice);
+    }
+    generateServiceServer(sb, tservice);
+    generateServiceAsyncServer(sb, tservice);
+    generateServiceHelpers(sb, tservice);
+
+    indent_down();
+    sb.append("}\n");
+    return new GenResult(makeValidJavaFilename(serviceName) + ".java", sb.toString());
+  }
+
+  /**
+   * Generates a service interface definition.
+   *
+   * @param tservice The service to generate an interface for
+   */
+  protected void generateServiceInterface(StringBuilder sb, TService tservice) {
+    String extends_iface = "";
+    if (tservice.getExtends() != null) {
+      extends_iface = " extends " + typeName(tservice.getExtends()) + ".Iface";
+    }
+
+    generateJavaDoc(sb, tservice);
+    sb.append(indent()).append("public interface Iface").append(extends_iface).append(" {\n\n");
+    indent_up();
+    for (TFunction function : tservice.getFunctions()) {
+      generateJavaDoc(sb, function);
+      sb.append(indent()).append("public ").append(functionSignature(function)).append(";\n\n");
+    }
+    indent_down();
+    sb.append(indent()).append("}\n\n");
+  }
+
+  protected void generateServiceAsyncInterface(StringBuilder sb, TService tservice) {
+    String extends_iface = "";
+    if (tservice.getExtends() != null) {
+      extends_iface = " extends " + typeName(tservice.getExtends()) + ".AsyncIface";
+    }
+
+    sb.append(indent()).append("public interface AsyncIface").append(extends_iface).append(" {\n\n");
+    indent_up();
+    for (TFunction function : tservice.getFunctions()) {
+      sb.append(indent()).append("public ").append(functionSignatureAsync(function, true, ""))
+              .append(" throws org.apache.thrift.TException;\n\n");
+    }
+    indent_down();
+    sb.append(indent()).append("}\n\n");
+  }
+
+  protected void generateServiceFutureInterface(StringBuilder sb, TService tservice) {
+    String extends_iface = "";
+    if (tservice.getExtends() != null) {
+      extends_iface = " extends " + typeName(tservice.getExtends()) + ".FutureIface";
+    }
+
+    sb.append(indent()).append("public interface FutureIface").append(extends_iface).append(" {\n\n");
+    indent_up();
+    for (TFunction tfunc : tservice.getFunctions()) {
+      sb.append(indent()).append("public ").append(functionSignatureFuture(tfunc))
+              .append(" throws org.apache.thrift.TException;\n\n");
+    }
+    scope_down(sb);
+    sb.append("\n\n");
+  }
+
+  /**
+   * Generates structs for all the service args and return types
+   *
+   * @param tservice The service
+   */
+  protected void generateServiceHelpers(StringBuilder sb, TService tservice) {
+    for (TFunction function : tservice.getFunctions()) {
+      TStruct ts = function.getArglist();
+      generateJavaStructDefinition(sb, ts, false, true, false);
+      generateFunctionHelpers(sb, tservice.getProgram(), function);
+    }
+  }
+
+  /**
+   * Generates a service client definition.
+   *
+   * @param tservice The service to generate a client for.
+   */
+  protected void generateServiceClient(StringBuilder sb, TService tservice) {
+    String extends_client = "org.apache.thrift.TServiceClient";
+    if (tservice.getExtends() != null) {
+      extends_client = typeName(tservice.getExtends()) + ".Client";
+    }
+
+    sb.append(indent()).append("public static class Client extends ").append(extends_client)
+            .append(" implements Iface {\n");
+    indent_up();
+
+    sb.append(indent()).append("public static class Factory implements org.apache.thrift.TServiceClientFactory<Client> {\n");
+    indent_up();
+    sb.append(indent()).append("public Factory() {}\n");
+    sb.append(indent()).append(javaOverrideAnnotation()).append("\n");
+    sb.append(indent()).append("public Client getClient(org.apache.thrift.protocol.TProtocol prot) {\n");
+    indent_up();
+    sb.append(indent()).append("return new Client(prot);\n");
+    indent_down();
+    sb.append(indent()).append("}\n");
+    sb.append(indent()).append(javaOverrideAnnotation()).append("\n");
+    sb.append(indent()).append("public Client getClient(org.apache.thrift.protocol.TProtocol iprot, org.apache.thrift.protocol.TProtocol oprot) {\n");
+    indent_up();
+    sb.append(indent()).append("return new Client(iprot, oprot);\n");
+    indent_down();
+    sb.append(indent()).append("}\n");
+    indent_down();
+    sb.append(indent()).append("}\n\n");
+
+    sb.append(indent()).append("public Client(org.apache.thrift.protocol.TProtocol prot)\n");
+    scope_up(sb);
+    sb.append(indent()).append("super(prot, prot);\n");
+    scope_down(sb);
+    sb.append("\n");
+
+    sb.append(indent()).append("public Client(org.apache.thrift.protocol.TProtocol iprot, org.apache.thrift.protocol.TProtocol oprot) {\n");
+    sb.append(indent()).append("  super(iprot, oprot);\n");
+    sb.append(indent()).append("}\n\n");
+
+    for (TFunction function : tservice.getFunctions()) {
+      String funname = function.getName();
+      String sep = "_";
+      String javaname = funname;
+      if (options.isFullcamel()) {
+        sep = "";
+        javaname = asCamelCase(funname);
+      }
+
+      sb.append(indent()).append(javaOverrideAnnotation()).append("\n");
+      sb.append(indent()).append("public ").append(functionSignature(function)).append("\n");
+      scope_up(sb);
+      sb.append(indent()).append("send").append(sep).append(javaname).append("(");
+
+      TStruct arg_struct = function.getArglist();
+      List<TField> fields = arg_struct.getMembers();
+      boolean first = true;
+      for (TField field : fields) {
+        if (first) {
+          first = false;
+        } else {
+          sb.append(", ");
+        }
+        sb.append(makeValidJavaIdentifier(field.getName()));
+      }
+      sb.append(");\n");
+
+      if (!function.isOneway()) {
+        sb.append(indent());
+        if (!function.getReturnType().isVoid()) {
+          sb.append("return ");
+        }
+        sb.append("recv").append(sep).append(javaname).append("();\n");
+      }
+      scope_down(sb);
+      sb.append("\n");
+
+      TFunction send_function = new TFunction(new TBaseType("", TBaseType.Base.TYPE_VOID), "send" + sep + javaname, function.getArglist());
+
+      sb.append(indent()).append("public ").append(functionSignature(send_function)).append("\n");
+      scope_up(sb);
+
+      String argsname = function.getName() + "_args";
+      sb.append(indent()).append(argsname).append(" args = new ").append(argsname).append("();\n");
+
+      for (TField field : fields) {
+        sb.append(indent()).append("args.set").append(getCapName(field.getName()))
+                .append("(").append(makeValidJavaIdentifier(field.getName())).append(");\n");
+      }
+
+      String sendBaseName = function.isOneway() ? "sendBaseOneway" : "sendBase";
+      sb.append(indent()).append(sendBaseName).append("(\"").append(funname).append("\", args);\n");
+
+      scope_down(sb);
+      sb.append("\n");
+
+      if (!function.isOneway()) {
+        String resultname = function.getName() + "_result";
+        TFunction recv_function = new TFunction(function.getReturnType(), "recv" + sep + javaname,
+                new TStruct(tservice.getProgram()), function.getXceptions(), false);
+        sb.append(indent()).append("public ").append(functionSignature(recv_function)).append("\n");
+        scope_up(sb);
+
+        sb.append(indent()).append(resultname).append(" result = new ").append(resultname).append("();\n");
+        sb.append(indent()).append("receiveBase(result, \"").append(funname).append("\");\n");
+
+        if (!function.getReturnType().isVoid()) {
+          sb.append(indent()).append("if (result.").append(generateIssetCheck("success")).append(") {\n");
+          sb.append(indent()).append("  return result.success;\n");
+          sb.append(indent()).append("}\n");
+        }
+
+        for (TField x_iter : function.getXceptions().getMembers()) {
+          sb.append(indent()).append("if (result.").append(makeValidJavaIdentifier(x_iter.getName())).append(" != null) {\n");
+          sb.append(indent()).append("  throw result.").append(makeValidJavaIdentifier(x_iter.getName())).append(";\n");
+          sb.append(indent()).append("}\n");
+        }
+
+        if (function.getReturnType().isVoid()) {
+          sb.append(indent()).append("return;\n");
+        } else {
+          sb.append(indent()).append("throw new org.apache.thrift.TApplicationException(org.apache.thrift.TApplicationException.MISSING_RESULT, \"")
+                  .append(funname).append(" failed: unknown result\");\n");
+        }
+        scope_down(sb);
+        sb.append("\n");
+      }
+    }
+    indent_down();
+    sb.append(indent()).append("}\n");
+  }
+
+  protected void generateServiceFutureClient(StringBuilder sb, TService tservice) {
+    String extends_client = "";
+    if (tservice.getExtends() != null) {
+      extends_client = "extends " + typeName(tservice.getExtends()) + ".FutureClient ";
+    }
+
+    final String adapter_class = "org.apache.thrift.async.AsyncMethodFutureAdapter";
+    sb.append(indent()).append("public static class FutureClient ").append(extends_client)
+            .append("implements FutureIface {\n");
+    indent_up();
+    sb.append(indent()).append("private final AsyncIface delegate;\n\n");
+    sb.append(indent()).append("public FutureClient(AsyncIface delegate) {\n");
+    indent_up();
+    sb.append(indent()).append("this.delegate = delegate;\n");
+    scope_down(sb);
+
+    for (TFunction tfunc : tservice.getFunctions()) {
+      String funname = tfunc.getName();
+      String ret_typeName = typeName(tfunc.getReturnType(), true);
+
+      sb.append(indent()).append("@Override\n");
+      sb.append(indent()).append("public ").append(functionSignatureFuture(tfunc))
+              .append(" throws org.apache.thrift.TException {\n");
+      indent_up();
+      String adapter = tmp("asyncMethodFutureAdapter");
+      sb.append(indent()).append(adapter_class).append("<").append(ret_typeName).append("> ").append(adapter).append(" = ")
+              .append(adapter_class).append(".<").append(ret_typeName).append(">create();\n");
+
+      boolean empty_args = tfunc.getArglist().getMembers().isEmpty();
+      sb.append(indent()).append("delegate.").append(getRpcMethodName(funname)).append("(")
+              .append(argumentList(tfunc.getArglist(), false)).append(empty_args ? "" : ", ")
+              .append(adapter).append(");\n");
+      sb.append(indent()).append("return ").append(adapter).append(".getFuture();\n");
+      scope_down(sb);
+      sb.append("\n");
+    }
+    scope_down(sb);
+    sb.append("\n");
+  }
+
+  protected void generateServiceAsyncClient(StringBuilder sb, TService tservice) {
+    String extends_client = "org.apache.thrift.async.TAsyncClient";
+    if (tservice.getExtends() != null) {
+      extends_client = typeName(tservice.getExtends()) + ".AsyncClient";
+    }
+
+    sb.append(indent()).append("public static class AsyncClient extends ").append(extends_client)
+            .append(" implements AsyncIface {\n");
+    indent_up();
+
+    sb.append(indent()).append("public static class Factory implements org.apache.thrift.async.TAsyncClientFactory<AsyncClient> {\n");
+    sb.append(indent()).append("  private org.apache.thrift.async.TAsyncClientManager clientManager;\n");
+    sb.append(indent()).append("  private org.apache.thrift.protocol.TProtocolFactory protocolFactory;\n");
+    sb.append(indent()).append("  public Factory(org.apache.thrift.async.TAsyncClientManager clientManager, org.apache.thrift.protocol.TProtocolFactory protocolFactory) {\n");
+    sb.append(indent()).append("    this.clientManager = clientManager;\n");
+    sb.append(indent()).append("    this.protocolFactory = protocolFactory;\n");
+    sb.append(indent()).append("  }\n");
+    sb.append(indent()).append(javaOverrideAnnotation()).append("\n");
+    sb.append(indent()).append("  public AsyncClient getAsyncClient(org.apache.thrift.transport.TNonblockingTransport transport) {\n");
+    sb.append(indent()).append("    return new AsyncClient(protocolFactory, clientManager, transport);\n");
+    sb.append(indent()).append("  }\n");
+    sb.append(indent()).append("}\n\n");
+
+    sb.append(indent()).append("public AsyncClient(org.apache.thrift.protocol.TProtocolFactory protocolFactory, org.apache.thrift.async.TAsyncClientManager clientManager, org.apache.thrift.transport.TNonblockingTransport transport) {\n");
+    sb.append(indent()).append("  super(protocolFactory, clientManager, transport);\n");
+    sb.append(indent()).append("}\n\n");
+
+    for (TFunction function : tservice.getFunctions()) {
+      String funname = function.getName();
+      String sep = "_";
+      String javaname = funname;
+      if (options.isFullcamel()) {
+        sep = "";
+        javaname = asCamelCase(javaname);
+      }
+      TType ret_type = function.getReturnType();
+      TStruct arg_struct = function.getArglist();
+      String funclassname = funname + "_call";
+      List<TField> fields = arg_struct.getMembers();
+      List<TField> xceptions = function.getXceptions().getMembers();
+      String args_name = function.getName() + "_args";
+
+      sb.append(indent()).append(javaOverrideAnnotation()).append("\n");
+      sb.append(indent()).append("public ").append(functionSignatureAsync(function, false, ""))
+              .append(" throws org.apache.thrift.TException {\n");
+      sb.append(indent()).append("  checkReady();\n");
+      sb.append(indent()).append("  ").append(funclassname).append(" method_call = new ").append(funclassname).append("(")
+              .append(asyncArgumentList(function, arg_struct, ret_type, false))
+              .append(", this, ___protocolFactory, ___transport);\n");
+      sb.append(indent()).append("  this.___currentMethod = method_call;\n");
+      sb.append(indent()).append("  ___manager.call(method_call);\n");
+      sb.append(indent()).append("}\n\n");
+
+      sb.append(indent()).append("public static class ").append(funclassname)
+              .append(" extends org.apache.thrift.async.TAsyncMethodCall<")
+              .append(typeName(function.getReturnType(), true)).append("> {\n");
+      indent_up();
+
+      for (TField field : fields) {
+        sb.append(indent()).append("private ").append(typeName(field.getType())).append(" ")
+                .append(makeValidJavaIdentifier(field.getName())).append(";\n");
+      }
+
+      sb.append(indent()).append("public ").append(funclassname).append("(")
+              .append(asyncArgumentList(function, arg_struct, ret_type, true))
+              .append(", org.apache.thrift.async.TAsyncClient client, org.apache.thrift.protocol.TProtocolFactory protocolFactory, org.apache.thrift.transport.TNonblockingTransport transport) throws org.apache.thrift.TException {\n");
+      sb.append(indent()).append("  super(client, protocolFactory, transport, resultHandler, ").append(function.isOneway() ? "true" : "false").append(");\n");
+      for (TField field : fields) {
+        sb.append(indent()).append("  this.").append(makeValidJavaIdentifier(field.getName())).append(" = ").append(makeValidJavaIdentifier(field.getName())).append(";\n");
+      }
+      sb.append(indent()).append("}\n\n");
+
+      sb.append(indent()).append(javaOverrideAnnotation()).append("\n");
+      sb.append(indent()).append("public void write_args(org.apache.thrift.protocol.TProtocol prot) throws org.apache.thrift.TException {\n");
+      indent_up();
+      String msgType = function.isOneway() ? "TMessageType.ONEWAY" : "TMessageType.CALL";
+      sb.append(indent()).append("prot.writeMessageBegin(new org.apache.thrift.protocol.TMessage(\"").append(funname).append("\", org.apache.thrift.protocol.").append(msgType).append(", 0));\n");
+      sb.append(indent()).append(args_name).append(" args = new ").append(args_name).append("();\n");
+      for (TField field : fields) {
+        sb.append(indent()).append("args.set").append(getCapName(field.getName())).append("(")
+                .append(makeValidJavaIdentifier(field.getName())).append(");\n");
+      }
+      sb.append(indent()).append("args.write(prot);\n");
+      sb.append(indent()).append("prot.writeMessageEnd();\n");
+      indent_down();
+      sb.append(indent()).append("}\n\n");
+
+      sb.append(indent()).append(javaOverrideAnnotation()).append("\n");
+      sb.append(indent()).append("public ").append(typeName(ret_type, true)).append(" getResult() throws ");
+      for (int i = 0; i < xceptions.size(); i++) {
+        sb.append(typeName(xceptions.get(i).getType(), false, false)).append(", ");
+      }
+      sb.append("org.apache.thrift.TException {\n");
+      indent_up();
+      sb.append(indent()).append("if (getState() != org.apache.thrift.async.TAsyncMethodCall.State.RESPONSE_READ) {\n");
+      sb.append(indent()).append("  throw new java.lang.IllegalStateException(\"Method call not finished!\");\n");
+      sb.append(indent()).append("}\n");
+      sb.append(indent()).append("org.apache.thrift.transport.TMemoryInputTransport memoryTransport = new org.apache.thrift.transport.TMemoryInputTransport(getFrameBuffer().array());\n");
+      sb.append(indent()).append("org.apache.thrift.protocol.TProtocol prot = client.getProtocolFactory().getProtocol(memoryTransport);\n");
+      sb.append(indent());
+      if (ret_type.isVoid()) {
+        if (!function.isOneway()) {
+          sb.append("(new Client(prot)).recv").append(sep).append(javaname).append("();\n");
+          sb.append(indent());
+        }
+        sb.append("return null;\n");
+      } else {
+        sb.append("return (new Client(prot)).recv").append(sep).append(javaname).append("();\n");
+      }
+      indent_down();
+      sb.append(indent()).append("}\n");
+      indent_down();
+      sb.append(indent()).append("}\n\n");
+    }
+    scope_down(sb);
+    sb.append("\n");
+  }
+
+  /**
+   * Generates a service server definition.
+   *
+   * @param tservice The service to generate a server for.
+   */
+  protected void generateServiceServer(StringBuilder sb, TService tservice) {
+    String extends_processor = "org.apache.thrift.TBaseProcessor<I>";
+    if (tservice.getExtends() != null) {
+      extends_processor = typeName(tservice.getExtends()) + ".Processor<I>";
+    }
+
+    sb.append(indent()).append("public static class Processor<I extends Iface> extends ").append(extends_processor).append(" implements org.apache.thrift.TProcessor {\n");
+    indent_up();
+    sb.append(indent()).append("private static final org.slf4j.Logger _LOGGER = org.slf4j.LoggerFactory.getLogger(Processor.class.getName());\n");
+    sb.append(indent()).append("public Processor(I iface) {\n");
+    sb.append(indent()).append("  super(iface, getProcessMap(new java.util.HashMap<java.lang.String, org.apache.thrift.ProcessFunction<I, ? extends org.apache.thrift.TBase>>()));\n");
+    sb.append(indent()).append("}\n\n");
+    sb.append(indent()).append("protected Processor(I iface, java.util.Map<java.lang.String, org.apache.thrift.ProcessFunction<I, ? extends org.apache.thrift.TBase>> processMap) {\n");
+    sb.append(indent()).append("  super(iface, getProcessMap(processMap));\n");
+    sb.append(indent()).append("}\n\n");
+    sb.append(indent()).append("private static <I extends Iface> java.util.Map<java.lang.String,  org.apache.thrift.ProcessFunction<I, ? extends org.apache.thrift.TBase>> getProcessMap(java.util.Map<java.lang.String, org.apache.thrift.ProcessFunction<I, ? extends  org.apache.thrift.TBase>> processMap) {\n");
+    indent_up();
+    for (TFunction function : tservice.getFunctions()) {
+      sb.append(indent()).append("processMap.put(\"").append(function.getName()).append("\", new ").append(makeValidJavaIdentifier(function.getName())).append("());\n");
+    }
+    sb.append(indent()).append("return processMap;\n");
+    indent_down();
+    sb.append(indent()).append("}\n\n");
+
+    for (TFunction function : tservice.getFunctions()) {
+      generateProcessFunction(sb, tservice, function);
+    }
+    indent_down();
+    sb.append(indent()).append("}\n\n");
+  }
+
+  protected void generateServiceAsyncServer(StringBuilder sb, TService tservice) {
+    String extends_processor = "org.apache.thrift.TBaseAsyncProcessor<I>";
+    if (tservice.getExtends() != null) {
+      extends_processor = typeName(tservice.getExtends()) + ".AsyncProcessor<I>";
+    }
+
+    sb.append(indent()).append("public static class AsyncProcessor<I extends AsyncIface> extends ").append(extends_processor).append(" {\n");
+    indent_up();
+    sb.append(indent()).append("private static final org.slf4j.Logger _LOGGER = org.slf4j.LoggerFactory.getLogger(AsyncProcessor.class.getName());\n");
+    sb.append(indent()).append("public AsyncProcessor(I iface) {\n");
+    sb.append(indent()).append("  super(iface, getProcessMap(new java.util.HashMap<java.lang.String, org.apache.thrift.AsyncProcessFunction<I, ? extends org.apache.thrift.TBase, ?>>()));\n");
+    sb.append(indent()).append("}\n\n");
+    sb.append(indent()).append("protected AsyncProcessor(I iface, java.util.Map<java.lang.String,  org.apache.thrift.AsyncProcessFunction<I, ? extends  org.apache.thrift.TBase, ?>> processMap) {\n");
+    sb.append(indent()).append("  super(iface, getProcessMap(processMap));\n");
+    sb.append(indent()).append("}\n\n");
+    sb.append(indent()).append("private static <I extends AsyncIface> java.util.Map<java.lang.String,  org.apache.thrift.AsyncProcessFunction<I, ? extends  org.apache.thrift.TBase,?>> getProcessMap(java.util.Map<java.lang.String,  org.apache.thrift.AsyncProcessFunction<I, ? extends  org.apache.thrift.TBase, ?>> processMap) {\n");
+    indent_up();
+    for (TFunction function : tservice.getFunctions()) {
+      sb.append(indent()).append("processMap.put(\"").append(function.getName()).append("\", new ").append(makeValidJavaIdentifier(function.getName())).append("());\n");
+    }
+    sb.append(indent()).append("return processMap;\n");
+    indent_down();
+    sb.append(indent()).append("}\n\n");
+
+    for (TFunction function : tservice.getFunctions()) {
+      generateProcessAsyncFunction(sb, tservice, function);
+    }
+    indent_down();
+    sb.append(indent()).append("}\n\n");
+  }
+
+  /**
+   * Generates a struct and helpers for a function.
+   *
+   * @param tfunction The function
+   */
+  protected void generateFunctionHelpers(StringBuilder sb, TProgram program, TFunction tfunction) {
+    if (tfunction.isOneway()) {
+      return;
+    }
+
+    TStruct result = new TStruct(program, tfunction.getName() + "_result");
+    if (!tfunction.getReturnType().isVoid()) {
+      TField success = new TField(tfunction.getReturnType(), "success", 0);
+      result.append(success);
+    }
+
+    for (TField field : tfunction.getXceptions().getMembers()) {
+      result.append(field);
+    }
+    generateJavaStructDefinition(sb, result, false, true, true);
+  }
+
+  /**
+   * Generates a process function definition.
+   *
+   * @param tfunction The function to write a dispatcher for
+   */
+  protected void generateProcessAsyncFunction(StringBuilder sb, TService tservice, TFunction tfunction) {
+    String argsname = tfunction.getName() + "_args";
+    String resultname = tfunction.getName() + "_result";
+    if (tfunction.isOneway()) {
+      resultname = "org.apache.thrift.TBase";
+    }
+    String resulttype = typeName(tfunction.getReturnType(), true);
+
+    sb.append(indent()).append("public static class ").append(makeValidJavaIdentifier(tfunction.getName()))
+            .append("<I extends AsyncIface> extends org.apache.thrift.AsyncProcessFunction<I, ").append(argsname).append(", ").append(resulttype).append("> {\n");
+    indent_up();
+    sb.append(indent()).append("public ").append(makeValidJavaIdentifier(tfunction.getName())).append("() {\n  super(\"").append(tfunction.getName()).append("\");\n}\n\n");
+    //sb.append(indent()).append(javaOverrideAnnotation()).append("\npublic ").append(resultname).append(" getEmptyResultInstance() {\n").append(tfunction.isOneway() ? "  return null;\n" : "  return new " + resultname + "();\n").append("}\n\n");
+    sb.append(indent()).append(javaOverrideAnnotation()).append("\npublic ").append(argsname).append(" getEmptyArgsInstance() {\n  return new ").append(argsname).append("();\n}\n\n");
+    sb.append(indent()).append(javaOverrideAnnotation()).append("\npublic org.apache.thrift.async.AsyncMethodCallback<").append(resulttype).append("> getResultHandler(final org.apache.thrift.server.AbstractNonblockingServer.AsyncFrameBuffer fb, final int seqid) {\n");
+    indent_up();
+    sb.append(indent()).append("final org.apache.thrift.AsyncProcessFunction fcall = this;\n");
+    sb.append(indent()).append("return new org.apache.thrift.async.AsyncMethodCallback<").append(resulttype).append(">() {\n");
+    indent_up();
+    sb.append(indent()).append(javaOverrideAnnotation()).append("\npublic void onComplete(").append(resulttype).append(" o) {\n");
+    indent_up();
+    if (!tfunction.isOneway()) {
+      sb.append(indent()).append(resultname).append(" result = new ").append(resultname).append("();\n");
+      if (!tfunction.getReturnType().isVoid()) {
+        sb.append(indent()).append("result.success = o;\n");
+        if (!typeCanBeNull(tfunction.getReturnType())) {
+          sb.append(indent()).append("result.set").append(getCapName("success")).append("IsSet(true);\n");
+        }
+      }
+      sb.append(indent()).append("try {\n");
+      sb.append(indent()).append("  fcall.sendResponse(fb, result, org.apache.thrift.protocol.TMessageType.REPLY,seqid);\n");
+      sb.append(indent()).append("} catch (org.apache.thrift.transport.TTransportException e) {\n").append(indent()).append("  _LOGGER.error(\"TTransportException writing to internal frame buffer\", e);\n").append(indent()).append("  fb.close();\n");
+      sb.append(indent()).append("} catch (java.lang.Exception e) {\n").append(indent()).append("  _LOGGER.error(\"Exception writing to internal frame buffer\", e);\n").append(indent()).append("  onError(e);\n").append(indent()).append("}\n");
+    }
+    indent_down();
+    sb.append(indent()).append("}\n");
+
+    sb.append(indent()).append(javaOverrideAnnotation()).append("\npublic void onError(java.lang.Exception e) {\n");
+    indent_up();
+    if (tfunction.isOneway()) {
+      sb.append(indent()).append("if (e instanceof org.apache.thrift.transport.TTransportException) {\n").append(indent()).append("  _LOGGER.error(\"TTransportException inside handler\", e);\n").append(indent()).append("  fb.close();\n").append(indent()).append("} else {\n").append(indent()).append("  _LOGGER.error(\"Exception inside oneway handler\", e);\n").append(indent()).append("}\n");
+    } else {
+      sb.append(indent()).append("byte msgType = org.apache.thrift.protocol.TMessageType.REPLY;\n");
+      sb.append(indent()).append("org.apache.thrift.TSerializable msg;\n");
+      sb.append(indent()).append(resultname).append(" result = new ").append(resultname).append("();\n");
+      List<TField> xceptions = tfunction.getXceptions().getMembers();
+      if (!xceptions.isEmpty()) {
+        boolean first = true;
+        for (TField x_iter : xceptions) {
+          if (first) { sb.append(indent()); first = false; }
+          String type = typeName(x_iter.getType(), false, false);
+          String name = x_iter.getName();
+          sb.append("if (e instanceof ").append(type).append(") {\n");
+          indent_up();
+          sb.append(indent()).append("result.").append(makeValidJavaIdentifier(name)).append(" = (").append(type).append(") e;\n");
+          sb.append(indent()).append("result.set").append(getCapName(name)).append("IsSet(true);\n");
+          sb.append(indent()).append("msg = result;\n");
+          indent_down();
+          sb.append(indent()).append("} else ");
+        }
+      } else {
+        sb.append(indent());
+      }
+      sb.append("if (e instanceof org.apache.thrift.transport.TTransportException) {\n").append(indent()).append("  _LOGGER.error(\"TTransportException inside handler\", e);\n").append(indent()).append("  fb.close();\n").append(indent()).append("  return;\n").append(indent()).append("} else if (e instanceof org.apache.thrift.TApplicationException) {\n").append(indent()).append("  _LOGGER.error(\"TApplicationException inside handler\", e);\n").append(indent()).append("  msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;\n").append(indent()).append("  msg = (org.apache.thrift.TApplicationException)e;\n").append(indent()).append("} else {\n").append(indent()).append("  _LOGGER.error(\"Exception inside handler\", e);\n").append(indent()).append("  msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;\n").append(indent()).append("  msg = new org.apache.thrift.TApplicationException(org.apache.thrift.TApplicationException.INTERNAL_ERROR, e.getMessage());\n").append(indent()).append("}\n");
+      sb.append(indent()).append("try {\n").append(indent()).append("  fcall.sendResponse(fb,msg,msgType,seqid);\n").append(indent()).append("} catch (java.lang.Exception ex) {\n").append(indent()).append("  _LOGGER.error(\"Exception writing to internal frame buffer\", ex);\n").append(indent()).append("  fb.close();\n").append(indent()).append("}\n");
+    }
+    indent_down();
+    sb.append(indent()).append("}\n");
+    indent_down();
+    sb.append(indent()).append("};\n");
+    indent_down();
+    sb.append(indent()).append("}\n\n");
+
+    sb.append(indent()).append(javaOverrideAnnotation()).append("\nprotected boolean isOneway() {\n  return ").append(tfunction.isOneway() ? "true" : "false").append(";\n}\n\n");
+    sb.append(indent()).append(javaOverrideAnnotation()).append("\npublic void start(I iface, ").append(argsname).append(" args, org.apache.thrift.async.AsyncMethodCallback<").append(resulttype).append("> resultHandler) throws org.apache.thrift.TException {\n");
+    indent_up();
+    sb.append(indent()).append("iface.").append(getRpcMethodName(tfunction.getName())).append("(");
+    boolean first = true;
+    for (TField field : tfunction.getArglist().getMembers()) {
+      if (first) { first = false; } else { sb.append(", "); }
+      sb.append("args.").append(makeValidJavaIdentifier(field.getName()));
+    }
+    if (!first) sb.append(",");
+    sb.append("resultHandler);\n");
+    indent_down();
+    sb.append(indent()).append("}\n");
+    indent_down();
+    sb.append(indent()).append("}\n\n");
+  }
+
+  protected void generateProcessFunction(StringBuilder sb, TService tservice, TFunction tfunction) {
+    String argsname = tfunction.getName() + "_args";
+    String resultname = tfunction.getName() + "_result";
+    if (tfunction.isOneway()) {
+      resultname = "org.apache.thrift.TBase";
+    }
+
+    sb.append(indent()).append("public static class ").append(makeValidJavaIdentifier(tfunction.getName()))
+            .append("<I extends Iface> extends org.apache.thrift.ProcessFunction<I, ").append(argsname).append("> {\n");
+    indent_up();
+    sb.append(indent()).append("public ").append(makeValidJavaIdentifier(tfunction.getName())).append("() {\n  super(\"").append(tfunction.getName()).append("\");\n}\n\n");
+    sb.append(indent()).append(javaOverrideAnnotation()).append("\npublic ").append(argsname).append(" getEmptyArgsInstance() {\n  return new ").append(argsname).append("();\n}\n\n");
+    sb.append(indent()).append(javaOverrideAnnotation()).append("\nprotected boolean isOneway() {\n  return ").append(tfunction.isOneway() ? "true" : "false").append(";\n}\n\n");
+    sb.append(indent()).append(javaOverrideAnnotation()).append("\nprotected boolean rethrowUnhandledExceptions() {\n  return ").append(options.isRethrowUnhandledExceptions() ? "true" : "false").append(";\n}\n\n");
+    //sb.append(indent()).append(javaOverrideAnnotation()).append("\npublic ").append(resultname).append(" getEmptyResultInstance() {\n").append(tfunction.isOneway() ? "  return null;\n" : "  return new " + resultname + "();\n").append("}\n\n");
+    sb.append(indent()).append(javaOverrideAnnotation()).append("\npublic ").append(resultname).append(" getResult(I iface, ").append(argsname).append(" args) throws org.apache.thrift.TException {\n");
+    indent_up();
+    if (!tfunction.isOneway()) {
+      if (options.isReuseObjects()) {
+        sb.append(indent()).append(resultname).append(" result = getEmptyResultInstance();\n");
+      } else {
+        sb.append(indent()).append(resultname).append(" result = new ").append(resultname).append("();\n");
+      }
+    }
+    List<TField> xceptions = tfunction.getXceptions().getMembers();
+    if (!xceptions.isEmpty()) {
+      sb.append(indent()).append("try {\n");
+      indent_up();
+    }
+
+    sb.append(indent());
+    if (!tfunction.isOneway() && !tfunction.getReturnType().isVoid()) {
+      sb.append("result.success = ");
+    }
+    sb.append("iface.").append(getRpcMethodName(tfunction.getName())).append("(");
+    boolean first = true;
+    for (TField field : tfunction.getArglist().getMembers()) {
+      if (first) { first = false; } else { sb.append(", "); }
+      sb.append("args.").append(makeValidJavaIdentifier(field.getName()));
+    }
+    sb.append(");\n");
+
+    if (!tfunction.isOneway() && !tfunction.getReturnType().isVoid() && !typeCanBeNull(tfunction.getReturnType())) {
+      sb.append(indent()).append("result.set").append(getCapName("success")).append("IsSet(true);\n");
+    }
+    if (!xceptions.isEmpty()) {
+      indent_down();
+      sb.append(indent()).append("}");
+      for (TField x_iter : xceptions) {
+        sb.append(" catch (").append(typeName(x_iter.getType(), false, false)).append(" ").append(makeValidJavaIdentifier(x_iter.getName())).append(") {\n");
+        if (!tfunction.isOneway()) {
+          indent_up();
+          sb.append(indent()).append("result.").append(makeValidJavaIdentifier(x_iter.getName())).append(" = ").append(makeValidJavaIdentifier(x_iter.getName())).append(";\n");
+          indent_down();
+        }
+        sb.append(indent()).append("}");
+      }
+      sb.append("\n");
+    }
+
+    if (tfunction.isOneway()) {
+      sb.append(indent()).append("return null;\n");
+    } else {
+      sb.append(indent()).append("return result;\n");
+    }
+    indent_down();
+    sb.append(indent()).append("}\n");
+    indent_down();
+    sb.append(indent()).append("}\n\n");
+  }
+
+  protected String functionSignature(TFunction tfunction) {
+    return functionSignature(tfunction, "");
+  }
+  /**
+   * Generates a synchronous function signature.
+   *
+   * @param tfunction The function
+   * @param prefix A prefix for the function name, e.g., "override "
+   * @return A string of the form "ReturnType methodName(args) throws X, TException"
+   */
+  protected String functionSignature(TFunction tfunction, String prefix) {
+    TType ttype = tfunction.getReturnType();
+    String fnName = getRpcMethodName(tfunction.getName());
+    StringBuilder result = new StringBuilder();
+    result.append(typeName(ttype))
+            .append(" ")
+            .append(prefix)
+            .append(fnName)
+            .append("(")
+            .append(argumentList(tfunction.getArglist(), true))
+            .append(") throws ");
+
+    TStruct xs = tfunction.getXceptions();
+    for (TField xception : xs.getMembers()) {
+      result.append(typeName(xception.getType())).append(", ");
+    }
+    result.append("org.apache.thrift.TException");
+    return result.toString();
+  }
+
+  /**
+   * Renders a function signature of the form 'void name(args, resultHandler)'
+   *
+   * @param tfunction Function definition
+   * @param useBaseMethod Passed to async arglist generator
+   * @param prefix A prefix for the function name
+   * @return String of rendered function definition
+   */
+  protected String functionSignatureAsync(TFunction tfunction, boolean useBaseMethod, String prefix) {
+    String arglist = asyncFunctionCallArglist(tfunction, useBaseMethod, true);
+    String fnName = getRpcMethodName(tfunction.getName());
+    return prefix + "void " + fnName + "(" + arglist + ")";
+  }
+
+  protected String functionSignatureFuture(TFunction tfunction) {
+    return functionSignatureFuture(tfunction, "");
+  }
+
+  /**
+   * Renders a function signature of the form 'CompletableFuture<R> name(args)'
+   *
+   * @param tfunction Function definition
+   * @param prefix A prefix for the function name
+   * @return String of rendered function definition
+   */
+  protected String functionSignatureFuture(TFunction tfunction, String prefix) {
+    TType ttype = tfunction.getReturnType();
+    String fnName = getRpcMethodName(tfunction.getName());
+    String argList = argumentList(tfunction.getArglist(), true);
+
+    String returnType =
+            "java.util.concurrent.CompletableFuture<" + typeName(ttype, true) + ">";
+
+    return returnType + " " + prefix + fnName + "(" + argList + ")";
+  }
+
+  /**
+   * Generates the argument list for an asynchronous Thrift function call.
+   * This includes the function parameters and the final AsyncMethodCallback parameter.
+   *
+   * @param tfunc The function
+   * @param useBaseMethod (unused per C++ implementation)
+   * @param includeTypes Whether to include types in the signature
+   * @return The argument list string
+   */
+  protected String asyncFunctionCallArglist(TFunction tfunc, boolean useBaseMethod, boolean includeTypes) {
+    StringBuilder arglist = new StringBuilder();
+    if (!tfunc.getArglist().getMembers().isEmpty()) {
+      arglist.append(argumentList(tfunc.getArglist(), includeTypes));
+      arglist.append(", ");
+    }
+
+    if (includeTypes) {
+      arglist.append("org.apache.thrift.async.AsyncMethodCallback<");
+      arglist.append(typeName(tfunc.getReturnType(), true));
+      arglist.append("> ");
+    }
+    arglist.append("resultHandler");
+
+    return arglist.toString();
+  }
+
+  /**
+   * Renders a comma separated field list, with type names.
+   *
+   * @param tstruct The struct containing the fields
+   * @param includeTypes Whether to include the type names
+   * @return A string of the form "type1 name1, type2 name2"
+   */
+  protected String argumentList(TStruct tstruct, boolean includeTypes) {
+    StringBuilder result = new StringBuilder();
+    boolean first = true;
+    for (TField field : tstruct.getMembers()) {
+      if (first) {
+        first = false;
+      } else {
+        result.append(", ");
+      }
+      if (includeTypes) {
+        result.append(typeName(field.getType())).append(" ");
+      }
+      result.append(makeValidJavaIdentifier(field.getName()));
+    }
+    return result.toString();
+  }
+
+  /**
+   * Generates an argument list for an async method, taking a struct for the arguments
+   * and a function for the callback's return type.
+   *
+   * @param tfunct The function (for return type)
+   * @param tstruct The struct containing the arguments
+   * @param ttype (unused per C++ implementation)
+   * @param includeTypes Whether to include types
+   * @return The argument list string
+   */
+  protected String asyncArgumentList(
+          TFunction tfunct, TStruct tstruct, TType ttype, boolean includeTypes) {
+    StringBuilder result = new StringBuilder();
+    boolean first = true;
+    for (TField field : tstruct.getMembers()) {
+      if (first) {
+        first = false;
+      } else {
+        result.append(", ");
+      }
+      if (includeTypes) {
+        result.append(typeName(field.getType())).append(" ");
+      }
+      result.append(makeValidJavaIdentifier(field.getName()));
+    }
+
+    if (!first) {
+      result.append(", ");
+    }
+
+    if (includeTypes) {
+      result.append("org.apache.thrift.async.AsyncMethodCallback<");
+      result.append(typeName(tfunct.getReturnType(), true));
+      result.append("> ");
+    }
+    result.append("resultHandler");
+    return result.toString();
   }
 }
