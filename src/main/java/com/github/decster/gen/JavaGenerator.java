@@ -87,7 +87,15 @@ public class JavaGenerator extends Generator {
    *
    * @throws IOException If file operations fail
    */
-  public void generate() throws IOException {
+  public void generateAndWriteToFile() throws IOException {
+    List<GenResult> results = generate();
+    // Write all generated files to disk
+    for (GenResult result : results) {
+      writeToFile(result.filename, result.content);
+    }
+  }
+
+  public List<GenResult> generate() throws IOException {
     // Prepare output directory structure
     prepareOutputDirectoryStructure();
     List<GenResult> results = new ArrayList<>();
@@ -111,7 +119,7 @@ public class JavaGenerator extends Generator {
     }
 
     // Generate constants
-    if (program.getConsts().size() > 0) {
+    if (!program.getConsts().isEmpty()) {
       results.add(generateConstants());
     }
 
@@ -119,13 +127,9 @@ public class JavaGenerator extends Generator {
     for (TService service : program.getServices()) {
       results.add(generateService(service));
     }
-
-    // Write all generated files to disk
-    for (GenResult result : results) {
-      writeToFile(result.filename, result.content);
-    }
+    return results;
   }
-  
+
   public GenResult generateUnion(TStruct struct) {
     // TODO:
     return null;
@@ -3169,7 +3173,7 @@ public class JavaGenerator extends Generator {
   public String typeToEnum(TType type) {
     // Get the true type if it's a typedef
     // Note: This would need to be expanded when typedef support is added
-
+    type = getTrueType(type);
     if (type instanceof TBaseType) {
       TBaseType baseType = (TBaseType) type;
       String typeName = baseType.getName().toLowerCase();

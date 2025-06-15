@@ -53,6 +53,11 @@ public class TTypedef extends TType {
     }
 
     @Override
+    public TType getTrueType() {
+        return type.getTrueType();
+    }
+
+    @Override
     public boolean isTypedef() {
         return true;
     }

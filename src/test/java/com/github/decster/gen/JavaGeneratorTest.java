@@ -4,6 +4,7 @@ import com.github.decster.ThriftAstBuilder;
 import java.io.File;
 import java.net.URL;
 import java.nio.file.Files;
+import java.util.List;
 
 import com.github.decster.ast.TProgram;
 import org.junit.jupiter.api.Test;
@@ -92,4 +93,19 @@ public class JavaGeneratorTest {
         GeneratorTestUtil.assertEqualsLineByLine(serviceName, result.content, genJava);
     }
 
+    @Test
+    void testMultiFileGen() throws Exception {
+        URL resourceUrl = JavaGeneratorTest.class.getResource("/multi_file_tests");
+        String resourcePath = resourceUrl.getPath();
+        String file = "complex1.thrift";
+        String idl = Files.readString(new File(resourcePath, file).toPath());
+        TProgram program = ThriftAstBuilder.parseString(idl, file);
+        JavaGenerator generator = new JavaGenerator(program, "" , null);
+        generator.setTimestamp("2025-06-06");
+        List<JavaGenerator.GenResult> results = generator.generate();
+        for (JavaGenerator.GenResult result : results) {
+            String genJava = Files.readString(new File(resourcePath+"/thrift.test", result.filename).toPath());
+            GeneratorTestUtil.assertEqualsLineByLine(file, result.content, genJava);
+        }
+    }
 }

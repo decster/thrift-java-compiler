@@ -137,6 +137,6 @@ public class Generator {
     }
 
     protected TType getTrueType(TType type) {
-        return type;
+        return type.getTrueType();
     }
 }

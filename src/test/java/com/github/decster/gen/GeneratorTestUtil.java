@@ -1,5 +1,6 @@
 package com.github.decster.gen;
 
+import com.github.decster.LexerUtils;
 import org.junit.jupiter.api.Assertions;
 
 public class GeneratorTestUtil {
@@ -13,6 +14,11 @@ public class GeneratorTestUtil {
         .toArray(String[]::new);
   }
 
+  public static boolean lineEqualsByJavaLexer(String line1, String line2) {
+    // Delegate to the implementation in LexerUtils
+    return LexerUtils.lineEqualsByJavaLexer(line1, line2);
+  }
+
   public static void assertEqualsLineByLine(
       String file, String generatedCode, String expectedCode) {
     String[] generatedLines = normalizeLines(generatedCode);
@@ -21,7 +27,7 @@ public class GeneratorTestUtil {
     for (int i = 0; i < Math.max(generatedLines.length, expectedLines.length); i++) {
       String generatedLine = i < generatedLines.length ? generatedLines[i] : "";
       String expectedLine = i < expectedLines.length ? expectedLines[i] : "";
-      if (!generatedLine.strip().equals(expectedLine.strip())) {
+      if (!LexerUtils.lineEqualsByJavaLexer(expectedLine, generatedLine)) {
         StringBuilder context = new StringBuilder();
         context.append("File: ").append(file).append("\n");
         context.append("Difference at line ").append(i + 1).append(":\n");
