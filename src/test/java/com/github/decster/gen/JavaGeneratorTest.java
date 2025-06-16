@@ -5,7 +5,7 @@ import java.io.File;
 import java.net.URL;
 import java.nio.file.Files;
 import java.util.List;
-
+import org.junit.jupiter.api.Assertions;
 import com.github.decster.ast.TProgram;
 import org.junit.jupiter.api.Test;
 
@@ -107,5 +107,18 @@ public class JavaGeneratorTest {
             String genJava = Files.readString(new File(resourcePath+"/thrift.test", result.filename).toPath());
             GeneratorTestUtil.assertEqualsLineByLine(file, result.content, genJava);
         }
+    }
+
+    @Test
+    void testTypeRefResolution() throws Exception {
+        URL resourceUrl = JavaGeneratorTest.class.getResource("/multi_file_tests");
+        String resourcePath = resourceUrl.getPath();
+        String file = "testTypeRef.thrift";
+        String idl = Files.readString(new File(resourcePath, file).toPath());
+        TProgram program = ThriftAstBuilder.parseString(idl, file);
+        JavaGenerator generator = new JavaGenerator(program, "", null);
+        // The main assertion is that this does not throw an IllegalArgumentException
+        // due to unhandled TTypeRef in typeToEnum.
+        Assertions.assertDoesNotThrow(() -> generator.generate());
     }
 }

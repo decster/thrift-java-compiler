@@ -450,6 +450,7 @@ Enum:
         $$->annotations_ = $6->annotations_;
         delete $6;
       }
+      g_program->scope()->add_type($$->get_name(), $$);
 
       // make constants for all the enum values
       if (g_parse_mode == PROGRAM) {
@@ -532,6 +533,7 @@ Const:
         $$ = new t_const($2, $3, $5);
         validate_const_type($$);
 
+        g_program->scope()->add_constant($$->get_name(), $$);
         g_scope->add_constant($3, $$);
         if (g_parent_scope != nullptr) {
           g_parent_scope->add_constant(g_parent_prefix + $3, $$);
@@ -644,6 +646,7 @@ Struct:
         $$->annotations_ = $7->annotations_;
         delete $7;
       }
+      g_program->scope()->add_type($$->get_name(), $$);
     }
 
 XsdAll:
@@ -698,6 +701,7 @@ Xception:
         $$->annotations_ = $6->annotations_;
         delete $6;
       }
+      g_program->scope()->add_type($$->get_name(), $$);
     }
 
 Service:
@@ -712,6 +716,7 @@ Service:
         $$->annotations_ = $9->annotations_;
         delete $9;
       }
+      g_program->scope()->add_service($$->get_name(), $$);
     }
 
 FlagArgs:

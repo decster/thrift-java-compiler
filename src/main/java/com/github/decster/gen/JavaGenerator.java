@@ -1,6 +1,7 @@
 package com.github.decster.gen;
 
 import com.github.decster.ast.*;
+import com.github.decster.ast.TTypeRef;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -3173,6 +3174,9 @@ public class JavaGenerator extends Generator {
   public String typeToEnum(TType type) {
     // Get the true type if it's a typedef
     // Note: This would need to be expanded when typedef support is added
+    if (type instanceof TTypeRef) {
+      type = ((TTypeRef) type).getType();
+    }
     type = getTrueType(type);
     if (type instanceof TBaseType) {
       TBaseType baseType = (TBaseType) type;
