@@ -22,6 +22,9 @@ public class TScope {
     }
 
     public void addType(String name, TType type) {
+        if (types.containsKey(name)) {
+            throw new TDuplicateDefinitionException("Type", name);
+        }
         types.put(name, type);
     }
 
@@ -30,6 +33,9 @@ public class TScope {
     }
 
     public void addService(String name, TService service) {
+        if (services.containsKey(name)) {
+            throw new TDuplicateDefinitionException("Service", name);
+        }
         services.put(name, service);
     }
 
@@ -38,10 +44,22 @@ public class TScope {
     }
 
     public void addConstant(String name, TConst constant) {
+        if (constants.containsKey(name)) {
+            throw new TDuplicateDefinitionException("Constant", name);
+        }
         constants.put(name, constant);
     }
 
     public TConst getConstant(String name) {
         return constants.get(name);
+    }
+    
+    /**
+     * Exception thrown when a duplicate definition is found in a scope.
+     */
+    public static class TDuplicateDefinitionException extends RuntimeException {
+        public TDuplicateDefinitionException(String type, String name) {
+            super(type + " " + name + " already defined");
+        }
     }
 }

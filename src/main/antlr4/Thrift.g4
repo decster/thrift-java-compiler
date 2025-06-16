@@ -29,13 +29,17 @@ cpp_include
     ;
 
 definition
-    : const_rule
-    | typedef_
-    | enum_rule
-    | struct_
-    | union_
-    | exception
-    | service
+    : doc_text? const_rule
+    | doc_text? typedef_
+    | doc_text? enum_rule
+    | doc_text? struct_
+    | doc_text? union_
+    | doc_text? exception
+    | doc_text? service
+    ;
+
+doc_text
+    : DOC_TEXT
     ;
 
 const_rule
@@ -51,7 +55,7 @@ enum_rule
     ;
 
 enum_field
-    : IDENTIFIER ('=' integer)? type_annotations? list_separator?
+    : doc_text? IDENTIFIER ('=' integer)? type_annotations? list_separator?
     ;
 
 struct_
@@ -71,7 +75,7 @@ service
     ;
 
 field
-    : field_id? field_req? field_type IDENTIFIER ('=' const_value)? type_annotations? list_separator?
+    : doc_text? field_id? field_req? field_type IDENTIFIER ('=' const_value)? type_annotations? list_separator?
     ;
 
 field_id
@@ -84,7 +88,7 @@ field_req
     ;
 
 function_
-    : oneway? function_type IDENTIFIER '(' field* ')' throws_list? type_annotations? list_separator?
+    : doc_text? oneway? function_type IDENTIFIER '(' field* ')' throws_list? type_annotations? list_separator?
     ;
 
 oneway
@@ -267,6 +271,11 @@ fragment HEX_DIGIT
     | 'a' ..'f'
     ;
 
+// Documentation comments (/**...*/)
+DOC_TEXT
+    : '/**' .*? '*/'
+    ;
+
 WS
     : (' ' | '\t' | '\r' '\n' | '\n')+ -> channel(HIDDEN)
     ;
@@ -278,4 +287,3 @@ SL_COMMENT
 ML_COMMENT
     : '/*' .*? '*/' -> channel(HIDDEN)
     ;
-

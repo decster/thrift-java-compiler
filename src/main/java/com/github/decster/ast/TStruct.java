@@ -75,7 +75,7 @@ public class TStruct extends TType {
 
     @Override
     public boolean isStruct() {
-        return true;
+        return !isXception();
     }
 
     @Override

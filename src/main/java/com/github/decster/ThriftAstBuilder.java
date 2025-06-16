@@ -7,7 +7,6 @@ import com.github.decster.parser.ThriftParser;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -29,10 +28,14 @@ public class ThriftAstBuilder {
    * @return The parsed TProgram object
    * @throws IOException If an I/O error occurs
    */
-  public static TProgram parseFile(String filePath) throws IOException {
+  public static TProgram parseFile(String filePath, TScope parentScope) throws IOException {
     Path path = Path.of(filePath);
     String input = Files.readString(path);
-    return parseString(input, path.getFileName().toString());
+    return parseString(input, path.getFileName().toString(), parentScope);
+  }
+
+  public static TProgram parseFile(String filePath) throws IOException {
+    return parseFile(filePath, null);
   }
 
   /**
@@ -42,12 +45,16 @@ public class ThriftAstBuilder {
    * @param name The name to use for the program
    * @return The parsed TProgram object
    */
-  public static TProgram parseString(String content, String name) {
+  public static TProgram parseString(String content, String name, TScope parentScope) {
     CharStream input = CharStreams.fromString(content);
-    TProgram ret = parse(input, name);
+    TProgram ret = parse(input, name, parentScope);
     ret.resolveTypeRefs();
     return ret;
   }
+
+    public static TProgram parseString(String content, String name) {
+        return parseString(content, name, null);
+    }
 
   /**
    * Parse a Thrift document from a CharStream and build a TProgram object.
@@ -56,7 +63,7 @@ public class ThriftAstBuilder {
    * @param programName The name to use for the program
    * @return The parsed TProgram object
    */
-  private static TProgram parse(CharStream input, String programName) {
+  private static TProgram parse(CharStream input, String programName, TScope parentScope) {
     ThriftLexer lexer = new ThriftLexer(input);
     CommonTokenStream tokens = new CommonTokenStream(lexer);
     ThriftParser parser = new ThriftParser(tokens);
@@ -69,9 +76,43 @@ public class ThriftAstBuilder {
     }
 
     TProgram program = new TProgram(programName, name);
-    AstVisitor visitor = new AstVisitor(program);
+    AstVisitor visitor = new AstVisitor(program, parentScope);
     visitor.visit(documentContext);
     return program;
+  }
+
+  /**
+   * Clean up documentation text by removing comment markers and fixing whitespace.
+   *
+   * @param docText The raw documentation text
+   * @return Cleaned documentation text
+   */
+  private static String cleanUpDocText(String docText) {
+    if (docText == null) {
+      return null;
+    }
+
+    // Remove /** at the start and */ at the end
+    if (docText.startsWith("/**") && docText.endsWith("*/")) {
+      docText = docText.substring(3, docText.length() - 2).trim();
+    }
+
+    // Process each line to remove leading asterisks and fix indentation
+    StringBuilder sb = new StringBuilder();
+    String[] lines = docText.split("\n");
+    for (int i = 0; i < lines.length; i++) {
+      String line = lines[i].trim();
+      // Remove leading asterisk if present
+      if (line.startsWith("*")) {
+        line = line.substring(1).trim();
+      }
+      sb.append(line);
+      if (i < lines.length - 1) {
+        sb.append("\n");
+      }
+    }
+
+    return sb.toString();
   }
 
   /**
@@ -80,10 +121,22 @@ public class ThriftAstBuilder {
   static class AstVisitor extends ThriftBaseVisitor<Object> {
     private final TProgram program;
     private final TScope scope;
+    private final TScope parentScope;
+    private String lastDocText = null;
 
-    public AstVisitor(TProgram program) {
+    public AstVisitor(TProgram program, TScope parentScope) {
       this.program = program;
       this.scope = program.getScope();
+      this.parentScope = parentScope;
+    }
+
+    @Override
+    public Object visitDoc_text(ThriftParser.Doc_textContext ctx) {
+      // Extract and clean the doctext
+      if (ctx != null && ctx.DOC_TEXT() != null) {
+        lastDocText = cleanUpDocText(ctx.DOC_TEXT().getText());
+      }
+      return null;
     }
 
     @Override
@@ -95,6 +148,7 @@ public class ThriftAstBuilder {
 
       // Then process definitions
       for (ThriftParser.DefinitionContext definition : ctx.definition()) {
+        // Visit the definition (which will handle any doctext internally)
         visit(definition);
       }
       return null;
@@ -103,10 +157,7 @@ public class ThriftAstBuilder {
     @Override
     public Object visitInclude_(ThriftParser.Include_Context ctx) {
       String includePath = getStringLiteral(ctx.LITERAL().getText());
-      // In a real implementation, this would recursively parse the included file
-      // and add it to the program's includes list
-      // For simplicity, we just record the include path for now
-      // program.addInclude(new TProgram(includePath));
+      program.addIncludeFile(includePath);
       return null;
     }
 
@@ -148,6 +199,37 @@ public class ThriftAstBuilder {
     }
 
     @Override
+    public Object visitDefinition(ThriftParser.DefinitionContext ctx) {
+      // Reset doctext
+      lastDocText = null;
+
+      // Visit any doctext first to capture it
+      if (ctx.doc_text() != null) {
+        visit(ctx.doc_text());
+      }
+
+      // Visit the actual definition
+      Object result = null;
+      if (ctx.const_rule() != null) {
+        result = visit(ctx.const_rule());
+      } else if (ctx.typedef_() != null) {
+        result = visit(ctx.typedef_());
+      } else if (ctx.enum_rule() != null) {
+        result = visit(ctx.enum_rule());
+      } else if (ctx.struct_() != null) {
+        result = visit(ctx.struct_());
+      } else if (ctx.union_() != null) {
+        result = visit(ctx.union_());
+      } else if (ctx.exception() != null) {
+        result = visit(ctx.exception());
+      } else if (ctx.service() != null) {
+        result = visit(ctx.service());
+      }
+
+      return result;
+    }
+
+    @Override
     public Object visitConst_rule(ThriftParser.Const_ruleContext ctx) {
       String name = ctx.IDENTIFIER().getText();
       TType type = (TType)visit(ctx.field_type());
@@ -158,10 +240,24 @@ public class ThriftAstBuilder {
       }
 
       TConst constant = new TConst(type, name, value);
+
+      // Set doctext if available
+      if (lastDocText != null) {
+        constant.setDoc(lastDocText);
+        lastDocText = null;
+      }
+
       program.addConst(constant);
       // Add constant to scope
       scope.addConstant(name, constant);
+      if (parentScope != null) {
+        parentScope.addConstant(getParentScopeName(name), constant);
+      }
       return constant;
+    }
+
+    private String getParentScopeName(String name) {
+      return program.getName() + "." + name;
     }
 
     @Override
@@ -176,9 +272,19 @@ public class ThriftAstBuilder {
         typedef.setAnnotations(annotations);
       }
 
+      // Set doctext if available
+      if (lastDocText != null) {
+        typedef.setDoc(lastDocText);
+        lastDocText = null;
+      }
+
       program.addTypedef(typedef);
       // Add typedef to scope
       scope.addType(name, typedef);
+      if (parentScope != null) {
+        parentScope.addType(getParentScopeName(name), typedef);
+      }
+
       return typedef;
     }
 
@@ -188,8 +294,22 @@ public class ThriftAstBuilder {
       TEnum enumType = new TEnum(program);
       enumType.setName(name);
 
+      // Set doctext if available
+      if (lastDocText != null) {
+        enumType.setDoc(lastDocText);
+        lastDocText = null;
+      }
+
       int nextValue = 0;
       for (ThriftParser.Enum_fieldContext fieldCtx : ctx.enum_field()) {
+        // Reset field doctext
+        lastDocText = null;
+
+        // Visit any doctext for this enum field
+        if (fieldCtx.doc_text() != null) {
+          visit(fieldCtx.doc_text());
+        }
+
         String fieldName = fieldCtx.IDENTIFIER().getText();
         int value = nextValue++;
 
@@ -199,6 +319,12 @@ public class ThriftAstBuilder {
         }
 
         TEnumValue enumValue = new TEnumValue(fieldName, value);
+
+        // Set doctext for enum value if available
+        if (lastDocText != null) {
+          enumValue.setDoc(lastDocText);
+          lastDocText = null;
+        }
 
         if (fieldCtx.type_annotations() != null) {
           Map<String, List<String>> fieldAnnotations =
@@ -219,6 +345,9 @@ public class ThriftAstBuilder {
       program.addEnum(enumType);
       // Add enum to scope
       scope.addType(name, enumType);
+      if (parentScope != null) {
+        parentScope.addType(getParentScopeName(name), enumType);
+      }
       return enumType;
     }
 
@@ -226,6 +355,12 @@ public class ThriftAstBuilder {
     public Object visitStruct_(ThriftParser.Struct_Context ctx) {
       String name = ctx.IDENTIFIER().getText();
       TStruct struct = new TStruct(program, name);
+
+      // Set doctext if available
+      if (lastDocText != null) {
+        struct.setDoc(lastDocText);
+        lastDocText = null;
+      }
 
       for (ThriftParser.FieldContext fieldCtx : ctx.field()) {
         TField field = (TField)visit(fieldCtx);
@@ -240,6 +375,9 @@ public class ThriftAstBuilder {
       program.addStruct(struct);
       // Add struct to scope
       scope.addType(name, struct);
+      if (parentScope != null) {
+        parentScope.addType(getParentScopeName(name), struct);
+      }
       return struct;
     }
 
@@ -249,8 +387,20 @@ public class ThriftAstBuilder {
       TStruct struct = new TStruct(program, name);
       struct.setUnion(true);
 
+      // Set doctext if available
+      if (lastDocText != null) {
+        struct.setDoc(lastDocText);
+        lastDocText = null;
+      }
+
       for (ThriftParser.FieldContext fieldCtx : ctx.field()) {
         TField field = (TField)visit(fieldCtx);
+        if (field.getReq() == TField.Requirement.REQUIRED) {
+          throw new RuntimeException("Fields in a union cannot be required: " + field.getName());
+        } else if (field.getReq() == TField.Requirement.OPT_IN_REQ_OUT) {
+          // Convert OPT_IN_REQ_OUT to OPTIONAL for unions
+          field.setReq(TField.Requirement.OPTIONAL);
+        }
         struct.append(field);
       }
 
@@ -262,6 +412,9 @@ public class ThriftAstBuilder {
       program.addStruct(struct);
       // Add union to scope
       scope.addType(name, struct);
+      if (parentScope != null) {
+        parentScope.addType(getParentScopeName(name), struct);
+      }
       return struct;
     }
 
@@ -270,6 +423,12 @@ public class ThriftAstBuilder {
       String name = ctx.IDENTIFIER().getText();
       TStruct struct = new TStruct(program, name);
       struct.setXception(true);
+
+      // Set doctext if available
+      if (lastDocText != null) {
+        struct.setDoc(lastDocText);
+        lastDocText = null;
+      }
 
       for (ThriftParser.FieldContext fieldCtx : ctx.field()) {
         TField field = (TField)visit(fieldCtx);
@@ -284,6 +443,9 @@ public class ThriftAstBuilder {
       program.addXception(struct);
       // Add exception to scope
       scope.addType(name, struct);
+      if (parentScope != null) {
+        parentScope.addType(getParentScopeName(name), struct);
+      }
       return struct;
     }
 
@@ -292,6 +454,12 @@ public class ThriftAstBuilder {
       String name = ctx.IDENTIFIER().get(0).getText();
       TService service = new TService(program);
       service.setName(name);
+
+      // Set doctext if available
+      if (lastDocText != null) {
+        service.setDoc(lastDocText);
+        lastDocText = null;
+      }
 
       if (ctx.IDENTIFIER().size() > 1) {
         // Create a reference to the parent service by name
@@ -314,11 +482,22 @@ public class ThriftAstBuilder {
       program.addService(service);
       // Add service to scope
       scope.addService(name, service);
+      if (parentScope != null) {
+        parentScope.addService(getParentScopeName(name), service);
+      }
       return service;
     }
 
     @Override
     public Object visitField(ThriftParser.FieldContext ctx) {
+      // Reset field doctext
+      lastDocText = null;
+
+      // Visit any doctext for this field
+      if (ctx.doc_text() != null) {
+        visit(ctx.doc_text());
+      }
+
       int id = 0;
       if (ctx.field_id() != null) {
         id = Integer.parseInt(ctx.field_id().integer().getText());
@@ -349,11 +528,25 @@ public class ThriftAstBuilder {
         field.setAnnotations(annotations);
       }
 
+      // Set doctext if available
+      if (lastDocText != null) {
+        field.setDoc(lastDocText);
+        lastDocText = null;
+      }
+
       return field;
     }
 
     @Override
     public Object visitFunction_(ThriftParser.Function_Context ctx) {
+      // Reset function doctext
+      lastDocText = null;
+
+      // Visit any doctext for this function
+      if (ctx.doc_text() != null) {
+        visit(ctx.doc_text());
+      }
+
       String name = ctx.IDENTIFIER().getText();
       TType returnType;
 
@@ -369,6 +562,12 @@ public class ThriftAstBuilder {
 
       // Create function with proper constructor
       TFunction function = new TFunction(returnType, name, argStruct);
+
+      // Set doctext if available
+      if (lastDocText != null) {
+        function.setDoc(lastDocText);
+        lastDocText = null;
+      }
 
       if (ctx.oneway() != null) {
         function.setOneWay(true);
@@ -502,7 +701,13 @@ public class ThriftAstBuilder {
         // This is a reference to another constant or enum value
         String identifier = ctx.IDENTIFIER().getText();
         TConstValue constValue = new TConstValue();
-        constValue.setIdentifier(identifier);
+        if (identifier.equals("true")) {
+          constValue.setInteger(1);
+        } else if (identifier.equals("false")) {
+          constValue.setInteger(0);
+        } else {
+          constValue.setIdentifier(identifier);
+        }
         return constValue;
       } else if (ctx.LITERAL() != null) {
         // This is a string literal

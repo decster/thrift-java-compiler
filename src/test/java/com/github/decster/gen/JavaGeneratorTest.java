@@ -68,7 +68,7 @@ public class JavaGeneratorTest {
 
     void singleTestGenXception(String xceptionName) throws Exception {
         String idl = loadResourceFile("single_file_tests/" + xceptionName + ".thrift");
-        String genJava = loadResourceFile("single_file_tests/com/example/thrift" + xceptionName + ".java");
+        String genJava = loadResourceFile("single_file_tests/com/example/thrift/" + xceptionName + ".java");
         TProgram program = ThriftAstBuilder.parseString(idl, xceptionName+".thrift");
         JavaGenerator generator = new JavaGenerator(program, "" , null);
         generator.setTimestamp("2025-06-06");
@@ -78,7 +78,7 @@ public class JavaGeneratorTest {
 
     void singleTestGenService(String serviceName) throws Exception {
         String idl = loadResourceFile("single_file_tests" + "/" + serviceName + ".thrift");
-        String genJava = loadResourceFile("single_file_tests/com/example/thrift" + serviceName + ".java");
+        String genJava = loadResourceFile("single_file_tests/com/example/thrift/" + serviceName + ".java");
         TProgram program = ThriftAstBuilder.parseString(idl, serviceName+".thrift");
         JavaGenerator generator = new JavaGenerator(program, "" , null);
         generator.setTimestamp("2025-06-06");
