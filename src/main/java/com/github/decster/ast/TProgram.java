@@ -202,4 +202,108 @@ public class TProgram extends TDoc {
     public Map<String, String> getAllNamespaces() {
         return namespaces;
     }
+
+    public void resolveTypeRefs() {
+        // walk through all typedefs, structs, exceptions, constants and services
+        // resolving TTypeRef instances to their actual types
+        // do not consider includes currently, handling of includes is done in the future
+
+        // Resolve typedefs
+        for (TTypedef typedef : typedefs) {
+            typedef.setType(resolveTypeRef(typedef.getType()));
+        }
+
+        // Resolve structs
+        for (TStruct struct : structs) {
+            resolveStructTypeRefs(struct);
+        }
+
+        // Resolve exceptions
+        for (TStruct exception : xceptions) {
+            resolveStructTypeRefs(exception);
+        }
+
+        // Resolve constants
+        for (TConst constant : consts) {
+            resolveConstTypeRefs(constant);
+        }
+
+        // Resolve services
+        for (TService service : services) {
+            resolveServiceTypeRefs(service);
+        }
+    }
+
+    private void resolveStructTypeRefs(TStruct struct) {
+        for (TField field : struct.getMembers()) {
+            field.setType(resolveTypeRef(field.getType()));
+            // If field has a default value, resolve any type references in it
+            if (field.hasValue()) {
+                resolveConstValueTypeRefs(field.getValue());
+            }
+        }
+    }
+
+    private void resolveConstTypeRefs(TConst constant) {
+        constant.setType(resolveTypeRef(constant.getType()));
+        resolveConstValueTypeRefs(constant.getValue());
+    }
+
+    private void resolveServiceTypeRefs(TService service) {
+        for (TFunction function : service.getFunctions()) {
+            // Resolve return type
+            function.setReturnType(resolveTypeRef(function.getReturnType()));
+
+            // Resolve argument types
+            for (TField argument : function.getArglist().getMembers()) {
+                argument.setType(resolveTypeRef(argument.getType()));
+            }
+
+            // Resolve exception types
+            for (TField exception : function.getXceptions().getMembers()) {
+                exception.setType(resolveTypeRef(exception.getType()));
+            }
+        }
+    }
+
+    private void resolveConstValueTypeRefs(TConstValue constValue) {
+        if (constValue.getType() == TConstValue.Type.CV_MAP) {
+            for (Map.Entry<TConstValue, TConstValue> entry : constValue.getMap().entrySet()) {
+                resolveConstValueTypeRefs(entry.getKey());
+                resolveConstValueTypeRefs(entry.getValue());
+            }
+        } else if (constValue.getType() == TConstValue.Type.CV_LIST) {
+            for (TConstValue element : constValue.getList()) {
+                resolveConstValueTypeRefs(element);
+            }
+        }
+    }
+
+    private TType resolveTypeRef(TType type) {
+        if (type instanceof TTypeRef) {
+            String typeName = type.getName();
+            TType resolvedType = scope.getType(typeName);
+            if (resolvedType == null) {
+                throw new RuntimeException("Type '" + typeName + "' not found in scope");
+            }
+            return resolvedType.getTrueType();
+        } else if (type instanceof TContainer) {
+            resolveContainerTypeRefs((TContainer) type);
+        }
+        return type;
+    }
+
+    private void resolveContainerTypeRefs(TContainer container) {
+        if (container instanceof TList) {
+            TList list = (TList) container;
+            list.setElemType(resolveTypeRef(list.getElemType()));
+        } else if (container instanceof TSet) {
+            TSet set = (TSet) container;
+            set.setElemType(resolveTypeRef(set.getElemType()));
+        } else if (container instanceof TMap) {
+            TMap map = (TMap) container;
+            map.setKeyType(resolveTypeRef(map.getKeyType()));
+            map.setValType(resolveTypeRef(map.getValType()));
+        }
+    }
 }

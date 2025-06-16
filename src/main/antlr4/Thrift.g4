@@ -195,6 +195,7 @@ real_base_type
     | TYPE_DOUBLE
     | TYPE_STRING
     | TYPE_BINARY
+    | TYPE_UUID
     ;
 
 TYPE_BOOL
@@ -228,6 +229,10 @@ TYPE_STRING
 
 TYPE_BINARY
     : 'binary'
+    ;
+
+TYPE_UUID
+    : 'uuid'
     ;
 
 LITERAL

@@ -59,6 +59,10 @@ public class TField extends TDoc {
         this.struct = struct;
     }
 
+    public void setType(TType type) {
+        this.type = type;
+    }
+
     public TType getType() {
         return type;
     }

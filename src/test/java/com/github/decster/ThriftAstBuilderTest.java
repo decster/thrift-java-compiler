@@ -109,6 +109,104 @@ class ThriftAstBuilderTest {
         assertEquals(4, xtruct.getMembers().size(), "Struct 'Xtruct' should have 4 fields");
     }
 
+    @Test
+    @DisplayName("Test resolveTypeRefs method")
+    void testResolveTypeRefs() throws IOException {
+        // Create a test thrift file that contains type references
+        String thriftContent = "namespace java test.resolve\n\n" +
+                "typedef i32 MyInt\n" +
+                "typedef string MyString\n\n" +
+                "struct TestStruct {\n" +
+                "  1: MyInt id,\n" +
+                "  2: MyString name,\n" +
+                "  3: list<MyInt> numbers,\n" +
+                "  4: map<MyString, MyInt> mapping\n" +
+                "}\n\n" +
+                "exception TestException {\n" +
+                "  1: MyInt errorCode,\n" +
+                "  2: MyString message\n" +
+                "}\n\n" +
+                "const MyInt DEFAULT_ID = 100\n\n" +
+                "service TestService {\n" +
+                "  MyString testMethod(1: MyInt param1, 2: TestStruct param2) throws (1: TestException ex),\n" +
+                "  list<MyInt> getList()\n" +
+                "}";
+
+        // Parse the string
+        TProgram program = ThriftAstBuilder.parseString(thriftContent, "test_resolve.thrift");
+
+        // Initial verification - these should still be TTypeRef before resolution
+        TTypedef myIntTypedef = findTypedef(program, "MyInt");
+        assertNotNull(myIntTypedef, "Typedef 'MyInt' should exist");
+
+        TStruct testStruct = findStruct(program, "TestStruct");
+        assertNotNull(testStruct, "Struct 'TestStruct' should exist");
+        TField idField = findField(testStruct, "id");
+        assertNotNull(idField, "Field 'id' should exist");
+        assertTrue(idField.getType() instanceof TTypeRef, "Field type should be a TTypeRef before resolution");
+        assertEquals("MyInt", idField.getType().getName(), "Field type name should be 'MyInt'");
+
+        // Verify container types before resolution
+        TField numbersField = findField(testStruct, "numbers");
+        assertNotNull(numbersField, "Field 'numbers' should exist");
+        assertTrue(numbersField.getType() instanceof TList, "Field type should be a TList");
+        TList numbersList = (TList) numbersField.getType();
+        assertTrue(numbersList.getElemType() instanceof TTypeRef, "List element type should be a TTypeRef before resolution");
+        assertEquals("MyInt", numbersList.getElemType().getName(), "List element type name should be 'MyInt'");
+
+        // Verify map types before resolution
+        TField mappingField = findField(testStruct, "mapping");
+        assertNotNull(mappingField, "Field 'mapping' should exist");
+        assertTrue(mappingField.getType() instanceof TMap, "Field type should be a TMap");
+        TMap mappingMap = (TMap) mappingField.getType();
+        assertTrue(mappingMap.getKeyType() instanceof TTypeRef, "Map key type should be a TTypeRef before resolution");
+        assertTrue(mappingMap.getValType() instanceof TTypeRef, "Map value type should be a TTypeRef before resolution");
+
+        // Now resolve the type references
+        program.resolveTypeRefs();
+
+        // Verify that types are resolved correctly
+        assertFalse(idField.getType() instanceof TTypeRef, "Field type should not be a TTypeRef after resolution");
+        assertEquals("I32", idField.getType().getName(), "Field type should be resolved to I32");
+
+        // Verify container types after resolution
+        assertFalse(numbersList.getElemType() instanceof TTypeRef, "List element type should not be a TTypeRef after resolution");
+        assertEquals("I32", numbersList.getElemType().getName(), "List element type should be resolved to I32");
+
+        // Verify map types after resolution
+        assertFalse(mappingMap.getKeyType() instanceof TTypeRef, "Map key type should not be a TTypeRef after resolution");
+        assertFalse(mappingMap.getValType() instanceof TTypeRef, "Map value type should not be a TTypeRef after resolution");
+        assertEquals("STRING", mappingMap.getKeyType().getName(), "Map key type should be resolved to STRING");
+        assertEquals("I32", mappingMap.getValType().getName(), "Map value type should be resolved to I32");
+
+        // Verify constant resolution
+        TConst defaultId = findConst(program, "DEFAULT_ID");
+        assertNotNull(defaultId, "Constant 'DEFAULT_ID' should exist");
+        assertFalse(defaultId.getType() instanceof TTypeRef, "Constant type should not be a TTypeRef after resolution");
+        assertEquals("I32", defaultId.getType().getName(), "Constant type should be resolved to I32");
+
+        // Verify service method resolution
+        TService testService = findService(program, "TestService");
+        assertNotNull(testService, "Service 'TestService' should exist");
+
+        TFunction testMethod = findFunction(testService, "testMethod");
+        assertNotNull(testMethod, "Function 'testMethod' should exist");
+        assertFalse(testMethod.getReturnType() instanceof TTypeRef, "Return type should not be a TTypeRef after resolution");
+        assertEquals("STRING", testMethod.getReturnType().getName(), "Return type should be resolved to STRING");
+
+        // Verify function parameters
+        TField param1 = findField(testMethod.getArglist(), "param1");
+        assertNotNull(param1, "Parameter 'param1' should exist");
+        assertFalse(param1.getType() instanceof TTypeRef, "Parameter type should not be a TTypeRef after resolution");
+        assertEquals("I32", param1.getType().getName(), "Parameter type should be resolved to I32");
+
+        // Verify exception resolution
+        TField exceptionField = findField(testMethod.getXceptions(), "ex");
+        assertNotNull(exceptionField, "Exception 'ex' should exist");
+        assertFalse(exceptionField.getType() instanceof TTypeRef, "Exception type should not be a TTypeRef after resolution");
+        assertEquals("TestException", exceptionField.getType().getName(), "Exception type name should be 'TestException'");
+    }
+
     // Helper methods to find elements by name
     private TEnum findEnum(TProgram program, String name) {
         for (TEnum tEnum : program.getEnums()) {
@@ -177,6 +275,15 @@ class ThriftAstBuilderTest {
         for (TField tField : struct.getMembers()) {
             if (tField.getName().equals(name)) {
                 return tField;
+            }
+        }
+        return null;
+    }
+
+    private TTypedef findTypedef(TProgram program, String name) {
+        for (TTypedef typedef : program.getTypedefs()) {
+            if (typedef.getName().equals(name)) {
+                return typedef;
             }
         }
         return null;

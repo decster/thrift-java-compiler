@@ -10,13 +10,15 @@ import com.github.decster.ast.TProgram;
 import org.junit.jupiter.api.Test;
 
 public class JavaGeneratorTest {
+    private static String loadResourceFile(String filePath) throws Exception {
+        URL resourceUrl = JavaGeneratorTest.class.getResource("/"+filePath);
+        return Files.readString(new File(resourceUrl.getPath()).toPath());
+    }
 
     @Test
     void testGenEnum() throws Exception {
-        URL resourceUrl = JavaGeneratorTest.class.getResource("/single_file_tests");
-        String resourcePath = resourceUrl.getPath();
-        String idl = Files.readString(new File(resourcePath, "DemoEnum.thrift").toPath());
-        String genJava = Files.readString(new File(resourcePath, "com/example/thrift/DemoEnum.java").toPath());
+        String idl = loadResourceFile("single_file_tests/DemoEnum.thrift");
+        String genJava = loadResourceFile("single_file_tests/com/example/thrift/DemoEnum.java");
         TProgram program = ThriftAstBuilder.parseString(idl, "DemoEnum.thrift");
         JavaGenerator generator = new JavaGenerator(program, "" , null);
         generator.setTimestamp("2025-06-06");
@@ -26,17 +28,14 @@ public class JavaGeneratorTest {
 
     @Test
     void testGenConsts() throws Exception {
-        URL resourceUrl = JavaGeneratorTest.class.getResource("/single_file_tests");
-        String resourcePath = resourceUrl.getPath();
-        String idl = Files.readString(new File(resourcePath, "someConst.thrift").toPath());
-        String genJava = Files.readString(new File(resourcePath, "com/example/thrift/someConstConstants.java").toPath());
+        String idl = loadResourceFile("single_file_tests/someConst.thrift");
+        String genJava = loadResourceFile("single_file_tests/com/example/thrift/someConstConstants.java");
         TProgram program = ThriftAstBuilder.parseString(idl, "someConst.thrift");
         JavaGenerator generator = new JavaGenerator(program, "" , null);
         generator.setTimestamp("2025-06-06");
         JavaGenerator.GenResult result = generator.generateConstants();
         GeneratorTestUtil.assertEqualsLineByLine("someConst.thrift", result.content, genJava);
     }
-
 
     @Test
     void testGenStruct() throws Exception {
@@ -58,10 +57,8 @@ public class JavaGeneratorTest {
     }
 
     void singleTestGenStruct(String structName) throws Exception {
-        URL resourceUrl = JavaGeneratorTest.class.getResource("/single_file_tests");
-        String resourcePath = resourceUrl.getPath();
-        String idl = Files.readString(new File(resourcePath, structName+".thrift").toPath());
-        String genJava = Files.readString(new File(resourcePath, "com/example/thrift/"+structName+".java").toPath());
+        String idl = loadResourceFile("single_file_tests/" + structName + ".thrift");
+        String genJava = loadResourceFile("single_file_tests/com/example/thrift/" + structName + ".java");
         TProgram program = ThriftAstBuilder.parseString(idl, structName+".thrift");
         JavaGenerator generator = new JavaGenerator(program, "" , null);
         generator.setTimestamp("2025-06-06");
@@ -70,10 +67,8 @@ public class JavaGeneratorTest {
     }
 
     void singleTestGenXception(String xceptionName) throws Exception {
-        URL resourceUrl = JavaGeneratorTest.class.getResource("/single_file_tests");
-        String resourcePath = resourceUrl.getPath();
-        String idl = Files.readString(new File(resourcePath, xceptionName+".thrift").toPath());
-        String genJava = Files.readString(new File(resourcePath, "com/example/thrift/"+xceptionName+".java").toPath());
+        String idl = loadResourceFile("single_file_tests/" + xceptionName + ".thrift");
+        String genJava = loadResourceFile("single_file_tests/com/example/thrift" + xceptionName + ".java");
         TProgram program = ThriftAstBuilder.parseString(idl, xceptionName+".thrift");
         JavaGenerator generator = new JavaGenerator(program, "" , null);
         generator.setTimestamp("2025-06-06");
@@ -82,10 +77,8 @@ public class JavaGeneratorTest {
     }
 
     void singleTestGenService(String serviceName) throws Exception {
-        URL resourceUrl = JavaGeneratorTest.class.getResource("/single_file_tests");
-        String resourcePath = resourceUrl.getPath();
-        String idl = Files.readString(new File(resourcePath, serviceName+".thrift").toPath());
-        String genJava = Files.readString(new File(resourcePath, "com/example/thrift/"+serviceName+".java").toPath());
+        String idl = loadResourceFile("single_file_tests" + "/" + serviceName + ".thrift");
+        String genJava = loadResourceFile("single_file_tests/com/example/thrift" + serviceName + ".java");
         TProgram program = ThriftAstBuilder.parseString(idl, serviceName+".thrift");
         JavaGenerator generator = new JavaGenerator(program, "" , null);
         generator.setTimestamp("2025-06-06");
@@ -95,16 +88,14 @@ public class JavaGeneratorTest {
 
     @Test
     void testMultiFileGen() throws Exception {
-        URL resourceUrl = JavaGeneratorTest.class.getResource("/multi_file_tests");
-        String resourcePath = resourceUrl.getPath();
         String file = "complex1.thrift";
-        String idl = Files.readString(new File(resourcePath, file).toPath());
+        String idl = loadResourceFile("multi_file_tests/" + file);
         TProgram program = ThriftAstBuilder.parseString(idl, file);
-        JavaGenerator generator = new JavaGenerator(program, "" , null);
+        JavaGenerator generator = new JavaGenerator(program, "." , null);
         generator.setTimestamp("2025-06-06");
         List<JavaGenerator.GenResult> results = generator.generate();
         for (JavaGenerator.GenResult result : results) {
-            String genJava = Files.readString(new File(resourcePath+"/thrift.test", result.filename).toPath());
+            String genJava = loadResourceFile("multi_file_tests/thrift/test/" + result.filename);
             GeneratorTestUtil.assertEqualsLineByLine(file, result.content, genJava);
         }
     }

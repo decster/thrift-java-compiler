@@ -15,6 +15,10 @@ public class TList extends TContainer {
         return elemType;
     }
 
+    public void setElemType(TType elemType) {
+        this.elemType = elemType;
+    }
+
     @Override
     public boolean isList() {
         return true;

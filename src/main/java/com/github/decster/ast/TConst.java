@@ -18,6 +18,10 @@ public class TConst extends TDoc {
         this.value = value;
     }
 
+    public void setType(TType type) {
+        this.type = type;
+    }
+
     public TType getType() {
         return type;
     }

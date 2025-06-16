@@ -15,6 +15,10 @@ public class TSet extends TContainer {
         return elemType;
     }
 
+    public void setElemType(TType elemType) {
+        this.elemType = elemType;
+    }
+
     @Override
     public boolean isSet() {
         return true;

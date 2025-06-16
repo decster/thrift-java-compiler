@@ -6,19 +6,27 @@ package com.github.decster.ast;
  */
 public class TMap extends TContainer {
     private TType keyType;
-    private TType valueType;
+    private TType valType;
 
-    public TMap(TType keyType, TType valueType) {
+    public TMap(TType keyType, TType valType) {
         this.keyType = keyType;
-        this.valueType = valueType;
+        this.valType = valType;
     }
 
     public TType getKeyType() {
         return keyType;
     }
 
-    public TType getValueType() {
-        return valueType;
+    public TType getValType() {
+        return valType;
+    }
+
+    public void setKeyType(TType keyType) {
+        this.keyType = keyType;
+    }
+
+    public void setValType(TType valueType) {
+        this.valType = valueType;
     }
 
     @Override
@@ -33,6 +41,6 @@ public class TMap extends TContainer {
 
     @Override
     public String toString() {
-        return "map<" + keyType + "," + valueType + ">";
+        return "map<" + keyType + "," + valType + ">";
     }
 }

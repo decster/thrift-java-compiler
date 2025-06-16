@@ -50,6 +50,10 @@ public class TFunction extends TDoc {
         }
     }
 
+    public void setReturnType(TType returnType) {
+        this.returnType = returnType;
+    }
+
     public TType getReturnType() {
         return returnType;
     }

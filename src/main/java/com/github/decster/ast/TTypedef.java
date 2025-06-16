@@ -61,4 +61,5 @@ public class TTypedef extends TType {
     public boolean isTypedef() {
         return true;
     }
+
 }

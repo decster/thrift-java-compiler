@@ -88,6 +88,7 @@ public class JavaGenerator extends Generator {
    * @throws IOException If file operations fail
    */
   public void generateAndWriteToFile() throws IOException {
+    prepareOutputDirectoryStructure();
     List<GenResult> results = generate();
     // Write all generated files to disk
     for (GenResult result : results) {
@@ -96,8 +97,6 @@ public class JavaGenerator extends Generator {
   }
 
   public List<GenResult> generate() throws IOException {
-    // Prepare output directory structure
-    prepareOutputDirectoryStructure();
     List<GenResult> results = new ArrayList<>();
 
     // Generate enums
@@ -1577,7 +1576,7 @@ public class JavaGenerator extends Generator {
 
       } else if (type.isMap()) {
         TType keyType = ((TMap) type).getKeyType();
-        TType valType = ((TMap) type).getValueType();
+        TType valType = ((TMap) type).getValType();
 
         if (isDeprecated) {
           sb.append(indent()).append("@Deprecated\n");
@@ -1916,7 +1915,7 @@ public class JavaGenerator extends Generator {
     boolean copyConstructContainer;
     if (container.isMap()) {
       TMap tmap = (TMap) container;
-      copyConstructContainer = getTrueType(tmap.getKeyType()).isBaseType() && getTrueType(tmap.getValueType()).isBaseType();
+      copyConstructContainer = getTrueType(tmap.getKeyType()).isBaseType() && getTrueType(tmap.getValType()).isBaseType();
     } else { // List or Set
       TType elemType;
       if (container.isList()) {
@@ -1958,7 +1957,7 @@ public class JavaGenerator extends Generator {
     if (container.isMap()) {
       TMap tmap = (TMap) container;
       TType keyType = tmap.getKeyType();
-      TType valType = tmap.getValueType();
+      TType valType = tmap.getValType();
 
       sb.append(indent()).append("for (java.util.Map.Entry<").append(typeName(keyType, true, false)).append(", ")
               .append(typeName(valType, true, false)).append("> ").append(iteratorElementName).append(" : ")
@@ -2097,7 +2096,7 @@ public class JavaGenerator extends Generator {
         sb.append("new org.apache.thrift.meta_data.MapMetaData(org.apache.thrift.protocol.TType.MAP, ");
         generateFieldValueMetaData(sb, ((TMap) ttype).getKeyType());
         sb.append(", ");
-        generateFieldValueMetaData(sb, ((TMap) ttype).getValueType());
+        generateFieldValueMetaData(sb, ((TMap) ttype).getValType());
       }
     } else if (ttype.isEnum()) {
       sb.append("new org.apache.thrift.meta_data.EnumMetaData(org.apache.thrift.protocol.TType.ENUM, ")
@@ -2760,7 +2759,7 @@ public class JavaGenerator extends Generator {
     } else if (type.isMap()) {
       TMap tMap = (TMap) type;
       TType keyType = tMap.getKeyType();
-      TType valueType = tMap.getValueType();
+      TType valueType = tMap.getValType();
 
       String constructorArgs = "";
       if (isEnumMap(type)) {
@@ -3452,7 +3451,7 @@ public class JavaGenerator extends Generator {
               : "<"
                   + typeName(tmap.getKeyType(), true)
                   + ","
-                  + typeName(tmap.getValueType(), true)
+                  + typeName(tmap.getValType(), true)
                   + ">");
     } else if (ttype.isSet()) {
       TSet tset = (TSet) ttype;
@@ -3663,7 +3662,7 @@ public class JavaGenerator extends Generator {
                 .append("oprot.writeMapBegin(new org.apache.thrift.protocol.TMap(")
                 .append(typeToEnum(tmap.getKeyType()))
                 .append(", ")
-                .append(typeToEnum(tmap.getValueType()))
+                .append(typeToEnum(tmap.getValType()))
                 .append(", ")
                 .append(variableName)
                 .append(".size()));\n");
@@ -3695,7 +3694,7 @@ public class JavaGenerator extends Generator {
               .append("for (java.util.Map.Entry<")
               .append(typeName(tmap.getKeyType(), true))
               .append(", ")
-              .append(typeName(tmap.getValueType(), true))
+              .append(typeName(tmap.getValType(), true))
               .append("> ")
               .append(iterVar)
               .append(" : ")
@@ -3751,7 +3750,7 @@ public class JavaGenerator extends Generator {
   private void generateSerializeMapElement(
           StringBuilder sb, TMap tmap, String iterVar, boolean hasMetaData) {
     generateSerializeFieldInternal(sb, tmap.getKeyType(), iterVar + ".getKey()", hasMetaData);
-    generateSerializeFieldInternal(sb, tmap.getValueType(), iterVar + ".getValue()", hasMetaData);
+    generateSerializeFieldInternal(sb, tmap.getValType(), iterVar + ".getValue()", hasMetaData);
   }
 
   private void generateSerializeSetElement(
@@ -3917,7 +3916,7 @@ public class JavaGenerator extends Generator {
         TMap tmap = (TMap) ttype;
         sb.append(typeToEnum(tmap.getKeyType()))
                 .append(", ")
-                .append(typeToEnum(tmap.getValueType()));
+                .append(typeToEnum(tmap.getValType()));
       }
       sb.append(");\n");
     } else if (ttype.isSet()) {
@@ -3969,7 +3968,7 @@ public class JavaGenerator extends Generator {
       keyVar = tmp("_key");
       valVar = tmp("_val");
       TType keyType = getTrueType(tmap.getKeyType());
-      TType valType = getTrueType(tmap.getValueType());
+      TType valType = getTrueType(tmap.getValType());
 
       // Declare key and value variables
       sb.append(indent());
@@ -4056,7 +4055,7 @@ public class JavaGenerator extends Generator {
   private void generateDeserializeMapElement(
           StringBuilder sb, TMap tmap, String mapVarName, boolean hasMetaData, String keyVar, String valVar) {
     TType keyType = getTrueType(tmap.getKeyType());
-    TType valType = getTrueType(tmap.getValueType());
+    TType valType = getTrueType(tmap.getValType());
 
     // Deserialize key and value
     generateDeserializeFieldInternal(sb, keyType, keyVar, hasMetaData);
