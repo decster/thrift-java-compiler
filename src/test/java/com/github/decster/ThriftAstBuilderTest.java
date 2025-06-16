@@ -5,7 +5,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
 
@@ -163,7 +162,7 @@ class ThriftAstBuilderTest {
         assertTrue(mappingMap.getValType() instanceof TTypeRef, "Map value type should be a TTypeRef before resolution");
 
         // Now resolve the type references
-        program.resolveTypeRefs();
+        program.resolveTypeRefsAndConsts();
 
         // Verify that types are resolved correctly
         assertFalse(idField.getType() instanceof TTypeRef, "Field type should not be a TTypeRef after resolution");

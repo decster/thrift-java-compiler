@@ -1,6 +1,5 @@
 package com.github.decster.ast;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -159,11 +158,15 @@ public class TProgram extends TDoc {
 
   public Map<String, String> getAllNamespaces() { return namespaces; }
 
+  public void resolveTypeRefsAndConsts() {
+    resolveTypeRefs();
+    resolveConstValues();
+  }
+
   public void resolveTypeRefs() {
     // walk through all typedefs, structs, exceptions, constants and services
     // resolving TTypeRef instances to their actual types
     // do not consider includes currently, handling of includes is done in the future
-
     // Resolve typedefs
     for (TTypedef typedef : typedefs) {
       typedef.setType(resolveTypeRef(typedef.getType()));
@@ -188,6 +191,27 @@ public class TProgram extends TDoc {
     for (TService service : services) {
       resolveServiceTypeRefs(service);
     }
+  }
+
+  public void resolveConstValues() {
+    for (TStruct struct : structs) {
+      for (TField field : struct.getMembers()) {
+        if (field.hasValue()) {
+          scope.resolveConstValue(field.getValue(), field.getType().getTrueType());
+        }
+      }
+    }
+
+    // Resolve exceptions
+    for (TStruct exception : xceptions) {
+      for (TField field : exception.getMembers()) {
+        if (field.hasValue()) {
+          scope.resolveConstValue(field.getValue(), field.getType().getTrueType());
+        }
+      }
+    }
+
+    scope.resolveAllConsts();
   }
 
   private void resolveStructTypeRefs(TStruct struct) {

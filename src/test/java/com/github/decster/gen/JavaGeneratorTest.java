@@ -91,6 +91,7 @@ public class JavaGeneratorTest {
         String file = "complex1.thrift";
         String idl = loadResourceFile("multi_file_tests/" + file);
         TProgram program = ThriftAstBuilder.parseString(idl, file);
+        program.resolveTypeRefsAndConsts();
         JavaGenerator generator = new JavaGenerator(program, "." , null);
         generator.setTimestamp("2025-06-06");
         List<JavaGenerator.GenResult> results = generator.generate();

@@ -17,6 +17,7 @@ public class TStruct extends TType {
     private int membersWithValue;
     private boolean xsdAll;
     private List<TField> members;
+    private int curNegKey = -1;
 
     public TStruct(TProgram program) {
         this.setProgram(program);
@@ -69,6 +70,11 @@ public class TStruct extends TType {
     }
 
     public void append(TField field) {
+        if (field.getKey() == Integer.MIN_VALUE) {
+            field.setKey(curNegKey--);
+        } else if (field.getKey() < 0) {
+            throw new IllegalArgumentException("Negative keys are not allowed for struct fields.");
+        }
         members.add(field);
         field.setStruct(this);
     }
@@ -86,5 +92,14 @@ public class TStruct extends TType {
     @Override
     public void validate() {
         // Add validation logic as needed
+    }
+
+    public TField getFieldByName(String fieldName) {
+        for (TField field : members) {
+            if (field.getName().equals(fieldName)) {
+                return field;
+            }
+        }
+        return null;
     }
 }

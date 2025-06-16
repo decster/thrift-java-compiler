@@ -48,7 +48,7 @@ public class ThriftCompiler {
                               " in directories: " + includeDirs);
       }
     }
-    program.resolveTypeRefs();
+    program.resolveTypeRefsAndConsts();
     knownIncludes.remove(fileName);
     return program;
   }

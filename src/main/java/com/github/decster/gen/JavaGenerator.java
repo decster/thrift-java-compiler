@@ -2958,8 +2958,10 @@ public class JavaGenerator extends Generator {
     boolean copyConstructContainer;
     if (container.isMap()) {
       TMap tmap = (TMap)container;
-      copyConstructContainer = getTrueType(tmap.getKeyType()).isBaseType() &&
-                               getTrueType(tmap.getValType()).isBaseType();
+//      copyConstructContainer = getTrueType(tmap.getKeyType()).isBaseType() &&
+//                               getTrueType(tmap.getValType()).isBaseType();
+      copyConstructContainer = tmap.getKeyType().isBaseType() &&
+              tmap.getValType().isBaseType();
     } else { // List or Set
       TType elemType;
       if (container.isList()) {
@@ -2967,7 +2969,8 @@ public class JavaGenerator extends Generator {
       } else { // isSet
         elemType = ((TSet)container).getElemType();
       }
-      copyConstructContainer = getTrueType(elemType).isBaseType();
+      //copyConstructContainer = getTrueType(elemType).isBaseType();
+      copyConstructContainer = elemType.isBaseType();
     }
 
     if (copyConstructContainer) {
@@ -2987,11 +2990,7 @@ public class JavaGenerator extends Generator {
     if (isEnumSet(container) || isEnumMap(container)) {
       constructorArgs = innerEnumTypeName(container);
     } else if (!(options.isSortedContainers() && (container.isMap() || container.isSet()))) {
-      // Only add size argument if not a sorted container or if it's a list
-      if (container.isList() ||
-          (!options.isSortedContainers() && (container.isMap() || container.isSet()))) {
-        constructorArgs = sourceName + ".size()";
-      }
+      constructorArgs = sourceName + ".size()";
     }
 
     if (isEnumSet(container)) {
@@ -5219,7 +5218,8 @@ public class JavaGenerator extends Generator {
 
     // Add to set
     if (elemType.isEnum()) {
-      sb.append(indent()).append("if (").append(elemVar).append(" != null) {\n");
+      sb.append(indent()).append("if (").append(elemVar).append(" != null)\n");
+      sb.append(indent()).append("{\n");
       indent_up();
     }
     sb.append(indent()).append(setVarName).append(".add(").append(elemVar).append(");\n");
@@ -5243,7 +5243,8 @@ public class JavaGenerator extends Generator {
 
     // Add to list
     if (elemType.isEnum()) {
-      sb.append(indent()).append("if (").append(elemVar).append(" != null) {\n");
+      sb.append(indent()).append("if (").append(elemVar).append(" != null)\n");
+      sb.append(indent()).append("{\n");
       indent_up();
     }
     sb.append(indent()).append(listVarName).append(".add(").append(elemVar).append(");\n");

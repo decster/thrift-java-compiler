@@ -14,11 +14,6 @@ public class Generator {
     }
 
     /**
-     * Converts a double value to a string representation
-     */
-    protected String emitDoubleAsString(double value) { return String.format("%.17g", value); }
-
-    /**
      * Escapes a string for use in Java code
      */
     protected String getEscapedString(String str) {
@@ -60,6 +55,30 @@ public class Generator {
             }
         }
         return sb.toString();
+    }
+
+    /**
+     * Converts a double value to a string representation
+     * Uses precision similar to C++'s std::numeric_limits<double>::digits10 + 1
+     */
+    protected String emitDoubleAsString(double value) {
+        // 使用BigDecimal来确保精度一致
+        java.math.BigDecimal bd = new java.math.BigDecimal(Double.toString(value));
+        // 移除尾部多余的0，但保持固定精度格式
+        String result = bd.stripTrailingZeros().toPlainString();
+        // 确保有固定数量的小数位
+        if (result.contains(".")) {
+            int decimalPlaces = result.length() - result.indexOf('.') - 1;
+            if (decimalPlaces < 16) {
+                // 添加额外的0以确保一致性
+                StringBuilder sb = new StringBuilder(result);
+                for (int i = 0; i < 16 - decimalPlaces; i++) {
+                    sb.append('0');
+                }
+                result = sb.toString();
+            }
+        }
+        return result;
     }
 
     protected String autogenComment() {

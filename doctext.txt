@@ -1,0 +1,573 @@
+
+好的，为了实现您的需求——允许DOC_TEXT（/** ... */注释）出现在Thrift文件中的任何位置，但AST构建器只拾取并关联紧邻定义之前的那个文档注释，忽略其他位置的注释——我们需要修改Thrift.g4语法文件和ThriftAstBuilder.java。
+
+主要思路：
+
+
+修改 Thrift.g4：
+
+
+将 DOC_TEXT 词法规则产生的令牌发送到 HIDDEN 通道。这样，解析器在构建解析树时会忽略它们，它们不会干扰主要的语法结构，从而避免因注释位置不符合原严格规定而产生的解析警告或错误。
+移除语法规则中对 doc_text 的显式引用（例如 doc_text?），因为我们将从隐藏通道中提取这些注释。
+移除 doc_text 解析规则本身。
+修改 ThriftAstBuilder.java：
+
+
+AstVisitor 将不再使用 visitDoc_text 或 lastDocText 成员来捕获文档注释。
+在 AstVisitor 中，我们将直接访问 CommonTokenStream 来获取每个定义节点（如结构体、枚举、字段等）之前的隐藏令牌。
+实现一个新的辅助方法，该方法检查给定解析上下文节点之前的隐藏令牌，并提取紧邻该节点的最后一个 DOC_TEXT。这个方法会确保在 DOC_TEXT 和定义之间只有空白符或其他可忽略的隐藏令牌。
+步骤如下：
+
+1. 修改 src/main/antlr4/Thrift.g4
+
+
+更改 DOC_TEXT 词法规则，将其发送到 HIDDEN 通道：
+
+
+// Documentation comments (/**...*/)
+DOC_TEXT
+    : '/**' .*? '*/' -> channel(HIDDEN) // Changed: send to HIDDEN channel
+    ;
+移除 doc_text 解析规则：
+
+
+// doc_text  // REMOVE THIS RULE
+//     : DOC_TEXT
+//     ;
+从以下解析规则中移除 doc_text?：
+
+
+definition
+enum_field
+field
+function_
+修改后的规则示例如下：
+
+
+definition
+    : const_rule // Removed doc_text?
+    | typedef_   // Removed doc_text?
+    | enum_rule  // Removed doc_text?
+    | struct_    // Removed doc_text?
+    | union_     // Removed doc_text?
+    | exception  // Removed doc_text?
+    | service    // Removed doc_text?
+    ;
+
+enum_field
+    : IDENTIFIER ('=' integer)? type_annotations? list_separator? // Removed doc_text?
+    ;
+
+field
+    : field_id? field_req? field_type IDENTIFIER ('=' const_value)? type_annotations? list_separator? // Removed doc_text?
+    ;
+
+function_
+    : oneway? function_type IDENTIFIER '(' field* ')' throws_list? type_annotations? list_separator? // Removed doc_text?
+    ;
+2. 修改 src/main/java/com/github/decster/ThriftAstBuilder.java
+
+
+在 ThriftAstBuilder 类中：
+
+
+修改 parse 方法，将 CommonTokenStream 传递给 AstVisitor 的构造函数。
+private static TProgram parse(CharStream input, String programName, TScope parentScope) {
+    ThriftLexer lexer = new ThriftLexer(input);
+    CommonTokenStream tokens = new CommonTokenStream(lexer); // Keep this
+    ThriftParser parser = new ThriftParser(tokens);
+    ThriftParser.DocumentContext documentContext = parser.document();
+
+    Path path = Path.of(programName);
+    String name = path.getFileName().toString();
+    if (name.endsWith(".thrift")) {
+        name = name.substring(0, name.length() - 7);
+    }
+
+    TProgram program = new TProgram(programName, name);
+    // Pass tokens to AstVisitor
+    AstVisitor visitor = new AstVisitor(program, parentScope, tokens);
+    visitor.visit(documentContext);
+    return program;
+}
+在 AstVisitor 嵌套类中：
+
+
+添加一个 CommonTokenStream 成员变量，并在构造函数中初始化它。
+移除 lastDocText 成员变量。
+移除 visitDoc_text 方法。
+添加一个新的私有方法 getAssociatedDocText(ParserRuleContext ctx) 来提取注释。
+修改各个 visit 方法（如 visitStruct_, visitField, visitEnum_rule, visitEnum_field 等）以使用新的 getAssociatedDocText 方法。
+// ... imports ...
+import org.antlr.v4.runtime.Token; // Add this import
+import org.antlr.v4.runtime.ParserRuleContext; // Add this import
+
+// ...
+static class AstVisitor extends ThriftBaseVisitor<Object> {
+    private final TProgram program;
+    private final TScope scope;
+    private final TScope parentScope;
+    // private String lastDocText = null; // REMOVE this
+    private final CommonTokenStream tokens; // ADD this
+
+    public AstVisitor(TProgram program, TScope parentScope, CommonTokenStream tokens) { // Modify constructor
+        this.program = program;
+        this.scope = program.getScope();
+        this.parentScope = parentScope;
+        this.tokens = tokens; // ADD this
+    }
+
+    // REMOVE visitDoc_text method entirely
+    // @Override
+    // public Object visitDoc_text(ThriftParser.Doc_textContext ctx) { ... }
+
+    /**
+     * Retrieves the cleaned documentation text immediately preceding the given context.
+     * It looks for the last DOC_TEXT token on the HIDDEN channel before the
+     * start of the provided context, ensuring no other significant (non-WS)
+     * comment types are between it and the context.
+     *
+     * @param ctx The parser rule context for which to find the documentation.
+     * @return Cleaned documentation string, or null if not found.
+     */
+    private String getAssociatedDocText(ParserRuleContext ctx) {
+        if (ctx == null || ctx.getStart() == null || tokens == null) {
+            return null;
+        }
+        int tokenIndexOfRuleStart = ctx.getStart().getTokenIndex();
+        List<Token> hiddenTokensToLeft = tokens.getHiddenTokensToLeft(tokenIndexOfRuleStart, ThriftLexer.HIDDEN);
+
+        if (hiddenTokensToLeft != null) {
+            for (int i = hiddenTokensToLeft.size() - 1; i >= 0; i--) {
+                Token hiddenToken = hiddenTokensToLeft.get(i);
+                if (hiddenToken.getType() == ThriftLexer.DOC_TEXT) {
+                    // Found the DOC_TEXT, return its cleaned content
+                    return cleanUpDocText(hiddenToken.getText());
+                } else if (hiddenToken.getType() == ThriftLexer.ML_COMMENT ||
+                           hiddenToken.getType() == ThriftLexer.SL_COMMENT) {
+                    // If a regular comment is found before a DOC_TEXT,
+                    // then the DOC_TEXT is not immediately preceding.
+                    return null;
+                }
+                // WS tokens are skipped, continue searching backwards.
+            }
+        }
+        return null;
+    }
+
+
+    @Override
+    public Object visitDocument(ThriftParser.DocumentContext ctx) {
+        // Process headers first
+        for (ThriftParser.HeaderContext header : ctx.header()) {
+            visit(header);
+        }
+
+        // Then process definitions
+        for (ThriftParser.DefinitionContext definition : ctx.definition()) {
+            visit(definition); // Doc text will be handled within each definition's visit method
+        }
+        return null;
+    }
+
+    @Override
+    public Object visitDefinition(ThriftParser.DefinitionContext ctx) {
+        // No longer need to manage lastDocText here
+        // Doc text will be fetched by the specific visit methods (visitConst_rule, visitStruct_, etc.)
+
+        Object result = null;
+        if (ctx.const_rule() != null) {
+            result = visit(ctx.const_rule());
+        } else if (ctx.typedef_() != null) {
+            result = visit(ctx.typedef_());
+        } else if (ctx.enum_rule() != null) {
+            result = visit(ctx.enum_rule());
+        } else if (ctx.struct_() != null) {
+            result = visit(ctx.struct_());
+        } else if (ctx.union_() != null) {
+            result = visit(ctx.union_());
+        } else if (ctx.exception() != null) {
+            result = visit(ctx.exception());
+        } else if (ctx.service() != null) {
+            result = visit(ctx.service());
+        }
+        return result;
+    }
+
+    @Override
+    public Object visitConst_rule(ThriftParser.Const_ruleContext ctx) {
+        String docText = getAssociatedDocText(ctx); // Get doc text
+
+        String name = ctx.IDENTIFIER().getText();
+        TType type = (TType) visit(ctx.field_type());
+        TConstValue value = null;
+
+        if (ctx.const_value() != null) {
+            value = (TConstValue) visit(ctx.const_value());
+        }
+
+        TConst constant = new TConst(type, name, value);
+
+        if (docText != null) {
+            constant.setDoc(docText);
+        }
+
+        program.addConst(constant);
+        scope.addConstant(name, constant);
+        if (parentScope != null) {
+            parentScope.addConstant(getParentScopeName(name), constant);
+        }
+        return constant;
+    }
+
+    @Override
+    public Object visitTypedef_(ThriftParser.Typedef_Context ctx) {
+        String docText = getAssociatedDocText(ctx); // Get doc text
+
+        String name = ctx.IDENTIFIER().getText();
+        TType type = (TType) visit(ctx.field_type());
+
+        Map<String, List<String>> annotations = processTypeAnnotations(ctx.type_annotations());
+
+        TTypedef typedef = new TTypedef(program, type, name);
+        if (!annotations.isEmpty()) {
+            typedef.setAnnotations(annotations);
+        }
+
+        if (docText != null) {
+            typedef.setDoc(docText);
+        }
+
+        program.addTypedef(typedef);
+        scope.addType(name, typedef);
+        if (parentScope != null) {
+            parentScope.addType(getParentScopeName(name), typedef);
+        }
+        return typedef;
+    }
+
+    @Override
+    public Object visitEnum_rule(ThriftParser.Enum_ruleContext ctx) {
+        String docText = getAssociatedDocText(ctx); // Get doc text for the enum itself
+
+        String name = ctx.IDENTIFIER().getText();
+        TEnum enumType = new TEnum(program);
+        enumType.setName(name);
+
+        if (docText != null) {
+            enumType.setDoc(docText);
+        }
+
+        int nextValue = 0;
+        for (ThriftParser.Enum_fieldContext fieldCtx : ctx.enum_field()) {
+            // Doc text for enum fields is handled in visitEnum_field
+            TEnumValue enumValue = (TEnumValue) visit(fieldCtx); // This will handle its own doc
+            // Update nextValue based on the actual value set in visitEnum_field if needed,
+            // or manage nextValue logic within visitEnum_field if it's simpler.
+            // For now, assuming visitEnum_field returns a fully populated TEnumValue.
+            // The original logic for nextValue needs to be integrated with how TEnumValue is created.
+            // Let's pass nextValue to visitEnum_field or retrieve it.
+            // Simpler: TEnumValue constructor could take nextValue and update it.
+            // For now, let's stick to the original structure and assume visitEnum_field handles it.
+            // The provided code for visitEnum_field does not return the value, so we'll adjust.
+
+            // Re-evaluating: visitEnum_field should create and return TEnumValue
+            // and the loop here should manage nextValue.
+            // This part needs to be consistent with how TEnumValue is created and its value set.
+            // The original code for visitEnum_field is:
+            // String fieldName = fieldCtx.IDENTIFIER().getText();
+            // int value = nextValue++;
+            // if (fieldCtx.integer() != null) { value = ...; nextValue = value + 1; }
+            // TEnumValue enumValue = new TEnumValue(fieldName, value); ...
+            // We will adapt visitEnum_field to return TEnumValue and handle nextValue here.
+
+            String enumValueDocText = getAssociatedDocText(fieldCtx); // For the enum field
+            String fieldName = fieldCtx.IDENTIFIER().getText();
+            int value;
+            if (fieldCtx.integer() != null) {
+                value = Integer.parseInt(fieldCtx.integer().getText());
+                nextValue = value + 1;
+            } else {
+                value = nextValue++;
+            }
+            TEnumValue enumValueObj = new TEnumValue(fieldName, value);
+            if (enumValueDocText != null) {
+                enumValueObj.setDoc(enumValueDocText);
+            }
+            if (fieldCtx.type_annotations() != null) {
+                Map<String, List<String>> fieldAnnotations =
+                        processTypeAnnotations(fieldCtx.type_annotations());
+                if (!fieldAnnotations.isEmpty()) {
+                    enumValueObj.setAnnotations(fieldAnnotations);
+                }
+            }
+            enumType.append(enumValueObj);
+        }
+
+        Map<String, List<String>> annotations = processTypeAnnotations(ctx.type_annotations());
+        if (!annotations.isEmpty()) {
+            enumType.setAnnotations(annotations);
+        }
+
+        program.addEnum(enumType);
+        scope.addType(name, enumType);
+        if (parentScope != null) {
+            parentScope.addType(getParentScopeName(name), enumType);
+        }
+        return enumType;
+    }
+
+    // visitEnum_field is effectively merged into visitEnum_rule's loop for clarity with nextValue,
+    // or it can be a separate method returning TEnumValue.
+    // If kept separate, it would look like:
+    /*
+    @Override
+    public Object visitEnum_field(ThriftParser.Enum_fieldContext ctx, int currentValue) { // Pass current value
+        String docText = getAssociatedDocText(ctx);
+        String fieldName = ctx.IDENTIFIER().getText();
+        int valueToUse = currentValue;
+
+        if (ctx.integer() != null) {
+            valueToUse = Integer.parseInt(ctx.integer().getText());
+        }
+
+        TEnumValue enumValue = new TEnumValue(fieldName, valueToUse);
+
+        if (docText != null) {
+            enumValue.setDoc(docText);
+        }
+
+        if (ctx.type_annotations() != null) {
+            Map<String, List<String>> fieldAnnotations =
+                    processTypeAnnotations(ctx.type_annotations());
+            if (!fieldAnnotations.isEmpty()) {
+                enumValue.setAnnotations(fieldAnnotations);
+            }
+        }
+        return enumValue; // Return the object
+    }
+    // And the loop in visitEnum_rule would call it.
+    // For simplicity, the logic is inlined in visitEnum_rule above.
+    */
+
+
+    @Override
+    public Object visitStruct_(ThriftParser.Struct_Context ctx) {
+        String docText = getAssociatedDocText(ctx); // Get doc text for the struct
+
+        String name = ctx.IDENTIFIER().getText();
+        TStruct struct = new TStruct(program, name);
+
+        if (docText != null) {
+            struct.setDoc(docText);
+        }
+
+        for (ThriftParser.FieldContext fieldCtx : ctx.field()) {
+            TField field = (TField) visit(fieldCtx); // visitField will handle its own doc
+            struct.append(field);
+        }
+
+        Map<String, List<String>> annotations = processTypeAnnotations(ctx.type_annotations());
+        if (!annotations.isEmpty()) {
+            struct.setAnnotations(annotations);
+        }
+
+        program.addStruct(struct);
+        scope.addType(name, struct);
+        if (parentScope != null) {
+            parentScope.addType(getParentScopeName(name), struct);
+        }
+        return struct;
+    }
+
+    @Override
+    public Object visitUnion_(ThriftParser.Union_Context ctx) {
+        String docText = getAssociatedDocText(ctx); // Get doc text for the union
+
+        String name = ctx.IDENTIFIER().getText();
+        TStruct struct = new TStruct(program, name);
+        struct.setUnion(true);
+
+        if (docText != null) {
+            struct.setDoc(docText);
+        }
+
+        for (ThriftParser.FieldContext fieldCtx : ctx.field()) {
+            TField field = (TField) visit(fieldCtx); // visitField will handle its own doc
+            if (field.getReq() == TField.Requirement.REQUIRED) {
+                throw new RuntimeException("Fields in a union cannot be required: " + field.getName());
+            } else if (field.getReq() == TField.Requirement.OPT_IN_REQ_OUT) {
+                field.setReq(TField.Requirement.OPTIONAL);
+            }
+            struct.append(field);
+        }
+
+        Map<String, List<String>> annotations = processTypeAnnotations(ctx.type_annotations());
+        if (!annotations.isEmpty()) {
+            struct.setAnnotations(annotations);
+        }
+
+        program.addStruct(struct);
+        scope.addType(name, struct);
+        if (parentScope != null) {
+            parentScope.addType(getParentScopeName(name), struct);
+        }
+        return struct;
+    }
+
+    @Override
+    public Object visitException(ThriftParser.ExceptionContext ctx) {
+        String docText = getAssociatedDocText(ctx); // Get doc text for the exception
+
+        String name = ctx.IDENTIFIER().getText();
+        TStruct struct = new TStruct(program, name);
+        struct.setXception(true);
+
+        if (docText != null) {
+            struct.setDoc(docText);
+        }
+
+        for (ThriftParser.FieldContext fieldCtx : ctx.field()) {
+            TField field = (TField) visit(fieldCtx); // visitField will handle its own doc
+            struct.append(field);
+        }
+
+        Map<String, List<String>> annotations = processTypeAnnotations(ctx.type_annotations());
+        if (!annotations.isEmpty()) {
+            struct.setAnnotations(annotations);
+        }
+
+        program.addXception(struct);
+        scope.addType(name, struct);
+        if (parentScope != null) {
+            parentScope.addType(getParentScopeName(name), struct);
+        }
+        return struct;
+    }
+
+    @Override
+    public Object visitService(ThriftParser.ServiceContext ctx) {
+        String docText = getAssociatedDocText(ctx); // Get doc text for the service
+
+        String name = ctx.IDENTIFIER().get(0).getText();
+        TService service = new TService(program);
+        service.setName(name);
+
+        if (docText != null) {
+            service.setDoc(docText);
+        }
+
+        if (ctx.IDENTIFIER().size() > 1) {
+            TService parentService = new TService(program);
+            parentService.setName(ctx.IDENTIFIER().get(1).getText());
+            service.setExtends(parentService);
+        }
+
+        for (ThriftParser.Function_Context funcCtx : ctx.function_()) {
+            TFunction function = (TFunction) visit(funcCtx); // visitFunction_ handles its own doc
+            service.addFunction(function);
+        }
+
+        Map<String, List<String>> annotations = processTypeAnnotations(ctx.type_annotations());
+        if (!annotations.isEmpty()) {
+            service.setAnnotations(annotations);
+        }
+
+        program.addService(service);
+        scope.addService(name, service);
+        if (parentScope != null) {
+            parentScope.addService(getParentScopeName(name), service);
+        }
+        return service;
+    }
+
+    @Override
+    public Object visitField(ThriftParser.FieldContext ctx) {
+        String docText = getAssociatedDocText(ctx); // Get doc text for the field
+
+        int id = Integer.MIN_VALUE;
+        if (ctx.field_id() != null) {
+            id = Integer.parseInt(ctx.field_id().integer().getText());
+        }
+
+        TField.Requirement req = TField.Requirement.OPT_IN_REQ_OUT;
+        if (ctx.field_req() != null) {
+            if (ctx.field_req().getText().equals("required")) {
+                req = TField.Requirement.REQUIRED;
+            } else if (ctx.field_req().getText().equals("optional")) {
+                req = TField.Requirement.OPTIONAL;
+            }
+        }
+
+        TType type = (TType) visit(ctx.field_type());
+        String name = ctx.IDENTIFIER().getText();
+
+        TField field = new TField(type, name, id);
+        field.setReq(req);
+
+        if (docText != null) {
+            field.setDoc(docText);
+        }
+
+        if (ctx.const_value() != null) {
+            TConstValue value = (TConstValue) visit(ctx.const_value());
+            field.setValue(value);
+        }
+
+        Map<String, List<String>> annotations = processTypeAnnotations(ctx.type_annotations());
+        if (!annotations.isEmpty()) {
+            field.setAnnotations(annotations);
+        }
+        return field;
+    }
+
+    @Override
+    public Object visitFunction_(ThriftParser.Function_Context ctx) {
+        String docText = getAssociatedDocText(ctx); // Get doc text for the function
+
+        String name = ctx.IDENTIFIER().getText();
+        TType returnType;
+
+        if (ctx.function_type().getText().equals("void")) {
+            returnType = new TBaseType("VOID", TBaseType.Base.TYPE_VOID);
+        } else {
+            returnType = (TType) visit(ctx.function_type().field_type());
+        }
+
+        TStruct argStruct = new TStruct(program, name + "_args");
+        TFunction function = new TFunction(returnType, name, argStruct);
+
+        if (docText != null) {
+            function.setDoc(docText);
+        }
+
+        if (ctx.oneway() != null) {
+            function.setOneWay(true);
+        }
+
+        for (ThriftParser.FieldContext fieldCtx : ctx.field()) {
+            TField field = (TField) visit(fieldCtx); // visitField handles its own doc
+            argStruct.append(field);
+        }
+
+        if (ctx.throws_list() != null) {
+            TStruct xceptStruct = new TStruct(program, name + "_result"); // Original uses _result, not _exceptions
+            function.setXceptions(xceptStruct);
+            for (ThriftParser.FieldContext fieldCtx : ctx.throws_list().field()) {
+                TField field = (TField) visit(fieldCtx); // visitField handles its own doc
+                xceptStruct.append(field);
+            }
+        }
+
+        Map<String, List<String>> annotations = processTypeAnnotations(ctx.type_annotations());
+        if (!annotations.isEmpty()) {
+            function.setAnnotations(annotations);
+        }
+        return function;
+    }
+
+    // ... other visit methods remain the same (visitField_type, visitBase_type, etc.) ...
+    // ... cleanUpDocText method remains the same ...
+    // ... getStringLiteral, processTypeAnnotations, getParentScopeName remain the same ...
+}
+这些更改将使得解析器不再因为 DOC_TEXT 出现在非预期位置而发出警告，并且 AstVisitor 将只把紧邻定义（或字段等）之前的 DOC_TEXT 作为其文档注释。文件顶部或其他孤立的 DOC_TEXT 块将被忽略。

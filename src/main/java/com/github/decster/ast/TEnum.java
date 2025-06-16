@@ -41,4 +41,13 @@ public class TEnum extends TType {
     public boolean isEnum() {
         return true;
     }
+
+    public TEnumValue getConstantByValue(long integer) {
+        for (TEnumValue value : constants) {
+            if (value.getValue() == integer) {
+                return value;
+            }
+        }
+        return null;
+    }
 }

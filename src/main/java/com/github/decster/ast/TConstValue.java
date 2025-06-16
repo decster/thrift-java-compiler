@@ -79,9 +79,21 @@ public class TConstValue implements Comparable<TConstValue> {
         valType = Type.CV_IDENTIFIER;
     }
 
+    public void setMap() {
+        valType = Type.CV_MAP;
+    }
+
     public void setMap(Map<TConstValue, TConstValue> val) {
         mapVal = val;
         valType = Type.CV_MAP;
+    }
+
+    public void addMap(TConstValue key, TConstValue value) {
+        mapVal.put(key, value);
+    }
+
+    public void setList() {
+        valType = Type.CV_LIST;
     }
 
     public void setList(List<TConstValue> val) {
@@ -89,8 +101,41 @@ public class TConstValue implements Comparable<TConstValue> {
         valType = Type.CV_LIST;
     }
 
+    public void addList(TConstValue val) {
+        listVal.add(val);
+    }
+
+    public void setUuid(String val) {
+        validateUuid(val);
+        stringVal = val;
+        valType = Type.CV_STRING;
+    }
+
+    public String getUuid() {
+        String tmp = stringVal;
+        validateUuid(tmp);
+        return tmp;
+    }
+
     public long getInteger() {
-        return intVal;
+        if (valType == Type.CV_IDENTIFIER) {
+            if (enumVal == null) {
+                throw new RuntimeException("have identifier \"" + getIdentifier() + "\", but unset enum on line!");
+            }
+            String identifier = getIdentifier();
+            int dot = identifier.lastIndexOf('.');
+            if (dot != -1) {
+                identifier = identifier.substring(dot + 1);
+            }
+            TEnumValue val = enumVal.getConstantByName(identifier);
+            if (val == null) {
+                throw new RuntimeException("Unable to find enum value \"" + identifier + "\" in enum \"" +
+                    enumVal.getName() + "\"");
+            }
+            return val.getValue();
+        } else {
+            return intVal;
+        }
     }
 
     public double getDouble() {
@@ -213,4 +258,37 @@ public class TConstValue implements Comparable<TConstValue> {
                 return 0;
         }
     }
+
+private void validateUuid(String uuid) {
+    final String HEXCHARS = "0123456789ABCDEFabcdef";
+
+    // 也允许Windows GUID格式"{01234567-9012-4567-9012-456789012345}"
+    if ((uuid.length() == 38) && ('{' == uuid.charAt(0)) && ('}' == uuid.charAt(37))) {
+        uuid = uuid.substring(1, 37);
+    }
+
+    // 期望标准格式为"01234567-9012-4567-9012-456789012345"
+    boolean valid = (uuid.length() == 36);
+    for (int i = 0; valid && (i < uuid.length()); ++i) {
+        switch(i) {
+            case 8:
+            case 13:
+            case 18:
+            case 23:
+                if(uuid.charAt(i) != '-') {
+                    valid = false;
+                }
+                break;
+            default:
+                if(HEXCHARS.indexOf(uuid.charAt(i)) == -1) {
+                    valid = false;
+                }
+                break;
+        }
+    }
+
+    if (!valid) {
+        throw new RuntimeException("invalid uuid " + uuid);
+    }
+}
 }
