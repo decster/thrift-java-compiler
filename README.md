@@ -1,3 +1,5 @@
+![Build](https://github.com/decster/thrift-java-compiler/actions/workflows/maven.yml/badge.svg)
+
 # Java Thrift Compiler (Experimental)
 
 This project is an experimental Java-based compiler for Apache Thrift IDL files, similar to the official Apache Thrift compiler.
