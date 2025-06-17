@@ -66,7 +66,7 @@ A minimal setup in your pom.xml would look like:
 </dependencies>
 
 <plugin>
-    <groupId>com.github.decster</groupId>
+    <groupId>io.github.decster</groupId>
     <artifactId>thrift-java-maven-plugin</artifactId>
     <version>0.1.0-SNAPSHOT</version>
     <executions>
@@ -87,7 +87,7 @@ This will search for Thrift files in `src/main/thrift` and generate Java code in
 <build>
     <plugins>
         <plugin>
-            <groupId>com.github.decster</groupId>
+            <groupId>io.github.decster</groupId>
             <artifactId>thrift-java-maven-plugin</artifactId>
             <version>0.1.0-SNAPSHOT</version>
             <executions>

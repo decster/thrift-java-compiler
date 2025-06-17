@@ -8,7 +8,7 @@ To create a pure Java library that takes a Thrift IDL file (parsed by the provid
 
 ## Key Challenges
 
-1.  **AST Feature Parity:** Ensuring the Java AST nodes (`com.github.decster.ast.*`) can capture all the nuances and metadata present in the C++ `t_*` AST (`parse/t_*.h`). This includes annotations, default values, requiredness, etc.
+1.  **AST Feature Parity:** Ensuring the Java AST nodes (`io.github.decster.ast.*`) can capture all the nuances and metadata present in the C++ `t_*` AST (`parse/t_*.h`). This includes annotations, default values, requiredness, etc.
 2.  **Logic Replication:** Accurately translating the C++ generation logic (loops, conditionals, string manipulations, type mappings) into Java.
 3.  **Options Handling:** Replicating the behavior of various generator options (e.g., `beans`, `java5`, `android`, `option_type`, `sorted_containers`).
 4.  **Testing:** Ensuring the generated Java code is identical or functionally equivalent to the C++ generator's output for a wide range of Thrift files.
@@ -27,7 +27,7 @@ This map outlines the core Java classes needed for the generator.
 2.  **`AstBuilder.java` (ANTLR Visitor/Listener)**
     *   Extends ANTLR-generated base visitor or listener.
     *   `public DocumentNode build(ThriftParser.DocumentContext ctx)`: Root method to build the AST.
-    *   `visitXYZ(XYZContext ctx)` methods for each ANTLR rule to populate `com.github.decster.ast.*` nodes.
+    *   `visitXYZ(XYZContext ctx)` methods for each ANTLR rule to populate `io.github.decster.ast.*` nodes.
         *   *Critical*: Ensure all information like field IDs, requiredness, default values, annotations, docstrings are captured from the ANTLR context and stored in the AST nodes.
 
 3.  **`JavaGeneratorOptions.java`**
@@ -116,7 +116,7 @@ This map outlines the core Java classes needed for the generator.
 ### Phase 0: Setup & AST Enhancement
 
 1.  **Class & Methods:**
-    *   `com.github.decster.ast.*`: Review all AST nodes.
+    *   `io.github.decster.ast.*`: Review all AST nodes.
     *   `AstBuilder.java`
 2.  **Dependencies:** ANTLR runtime, `Thrift.g4`.
 3.  **Tasks:**
