@@ -68,7 +68,7 @@ A minimal setup in your pom.xml would look like:
 <plugin>
     <groupId>io.github.decster</groupId>
     <artifactId>thrift-java-maven-plugin</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.1.0</version>
     <executions>
         <execution>
             <goals>
@@ -89,7 +89,7 @@ This will search for Thrift files in `src/main/thrift` and generate Java code in
         <plugin>
             <groupId>io.github.decster</groupId>
             <artifactId>thrift-java-maven-plugin</artifactId>
-            <version>0.1.0-SNAPSHOT</version>
+            <version>0.1.0</version>
             <executions>
                 <execution>
                     <goals>
@@ -144,7 +144,7 @@ mvn clean package
 Once built, you can run the compiler from the command line:
 
 ```bash
-java -jar target/thrift-java-maven-plugin-0.1.0-SNAPSHOT-standalone.jar src/test/resources/include_tests/BackendService.thrift   -o genoutput
+java -jar target/thrift-java-maven-plugin-0.1.0-standalone.jar src/test/resources/include_tests/BackendService.thrift   -o genoutput
 ```
 
 
