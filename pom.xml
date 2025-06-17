@@ -6,7 +6,7 @@
 
     <groupId>com.github.decster</groupId>
     <artifactId>thrift-java-compiler</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>0.1.0-SNAPSHOT</version>
 
     <properties>
         <maven.compiler.source>11</maven.compiler.source>

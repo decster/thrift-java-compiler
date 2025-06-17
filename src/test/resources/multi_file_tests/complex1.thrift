@@ -55,7 +55,7 @@ enum Numberz
   FIVE = 5,
   SIX,
   EIGHT = 8
-}
+} (deprecated = "true")
 
 const Numberz myNumberz = Numberz.ONE;
 const i64 constMyI64 = 1245738738;
@@ -117,11 +117,12 @@ struct CrazyNesting {
 
 union SomeUnion {
   1: map<Numberz, UserId> map_thing,
-  2: string string_thing,
+  2: string string_thing = "Hello, world!",
   3: i32 i32_thing,
-  4: Xtruct3 xtruct_thing,
-  5: Insanity insanity_thing
-}
+  4: Xtruct3 xtruct_thing (deprecated = "true"),
+  5: Insanity insanity_thing,
+  10: binary binary_thing (deprecated = "true")
+} (deprecated = "true")
 
 exception Xception {
   1: i32 errorCode,
@@ -131,7 +132,7 @@ exception Xception {
 exception Xception2 {
   1: i32 errorCode,
   2: Xtruct struct_thing
-}
+} (deprecated = "true")
 
 struct EmptyStruct {}
 
@@ -333,13 +334,13 @@ service SecondService extends ThriftTest
    * @return string - returns the string 'thing'
    */
   string secondtestString(1: string thing)
-}
+} (deprecated = "true")
 
 struct VersioningTestV1 {
-       1: i32 begin_in_both,
+       1: i32 begin_in_both (deprecated = "true"),
        3: string old_string,
        12: i32 end_in_both
-}
+} (deprecated = "true")
 
 struct VersioningTestV2 {
        1: i32 begin_in_both,

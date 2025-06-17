@@ -8,29 +8,21 @@ package com.github.decster.ast;
  * Corresponds to t_const.h in the C++ implementation.
  */
 public class TConst extends TDoc {
-    private TType type;
-    private String name;
-    private TConstValue value;
+  private TType type;
+  private String name;
+  private TConstValue value;
 
-    public TConst(TType type, String name, TConstValue value) {
-        this.type = type;
-        this.name = name;
-        this.value = value;
-    }
+  public TConst(TType type, String name, TConstValue value) {
+    this.type = type;
+    this.name = name;
+    this.value = value;
+  }
 
-    public void setType(TType type) {
-        this.type = type;
-    }
+  public void setType(TType type) { this.type = type; }
 
-    public TType getType() {
-        return type;
-    }
+  public TType getType() { return type; }
 
-    public String getName() {
-        return name;
-    }
+  public String getName() { return name; }
 
-    public TConstValue getValue() {
-        return value;
-    }
+  public TConstValue getValue() { return value; }
 }

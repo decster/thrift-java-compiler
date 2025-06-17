@@ -3323,11 +3323,17 @@ public class DemoService {
     private static final org.apache.thrift.scheme.SchemeFactory STANDARD_SCHEME_FACTORY = new demoMethod4_argsStandardSchemeFactory();
     private static final org.apache.thrift.scheme.SchemeFactory TUPLE_SCHEME_FACTORY = new demoMethod4_argsTupleSchemeFactory();
 
+    /**
+     * demoMethodData comment
+     */
     public @org.apache.thrift.annotation.Nullable java.nio.ByteBuffer data; // required
     public long timestamp; // required
 
     /** The set of fields this struct contains, along with convenience methods for finding and manipulating them. */
     public enum _Fields implements org.apache.thrift.TFieldIdEnum {
+      /**
+       * demoMethodData comment
+       */
       DATA((short)1, "data"),
       TIMESTAMP((short)2, "timestamp");
 
@@ -3441,6 +3447,9 @@ public class DemoService {
       this.timestamp = 0;
     }
 
+    /**
+     * demoMethodData comment
+     */
     public byte[] getData() {
       setData(org.apache.thrift.TBaseHelper.rightSize(data));
       return data == null ? null : data.array();
@@ -3450,6 +3459,9 @@ public class DemoService {
       return org.apache.thrift.TBaseHelper.copyBinary(data);
     }
 
+    /**
+     * demoMethodData comment
+     */
     public demoMethod4_args setData(byte[] data) {
       this.data = data == null ? (java.nio.ByteBuffer)null     : java.nio.ByteBuffer.wrap(data.clone());
       return this;

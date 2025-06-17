@@ -6,7 +6,9 @@ import com.github.decster.gen.JavaGenerator;
 import com.github.decster.gen.JavaGeneratorOptions;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -55,23 +57,49 @@ public class ThriftCompiler {
 
   public static void main(String[] argv) throws IOException {
     CommandLineArgs cliArgs = new CommandLineArgs();
-    JCommander jc = JCommander.newBuilder().addObject(cliArgs).build();
+    JCommander jc = JCommander.newBuilder()
+        .addObject(cliArgs)
+        .programName("ThriftCompiler")
+        .build();
+
     try {
       jc.parse(argv);
-      String fileToParse = cliArgs.getInputFile();
+
+      // Check if help was requested
+      if (cliArgs.isHelp()) {
+        jc.usage();
+        printGeneratorOptionsHelp();
+        return;
+      }
+
+      List<String> filesToParse = cliArgs.getInputFiles();
       String outputDirectory = cliArgs.getOutputDirectory();
 
-      // Validate input file
-      if (fileToParse == null) {
-        System.err.println("Input Thrift file must be specified.");
+      // Validate input files
+      if (filesToParse.isEmpty()) {
+        System.err.println("At least one input Thrift file must be specified.");
         jc.usage();
         return;
       }
 
-      File inputFile = new File(fileToParse);
-      if (!inputFile.exists() || !inputFile.isFile()) {
-        System.err.println("Input file does not exist or is not a file: " + fileToParse);
-        return;
+      // Validate all input files
+      List<File> inputFiles = new ArrayList<>();
+      for (String filePath : filesToParse) {
+        File inputFile = new File(filePath);
+        if (!inputFile.exists() || !inputFile.isFile()) {
+          System.err.println("Input file does not exist or is not a file: " + filePath);
+          return;
+        }
+        inputFiles.add(inputFile);
+      }
+
+      // Collect all parent directories of input files and add them to include directories
+      List<String> includeDirs = cliArgs.getIncludeDirs();
+      for (File inputFile : inputFiles) {
+        String inputFileDir = inputFile.getParent();
+        if (inputFileDir != null && !includeDirs.contains(inputFileDir)) {
+          includeDirs.add(inputFileDir);
+        }
       }
 
       // Parse generator options
@@ -79,19 +107,11 @@ public class ThriftCompiler {
       JavaGeneratorOptions javaGenOptions = JavaGeneratorOptions.fromMap(genOptions);
 
       // Log the compilation settings
-      System.out.println("Input file: " + fileToParse);
-      System.out.println("Output directory: " + outputDirectory);
-      if (!cliArgs.getIncludeDirs().isEmpty()) {
-        System.out.println("Include directories: " + cliArgs.getIncludeDirs());
+      System.out.println("Input files: " + filesToParse + " Output directory: " + outputDirectory);
+      if (!includeDirs.isEmpty()) {
+        System.out.println("Include directories: " + includeDirs);
       }
       System.out.println("Generator options: " + genOptions);
-
-      // Parse the Thrift file and build the AST
-      TProgram program = recursiveParse(fileToParse, null, Set.of(), cliArgs.getIncludeDirs());
-
-      System.out.println("Thrift program parsed successfully.");
-      System.out.println("AST contains: " + program.getObjects().size() + " definitions");
-      System.out.println("Ready for code generation (to be implemented in future phases)");
 
       // Validate output directory
       File outputDir = new File(outputDirectory);
@@ -106,10 +126,23 @@ public class ThriftCompiler {
         return;
       }
 
-      JavaGenerator generator = new JavaGenerator(program, outputDirectory, javaGenOptions);
-      generator.generateAndWriteToFile();
+      // Process each input file
+      int totalFilesGenerated = 0;
+      for (String filePath : filesToParse) {
+        // Parse the Thrift file and build the AST
+        TProgram program = recursiveParse(filePath, null, new HashSet<>(), includeDirs);
 
-      System.out.println("Java code generation completed successfully.");
+        // Generate code for this file
+        JavaGenerator generator = new JavaGenerator(program, outputDirectory, javaGenOptions);
+        int filesGenerated = generator.generateAndWriteToFile();
+
+        // Output a single line per file with the number of files generated
+        System.out.println("File: " + filePath + " - Generated " + filesGenerated + " Java file" + (filesGenerated != 1 ? "s" : ""));
+
+        totalFilesGenerated += filesGenerated;
+      }
+
+      System.out.println("Total files generated: " + totalFilesGenerated);
 
     } catch (ParameterException e) {
       System.err.println("Error parsing command-line arguments: " + e.getMessage());
@@ -123,7 +156,40 @@ public class ThriftCompiler {
   }
 
   /**
-   * Parse generator options string in the format "key1:value1,key2:value2"
+   * Print detailed help for generator options
+   */
+  private static void printGeneratorOptionsHelp() {
+    System.out.println("\nDetailed Generator Options (-g, --gen):");
+    System.out.println("  java (Java):");
+    System.out.println("    beans:           Members will be private, and setter methods will return void.");
+    System.out.println("    private_members: Members will be private, but setter methods will return 'this' like usual.");
+    System.out.println("    nocamel:         Do not use CamelCase field accessors with beans.");
+    System.out.println("    fullcamel:       Convert underscored_accessor_or_service_names to camelCase.");
+    System.out.println("    android:         Generated structures are Parcelable (unsupported).");
+    System.out.println("    android_legacy:  Do not use java.io.IOException(throwable) (available for Android 2.3 and above).");
+    System.out.println("    option_type=[thrift|jdk8]:");
+    System.out.println("                     thrift: wrap optional fields in thrift Option type.");
+    System.out.println("                     jdk8: Wrap optional fields in JDK8+ Option type.");
+    System.out.println("                     If the Option type is not specified, 'thrift' is used.");
+    System.out.println("    rethrow_unhandled_exceptions:");
+    System.out.println("                     Enable rethrow of unhandled exceptions and let them propagate further. (Default behavior is to catch and log it.)");
+    System.out.println("    java5:           Generate Java 1.5 compliant code (includes android_legacy flag).");
+    System.out.println("    future_iface:    Generate CompletableFuture based iface based on async client.");
+    System.out.println("    reuse_objects:   Data objects will not be allocated, but existing instances will be used (read and write).");
+    System.out.println("    reuse-objects:   Same as 'reuse_objects' (deprecated).");
+    System.out.println("    sorted_containers:");
+    System.out.println("                     Use TreeSet/TreeMap instead of HashSet/HashMap as a implementation of set/map.");
+    System.out.println("    generated_annotations=[undated|suppress]:");
+    System.out.println("                     undated: suppress the date at @Generated annotations");
+    System.out.println("                     suppress: suppress @Generated annotations entirely");
+    System.out.println("    unsafe_binaries: Do not copy ByteBuffers in constructors, getters, and setters.");
+    System.out.println("    jakarta_annotations: generate jakarta annotations (javax by default)");
+    System.out.println("    annotations_as_metadata:");
+    System.out.println("                     Include Thrift field annotations as metadata in the generated code.");
+  }
+
+  /**
+   * Parse generator options string in the format "key1=value1,key2=value2"
    */
   private static Map<String, String> parseGeneratorOptions(String optionsStr) {
     Map<String, String> options = new HashMap<>();
@@ -133,7 +199,7 @@ public class ThriftCompiler {
 
     String[] optionPairs = optionsStr.split(",");
     for (String pair : optionPairs) {
-      String[] keyValue = pair.split(":", 2);
+      String[] keyValue = pair.split("=", 2);
       String key = keyValue[0].trim();
       String value = keyValue.length > 1 ? keyValue[1].trim() : "true";
       options.put(key, value);

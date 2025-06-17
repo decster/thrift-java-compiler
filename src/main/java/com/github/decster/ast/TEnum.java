@@ -8,46 +8,42 @@ import java.util.List;
  * Corresponds to t_enum.h in the C++ implementation.
  */
 public class TEnum extends TType {
-    private List<TEnumValue> constants;
+  private List<TEnumValue> constants;
 
-    public TEnum(TProgram program) {
-        setProgram(program);
-        this.constants = new ArrayList<>();
-    }
+  public TEnum(TProgram program) {
+    setProgram(program);
+    this.constants = new ArrayList<>();
+  }
 
-    @Override
-    public void setName(String name) {
-        super.setName(name);
-    }
+  @Override
+  public void setName(String name) {
+    super.setName(name);
+  }
 
-    public void append(TEnumValue constant) {
-        constants.add(constant);
-    }
+  public void append(TEnumValue constant) { constants.add(constant); }
 
-    public List<TEnumValue> getConstants() {
-        return constants;
-    }
+  public List<TEnumValue> getConstants() { return constants; }
 
-    public TEnumValue getConstantByName(String name) {
-        for (TEnumValue value : constants) {
-            if (value.getName().equals(name)) {
-                return value;
-            }
-        }
-        return null;
+  public TEnumValue getConstantByName(String name) {
+    for (TEnumValue value : constants) {
+      if (value.getName().equals(name)) {
+        return value;
+      }
     }
+    return null;
+  }
 
-    @Override
-    public boolean isEnum() {
-        return true;
-    }
+  @Override
+  public boolean isEnum() {
+    return true;
+  }
 
-    public TEnumValue getConstantByValue(long integer) {
-        for (TEnumValue value : constants) {
-            if (value.getValue() == integer) {
-                return value;
-            }
-        }
-        return null;
+  public TEnumValue getConstantByValue(long integer) {
+    for (TEnumValue value : constants) {
+      if (value.getValue() == integer) {
+        return value;
+      }
     }
+    return null;
+  }
 }
