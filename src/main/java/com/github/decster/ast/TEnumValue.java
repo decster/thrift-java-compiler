@@ -32,7 +32,5 @@ public class TEnumValue extends TDoc {
     annotations.computeIfAbsent(key, k -> new ArrayList<>()).add(value);
   }
 
-  public void setAnnotations(Map<String, List<String>> annotations) {
-    this.annotations = annotations;
-  }
+  public void setAnnotations(Map<String, List<String>> annotations) { this.annotations = annotations; }
 }

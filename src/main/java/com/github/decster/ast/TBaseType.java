@@ -8,17 +8,7 @@ public class TBaseType extends TType {
   /**
    * Enumeration of thrift base types
    */
-  public enum Base {
-    TYPE_VOID,
-    TYPE_STRING,
-    TYPE_UUID,
-    TYPE_BOOL,
-    TYPE_I8,
-    TYPE_I16,
-    TYPE_I32,
-    TYPE_I64,
-    TYPE_DOUBLE
-  }
+  public enum Base { TYPE_VOID, TYPE_STRING, TYPE_UUID, TYPE_BOOL, TYPE_I8, TYPE_I16, TYPE_I32, TYPE_I64, TYPE_DOUBLE }
 
   private Base base;
   private boolean binary;

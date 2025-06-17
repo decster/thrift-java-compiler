@@ -40,8 +40,7 @@ class ThriftCompilerTest {
     // Test when a file exists in multiple include directories (should return the first one)
     String firstFound = ThriftCompiler.getIncludeFile(includeDirs, "someConst.thrift");
     assertNotNull(firstFound, "Should find someConst.thrift");
-    assertTrue(firstFound.contains("single_file_tests"),
-               "Should find the file in the first directory where it exists");
+    assertTrue(firstFound.contains("single_file_tests"), "Should find the file in the first directory where it exists");
 
     // Test with a non-existent file
     String notFound = ThriftCompiler.getIncludeFile(includeDirs, "NonExistent.thrift");
@@ -70,8 +69,7 @@ class ThriftCompilerTest {
     assertFalse(program.getIncludes().isEmpty(), "Program should have processed includes");
 
     // Verify the name of the program matches the file
-    assertEquals("FrontendService", program.getName(),
-                 "Program name should match the thrift file name");
+    assertEquals("FrontendService", program.getName(), "Program name should match the thrift file name");
   }
 
   @Test
@@ -130,8 +128,7 @@ class ThriftCompilerTest {
     for (File file : thriftFiles) {
       String filePath = file.getAbsolutePath();
       try {
-        TProgram program =
-            ThriftCompiler.recursiveParse(filePath, null, new HashSet<>(), includeDirs);
+        TProgram program = ThriftCompiler.recursiveParse(filePath, null, new HashSet<>(), includeDirs);
         assertNotNull(program, "Program should be parsed successfully for " + filePath);
         JavaGenerator generator = new JavaGenerator(program, ".", new JavaGeneratorOptions());
         generator.setTimestamp("2025-06-16");
@@ -139,8 +136,7 @@ class ThriftCompilerTest {
         for (JavaGenerator.GenResult result : results) {
           String expectedContent = expectedJavaFilesMap.get(result.filename);
           assertNotNull(expectedContent, "Expected content for " + result.filename + " not found");
-          GeneratorTestUtil.assertEqualsLineByLine(result.filename, result.content,
-                                                   expectedContent);
+          GeneratorTestUtil.assertEqualsLineByLine(result.filename, result.content, expectedContent);
         }
         generatedJavaFilesCount += results.size();
       } catch (IOException e) {

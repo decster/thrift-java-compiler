@@ -76,9 +76,7 @@ public class TProgram extends TDoc {
   // Create gen-* dir accessor
   public boolean isOutPathAbsolute() { return outPathIsAbsolute; }
 
-  public void setOutPathAbsolute(boolean outPathIsAbsolute) {
-    this.outPathIsAbsolute = outPathIsAbsolute;
-  }
+  public void setOutPathAbsolute(boolean outPathIsAbsolute) { this.outPathIsAbsolute = outPathIsAbsolute; }
 
   // Name accessor
   public String getName() { return name; }
@@ -113,8 +111,7 @@ public class TProgram extends TDoc {
     if (!includeFiles.contains(includeFile)) {
       includeFiles.add(includeFile);
     } else {
-      throw new RuntimeException("Include file '" + includeFile +
-                                 "' already exists in the program.");
+      throw new RuntimeException("Include file '" + includeFile + "' already exists in the program.");
     }
   }
 
@@ -141,9 +138,7 @@ public class TProgram extends TDoc {
 
   public void addInclude(TProgram program) { includes.add(program); }
 
-  public void setNamespace(String language, String namespace) {
-    namespaces.put(language, namespace);
-  }
+  public void setNamespace(String language, String namespace) { namespaces.put(language, namespace); }
 
   public String getNamespace(String language) {
     String ret = namespaces.get(language);

@@ -28,8 +28,7 @@ public class JavaGeneratorTest {
   @Test
   void testGenConsts() throws Exception {
     String idl = loadResourceFile("single_file_tests/someConst.thrift");
-    String genJava =
-        loadResourceFile("single_file_tests/com/example/thrift/someConstConstants.java");
+    String genJava = loadResourceFile("single_file_tests/com/example/thrift/someConstConstants.java");
     TProgram program = ThriftAstBuilder.parseString(idl, "someConst.thrift");
     JavaGenerator generator = new JavaGenerator(program, "", null);
     generator.setTimestamp("2025-06-06");
@@ -58,8 +57,7 @@ public class JavaGeneratorTest {
 
   void singleTestGenStruct(String structName) throws Exception {
     String idl = loadResourceFile("single_file_tests/" + structName + ".thrift");
-    String genJava =
-        loadResourceFile("single_file_tests/com/example/thrift/" + structName + ".java");
+    String genJava = loadResourceFile("single_file_tests/com/example/thrift/" + structName + ".java");
     TProgram program = ThriftAstBuilder.parseString(idl, structName + ".thrift");
     JavaGenerator generator = new JavaGenerator(program, "", null);
     generator.setTimestamp("2025-06-06");
@@ -69,8 +67,7 @@ public class JavaGeneratorTest {
 
   void singleTestGenXception(String xceptionName) throws Exception {
     String idl = loadResourceFile("single_file_tests/" + xceptionName + ".thrift");
-    String genJava =
-        loadResourceFile("single_file_tests/com/example/thrift/" + xceptionName + ".java");
+    String genJava = loadResourceFile("single_file_tests/com/example/thrift/" + xceptionName + ".java");
     TProgram program = ThriftAstBuilder.parseString(idl, xceptionName + ".thrift");
     JavaGenerator generator = new JavaGenerator(program, "", null);
     generator.setTimestamp("2025-06-06");
@@ -81,8 +78,7 @@ public class JavaGeneratorTest {
   void singleTestGenService(String serviceName) throws Exception {
     String idl = loadResourceFile("single_file_tests"
                                   + "/" + serviceName + ".thrift");
-    String genJava =
-        loadResourceFile("single_file_tests/com/example/thrift/" + serviceName + ".java");
+    String genJava = loadResourceFile("single_file_tests/com/example/thrift/" + serviceName + ".java");
     TProgram program = ThriftAstBuilder.parseString(idl, serviceName + ".thrift");
     JavaGenerator generator = new JavaGenerator(program, "", null);
     generator.setTimestamp("2025-06-06");
@@ -133,9 +129,8 @@ public class JavaGeneratorTest {
     File outputFile = new File(tempDir, "com/example/thrift/DemoEnum.java");
 
     // Verify the file exists
-    org.junit.jupiter.api.Assertions.assertTrue(outputFile.exists(),
-                                                "Expected output file was not created: " +
-                                                    outputFile.getAbsolutePath());
+    org.junit.jupiter.api.Assertions.assertTrue(outputFile.exists(), "Expected output file was not created: " +
+                                                                         outputFile.getAbsolutePath());
 
     // Verify the content matches expected
     String actualContent = Files.readString(outputFile.toPath());

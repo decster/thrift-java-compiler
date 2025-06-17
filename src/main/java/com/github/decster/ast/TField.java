@@ -87,9 +87,7 @@ public class TField extends TDoc {
 
   public void setReference(boolean reference) { this.reference = reference; }
 
-  public void setAnnotations(Map<String, List<String>> annotations) {
-    this.annotations = annotations;
-  }
+  public void setAnnotations(Map<String, List<String>> annotations) { this.annotations = annotations; }
 
   public Map<String, List<String>> getAnnotations() { return annotations; }
 

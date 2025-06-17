@@ -102,8 +102,7 @@ public class TConstValue implements Comparable<TConstValue> {
   public long getInteger() {
     if (valType == Type.CV_IDENTIFIER) {
       if (enumVal == null) {
-        throw new RuntimeException("have identifier \"" + getIdentifier() +
-                                   "\", but unset enum on line!");
+        throw new RuntimeException("have identifier \"" + getIdentifier() + "\", but unset enum on line!");
       }
       String identifier = getIdentifier();
       int dot = identifier.lastIndexOf('.');
@@ -112,8 +111,8 @@ public class TConstValue implements Comparable<TConstValue> {
       }
       TEnumValue val = enumVal.getConstantByName(identifier);
       if (val == null) {
-        throw new RuntimeException("Unable to find enum value \"" + identifier + "\" in enum \"" +
-                                   enumVal.getName() + "\"");
+        throw new RuntimeException("Unable to find enum value \"" + identifier + "\" in enum \"" + enumVal.getName() +
+                                   "\"");
       }
       return val.getValue();
     } else {

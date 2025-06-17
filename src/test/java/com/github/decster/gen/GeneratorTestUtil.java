@@ -14,9 +14,7 @@ public class GeneratorTestUtil {
     // Normalize line endings to Unix style
     String[] lines = code.replace("\r\n", "\n").replace("\r", "\n").split("\n");
     // Trim each line and remove empty lines
-    return java.util.Arrays.stream(lines)
-        .filter(line -> !line.strip().isEmpty())
-        .toArray(String[] ::new);
+    return java.util.Arrays.stream(lines).filter(line -> !line.strip().isEmpty()).toArray(String[] ::new);
   }
 
   public static boolean lineEqualsByJavaLexer(String line1, String line2) {
@@ -24,8 +22,7 @@ public class GeneratorTestUtil {
     return LexerUtils.lineEqualsByJavaLexer(line1, line2);
   }
 
-  public static void assertEqualsLineByLine(String file, String generatedCode,
-                                            String expectedCode) {
+  public static void assertEqualsLineByLine(String file, String generatedCode, String expectedCode) {
     String[] generatedLines = normalizeLines(generatedCode);
     String[] expectedLines = normalizeLines(expectedCode);
     // compare line by line, if line not equal, fail with surrounding 4 lines as context
@@ -40,17 +37,11 @@ public class GeneratorTestUtil {
         int end = Math.min(Math.max(generatedLines.length, expectedLines.length), i + 5);
         context.append("Generated:\n");
         for (int j = start; j < end; j++) {
-          context.append((j + 1))
-              .append(": ")
-              .append(j < generatedLines.length ? generatedLines[j] : "")
-              .append("\n");
+          context.append((j + 1)).append(": ").append(j < generatedLines.length ? generatedLines[j] : "").append("\n");
         }
         context.append("Expected:\n");
         for (int j = start; j < end; j++) {
-          context.append((j + 1))
-              .append(": ")
-              .append(j < expectedLines.length ? expectedLines[j] : "")
-              .append("\n");
+          context.append((j + 1)).append(": ").append(j < expectedLines.length ? expectedLines[j] : "").append("\n");
         }
         Assertions.fail(context.toString());
       }
@@ -62,16 +53,14 @@ public class GeneratorTestUtil {
                           "Generated code does not contain expected snippet.\n"
                               + "Expected: '" + expectedSnippet + "'\n"
                               + "Actual  : '" + shortenString(generatedCode, 200) + "'\n"
-                              + "Context : \n" +
-                              debugContext(generatedCode, expectedSnippet, 80));
+                              + "Context : \n" + debugContext(generatedCode, expectedSnippet, 80));
   }
 
   public static void assertNotContains(String generatedCode, String unexpectedSnippet) {
     Assertions.assertFalse(generatedCode.contains(unexpectedSnippet),
                            "Generated code SHOULD NOT contain: '" + unexpectedSnippet + "'\n"
                                + "Actual  : '" + shortenString(generatedCode, 200) + "'\n"
-                               + "Context : \n" +
-                               debugContext(generatedCode, unexpectedSnippet, 80));
+                               + "Context : \n" + debugContext(generatedCode, unexpectedSnippet, 80));
   }
 
   public static String shortenString(String text, int maxLength) {
@@ -106,8 +95,8 @@ public class GeneratorTestUtil {
     // This highlighting part is tricky because contextStr might be shorter than original text
     // window For simplicity, we just show the snippet itself and where it was found. A more robust
     // way would be to re-find snippet in contextStr if necessary.
-    return String.format("Context (around index %d, window %d):\n%s\nSnippet to find: '%s'", idx,
-                         window, contextStr, snippet);
+    return String.format("Context (around index %d, window %d):\n%s\nSnippet to find: '%s'", idx, window, contextStr,
+                         snippet);
   }
 
   public static int globJavaFilesInDir(File dir, Map<String, String> globMap) throws IOException {

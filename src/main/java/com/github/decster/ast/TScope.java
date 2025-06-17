@@ -75,9 +75,8 @@ public class TScope {
         String fieldName = entry.getKey().getString();
         TField field = tstruct.getFieldByName(fieldName);
         if (field == null) {
-          throw new RuntimeException("No field named \"" + fieldName +
-                                     "\" was found in struct of type \"" + tstruct.getName() +
-                                     "\"");
+          throw new RuntimeException("No field named \"" + fieldName + "\" was found in struct of type \"" +
+                                     tstruct.getName() + "\"");
         }
         resolveConstValue(entry.getValue(), field.getType());
       }
@@ -87,8 +86,7 @@ public class TScope {
       } else {
         TConst constant = getConstant(constValue.getIdentifier());
         if (constant == null) {
-          throw new RuntimeException("No enum value or constant found named \"" +
-                                     constValue.getIdentifier() + "\"!");
+          throw new RuntimeException("No enum value or constant found named \"" + constValue.getIdentifier() + "\"!");
         }
         TType constType = constant.getType().getTrueType();
         if (constType.isBaseType()) {
@@ -115,8 +113,7 @@ public class TScope {
           }
         } else if (constType.isMap()) {
           constValue.setMap();
-          for (Map.Entry<TConstValue, TConstValue> entry :
-               constant.getValue().getMap().entrySet()) {
+          for (Map.Entry<TConstValue, TConstValue> entry : constant.getValue().getMap().entrySet()) {
             constValue.addMap(entry.getKey(), entry.getValue());
           }
         } else if (constType.isList()) {
@@ -130,8 +127,8 @@ public class TScope {
       TEnum tenum = (TEnum)ttype;
       TEnumValue enumValue = tenum.getConstantByValue(constValue.getInteger());
       if (enumValue == null) {
-        throw new RuntimeException("Couldn't find a named value in enum " + tenum.getName() +
-                                   " for value " + constValue.getInteger());
+        throw new RuntimeException("Couldn't find a named value in enum " + tenum.getName() + " for value " +
+                                   constValue.getInteger());
       }
       constValue.setIdentifier(tenum.getName() + "." + enumValue.getName());
       constValue.setEnum(tenum);
@@ -142,8 +139,6 @@ public class TScope {
    * Exception thrown when a duplicate definition is found in a scope.
    */
   public static class TDuplicateDefinitionException extends RuntimeException {
-    public TDuplicateDefinitionException(String type, String name) {
-      super(type + " " + name + " already defined");
-    }
+    public TDuplicateDefinitionException(String type, String name) { super(type + " " + name + " already defined"); }
   }
 }

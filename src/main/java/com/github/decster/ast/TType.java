@@ -24,9 +24,7 @@ public class TType extends TDoc {
 
   public TProgram getProgram() { return program; }
 
-  public void setAnnotations(Map<String, List<String>> annotations) {
-    this.annotations = annotations;
-  }
+  public void setAnnotations(Map<String, List<String>> annotations) { this.annotations = annotations; }
 
   public Map<String, List<String>> getAnnotations() { return annotations; }
 

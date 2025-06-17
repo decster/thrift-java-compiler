@@ -12,6 +12,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 
 public class ThriftCompiler {
   public static String getIncludeFile(List<String> includeDirs, String fileName) {
@@ -46,8 +47,8 @@ public class ThriftCompiler {
             recursiveParse(resolvedPath, program, knownIncludes, includeDirs);
         program.addInclude(includedProgram);
       } else {
-        throw new IOException("Include file not found: " + includeFile +
-                              " in directories: " + includeDirs);
+        throw new IOException(
+            "Include file not found: " + includeFile + " in directories: " + includeDirs);
       }
     }
     program.resolveTypeRefsAndConsts();
@@ -55,12 +56,93 @@ public class ThriftCompiler {
     return program;
   }
 
+  /**
+   * @return total number of files generated
+   */
+  public static int compileThriftFiles(
+      List<String> filesToParse,
+      String outputDirectory,
+      List<String> includeDirs,
+      String genOptionsStr,
+      Function<String, Void> logger)
+      throws IOException {
+    if (logger==null) {
+      logger = s -> {
+        return null;
+      };
+    }
+
+    // Validate input files
+    List<File> inputFiles = new ArrayList<>();
+    for (String filePath : filesToParse) {
+      File inputFile = new File(filePath);
+      if (!inputFile.exists() || !inputFile.isFile()) {
+        throw new IOException("Input file does not exist or is not a file: " + filePath);
+      }
+      inputFiles.add(inputFile);
+    }
+
+    // Collect all parent directories of input files and add them to include directories if not
+    // already present
+    List<String> allIncludeDirs = new ArrayList<>(includeDirs);
+    for (File inputFile : inputFiles) {
+      String inputFileDir = inputFile.getParent();
+      if (inputFileDir != null && !allIncludeDirs.contains(inputFileDir)) {
+        allIncludeDirs.add(inputFileDir);
+      }
+    }
+
+    // Parse generator options
+    Map<String, String> genOptions = parseGeneratorOptions(genOptionsStr);
+    JavaGeneratorOptions javaGenOptions = JavaGeneratorOptions.fromMap(genOptions);
+
+    logger.apply(" Output directory: " + outputDirectory);
+    if (!allIncludeDirs.isEmpty()) {
+      logger.apply("Include directories: " + allIncludeDirs);
+    }
+    if (!genOptionsStr.isEmpty()) {
+      logger.apply("Generator options: " + genOptionsStr);
+    }
+
+    // Validate output directory
+    File outputDir = new File(outputDirectory);
+    if (!outputDir.exists()) {
+      if (!outputDir.mkdirs()) {
+        throw new IOException("Failed to create output directory: " + outputDirectory);
+      }
+    } else if (!outputDir.isDirectory()) {
+      throw new IOException("Output path is not a directory: " + outputDirectory);
+    }
+
+    // Process each input file
+    int totalFilesGenerated = 0;
+    for (String filePath : filesToParse) {
+      // Parse the Thrift file and build the AST
+      TProgram program = recursiveParse(filePath, null, new HashSet<>(), allIncludeDirs);
+
+      // Generate code for this file
+      JavaGenerator generator = new JavaGenerator(program, outputDirectory, javaGenOptions);
+      int filesGenerated = generator.generateAndWriteToFile();
+
+      // Output a single line per file with the number of files generated
+      logger.apply(
+          "File: "
+              + new File(filePath).getName()
+              + " - Generated "
+              + filesGenerated
+              + " Java file"
+              + (filesGenerated != 1 ? "s" : ""));
+
+      totalFilesGenerated += filesGenerated;
+    }
+    logger.apply("Total generated files: " + totalFilesGenerated);
+    return totalFilesGenerated;
+  }
+
   public static void main(String[] argv) throws IOException {
     CommandLineArgs cliArgs = new CommandLineArgs();
-    JCommander jc = JCommander.newBuilder()
-        .addObject(cliArgs)
-        .programName("ThriftCompiler")
-        .build();
+    JCommander jc =
+        JCommander.newBuilder().addObject(cliArgs).programName("ThriftCompiler").build();
 
     try {
       jc.parse(argv);
@@ -72,77 +154,15 @@ public class ThriftCompiler {
         return;
       }
 
-      List<String> filesToParse = cliArgs.getInputFiles();
-      String outputDirectory = cliArgs.getOutputDirectory();
-
-      // Validate input files
-      if (filesToParse.isEmpty()) {
-        System.err.println("At least one input Thrift file must be specified.");
-        jc.usage();
-        return;
-      }
-
-      // Validate all input files
-      List<File> inputFiles = new ArrayList<>();
-      for (String filePath : filesToParse) {
-        File inputFile = new File(filePath);
-        if (!inputFile.exists() || !inputFile.isFile()) {
-          System.err.println("Input file does not exist or is not a file: " + filePath);
-          return;
-        }
-        inputFiles.add(inputFile);
-      }
-
-      // Collect all parent directories of input files and add them to include directories
-      List<String> includeDirs = cliArgs.getIncludeDirs();
-      for (File inputFile : inputFiles) {
-        String inputFileDir = inputFile.getParent();
-        if (inputFileDir != null && !includeDirs.contains(inputFileDir)) {
-          includeDirs.add(inputFileDir);
-        }
-      }
-
-      // Parse generator options
-      Map<String, String> genOptions = parseGeneratorOptions(cliArgs.getGeneratorOptions());
-      JavaGeneratorOptions javaGenOptions = JavaGeneratorOptions.fromMap(genOptions);
-
-      // Log the compilation settings
-      System.out.println("Input files: " + filesToParse + " Output directory: " + outputDirectory);
-      if (!includeDirs.isEmpty()) {
-        System.out.println("Include directories: " + includeDirs);
-      }
-      System.out.println("Generator options: " + genOptions);
-
-      // Validate output directory
-      File outputDir = new File(outputDirectory);
-      if (!outputDir.exists()) {
-        System.out.println("Creating output directory: " + outputDirectory);
-        if (!outputDir.mkdirs()) {
-          System.err.println("Failed to create output directory: " + outputDirectory);
-          return;
-        }
-      } else if (!outputDir.isDirectory()) {
-        System.err.println("Output path is not a directory: " + outputDirectory);
-        return;
-      }
-
-      // Process each input file
-      int totalFilesGenerated = 0;
-      for (String filePath : filesToParse) {
-        // Parse the Thrift file and build the AST
-        TProgram program = recursiveParse(filePath, null, new HashSet<>(), includeDirs);
-
-        // Generate code for this file
-        JavaGenerator generator = new JavaGenerator(program, outputDirectory, javaGenOptions);
-        int filesGenerated = generator.generateAndWriteToFile();
-
-        // Output a single line per file with the number of files generated
-        System.out.println("File: " + filePath + " - Generated " + filesGenerated + " Java file" + (filesGenerated != 1 ? "s" : ""));
-
-        totalFilesGenerated += filesGenerated;
-      }
-
-      System.out.println("Total files generated: " + totalFilesGenerated);
+      compileThriftFiles(
+          cliArgs.getInputFiles(),
+          cliArgs.getOutputDirectory(),
+          cliArgs.getIncludeDirs(),
+          cliArgs.getGeneratorOptions(),
+          s -> {
+            System.out.println(s);
+            return null;
+          });
 
     } catch (ParameterException e) {
       System.err.println("Error parsing command-line arguments: " + e.getMessage());
@@ -162,23 +182,33 @@ public class ThriftCompiler {
     System.out.println("\nDetailed Generator Options (-g, --gen):");
     System.out.println("  java (Java):");
     System.out.println("    beans:           Members will be private, and setter methods will return void.");
-    System.out.println("    private_members: Members will be private, but setter methods will return 'this' like usual.");
+    System.out.println(
+        "    private_members: Members will be private, but setter methods will "
+            + "return 'this' like usual.");
     System.out.println("    nocamel:         Do not use CamelCase field accessors with beans.");
     System.out.println("    fullcamel:       Convert underscored_accessor_or_service_names to camelCase.");
     System.out.println("    android:         Generated structures are Parcelable (unsupported).");
-    System.out.println("    android_legacy:  Do not use java.io.IOException(throwable) (available for Android 2.3 and above).");
+    System.out.println(
+        "    android_legacy:  Do not use java.io.IOException(throwable) "
+            + "(available for Android 2.3 and above).");
     System.out.println("    option_type=[thrift|jdk8]:");
     System.out.println("                     thrift: wrap optional fields in thrift Option type.");
     System.out.println("                     jdk8: Wrap optional fields in JDK8+ Option type.");
     System.out.println("                     If the Option type is not specified, 'thrift' is used.");
     System.out.println("    rethrow_unhandled_exceptions:");
-    System.out.println("                     Enable rethrow of unhandled exceptions and let them propagate further. (Default behavior is to catch and log it.)");
+    System.out.println(
+        "                     Enable rethrow of unhandled exceptions and let them "
+            + "propagate further. (Default behavior is to catch and log it.)");
     System.out.println("    java5:           Generate Java 1.5 compliant code (includes android_legacy flag).");
     System.out.println("    future_iface:    Generate CompletableFuture based iface based on async client.");
-    System.out.println("    reuse_objects:   Data objects will not be allocated, but existing instances will be used (read and write).");
+    System.out.println(
+        "    reuse_objects:   Data objects will not be allocated, but existing "
+            + "instances will be used (read and write).");
     System.out.println("    reuse-objects:   Same as 'reuse_objects' (deprecated).");
     System.out.println("    sorted_containers:");
-    System.out.println("                     Use TreeSet/TreeMap instead of HashSet/HashMap as a implementation of set/map.");
+    System.out.println(
+        "                     Use TreeSet/TreeMap instead of HashSet/HashMap as a "
+            + "implementation of set/map.");
     System.out.println("    generated_annotations=[undated|suppress]:");
     System.out.println("                     undated: suppress the date at @Generated annotations");
     System.out.println("                     suppress: suppress @Generated annotations entirely");

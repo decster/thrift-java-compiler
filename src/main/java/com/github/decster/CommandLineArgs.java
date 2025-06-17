@@ -12,16 +12,13 @@ public class CommandLineArgs {
   @Parameter(names = {"-o", "--out"}, description = "Output directory for generated files")
   private String outputDirectory = "."; // Default to current directory
 
-  @Parameter(names = {"-I", "--include"},
-             description = "Directories to search for included Thrift files")
+  @Parameter(names = {"-I", "--include"}, description = "Directories to search for included Thrift files")
   private List<String> includeDirs = new ArrayList<>();
 
-  @Parameter(names = {"-g", "--gen"},
-             description = "Generator options in the format key1=value1,key2=value2")
+  @Parameter(names = {"-g", "--gen"}, description = "Generator options in the format key1=value1,key2=value2")
   private String generatorOptions = "";
 
-  @Parameter(names = {"-h", "--help"}, description = "Display help information", help = true)
-  private boolean help;
+  @Parameter(names = {"-h", "--help"}, description = "Display help information", help = true) private boolean help;
 
   // Getter for the main input file path
   public String getInputFile() {
@@ -32,9 +29,7 @@ public class CommandLineArgs {
   }
 
   // It's good practice to return a defensive copy for lists if they are mutable internally
-  public List<String> getInputFiles() {
-    return new ArrayList<>(mainParameters);
-  }
+  public List<String> getInputFiles() { return new ArrayList<>(mainParameters); }
 
   public String getOutputDirectory() { return outputDirectory; }
 

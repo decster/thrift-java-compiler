@@ -37,7 +37,101 @@ This project attempts to replicate the Thrift compiler's core functionality (par
 *   AST Construction: The parser events are used to build an internal Abstract Syntax Tree (AST) representing the Thrift definitions in Java objects.
 *   Code Generation: The JavaGenerator traverses the AST and uses templates/logic to produce the corresponding Java source files.
 
-## Getting Started
+## Thrift Java Maven Plugin
+
+A Maven plugin for generating Java code from Thrift IDL files. This plugin leverages the functionality of the Thrift Java Compiler to parse Thrift files and generate corresponding Java classes.
+
+
+### Example
+
+A minimal setup in your pom.xml would look like:
+
+```xml
+<dependencies>
+    <dependency>
+        <groupId>org.apache.thrift</groupId>
+        <artifactId>libthrift</artifactId>
+        <version>0.20.0</version>
+    </dependency>
+    <dependency>
+        <groupId>javax.annotation</groupId>
+        <artifactId>javax.annotation-api</artifactId>
+        <version>1.3.2</version>
+    </dependency>
+    <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-api</artifactId>
+        <version>1.7.36</version>
+    </dependency>
+</dependencies>
+
+<plugin>
+    <groupId>com.github.decster</groupId>
+    <artifactId>thrift-java-maven-plugin</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <executions>
+        <execution>
+            <goals>
+                <goal>compile</goal>
+            </goals>
+        </execution>
+    </executions>
+</plugin>
+```
+
+This will search for Thrift files in `src/main/thrift` and generate Java code in `target/generated-sources/thrift`.
+
+### Configuration
+
+```xml
+<build>
+    <plugins>
+        <plugin>
+            <groupId>com.github.decster</groupId>
+            <artifactId>thrift-java-maven-plugin</artifactId>
+            <version>0.1.0-SNAPSHOT</version>
+            <executions>
+                <execution>
+                    <goals>
+                        <goal>compile</goal>
+                    </goals>
+                </execution>
+            </executions>
+            <configuration>
+                <!-- Optional configuration parameters -->
+                <sourceDirectory>${project.basedir}/src/main/thrift</sourceDirectory>
+                <outputDirectory>${project.build.directory}/generated-sources/thrift</outputDirectory>
+                <includeDirectories>
+                    <includeDirectory>${project.basedir}/src/main/thrift-includes</includeDirectory>
+                </includeDirectories>
+                <generatorOptions>beans=true,private_members=true</generatorOptions>
+                <fileExtension>.thrift</fileExtension>
+            </configuration>
+        </plugin>
+    </plugins>
+</build>
+```
+
+| Parameter | Description | Default Value |
+|-----------|-------------|---------------|
+| `sourceDirectory` | Directory containing Thrift IDL files | `${project.basedir}/src/main/thrift` |
+| `outputDirectory` | Directory where generated Java files will be placed | `${project.build.directory}/generated-sources/thrift` |
+| `includeDirectories` | List of directories to search for included Thrift files | Empty list |
+| `generatorOptions` | String containing generator options in format "key1=value1,key2=value2" | Empty string |
+| `fileExtension` | File extension for Thrift files | `.thrift` |
+| `skip` | Flag to skip the execution of the plugin | `false` |
+
+
+### Building
+
+install the plugin locally
+```bash
+mvn clean install
+```
+
+## Standalone Usage
+
+A standalone JAR is provided for those who want to use the Thrift Java Compiler without integrating it into a Maven project. This allows you to run the compiler directly from the command line.
 
 ### Building
 
@@ -50,13 +144,12 @@ mvn clean package
 Once built, you can run the compiler from the command line:
 
 ```bash
-java -jar target/thrift-java-compiler-0.1.0-SNAPSHOT-jar-with-dependencies.jar src/test/resources/include_tests/BackendService.thrift -o genoutput
+java -jar target/thrift-java-maven-plugin-0.1.0-SNAPSHOT-standalone.jar src/test/resources/include_tests/BackendService.thrift   -o genoutput
 ```
 
 
 ## TODO
 
-* mvn plugin support, so that it can be used as a maven plugin to generate java code from thrift files without `thrift` binary dependency.
 * support protocol buffer generation for `.proto` files
 * bug fixes and improvements based on real-world usage
 

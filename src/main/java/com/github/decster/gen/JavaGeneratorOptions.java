@@ -31,7 +31,7 @@ public class JavaGeneratorOptions {
   private boolean undatedGeneratedAnnotations = false;  // Skip version in @Generated annotations
   private boolean suppressGeneratedAnnotations = false; // Suppress @Generated annotations entirely
   private boolean jakartaAnnotations = false;           // Use Jakarta annotations instead of javax
-  private boolean annotationsAsMetadata = false; // Include Thrift field annotations as metadata
+  private boolean annotationsAsMetadata = false;        // Include Thrift field annotations as metadata
 
   // Exception handling
   private boolean rethrowUnhandledExceptions = false; // Rethrow unhandled exceptions
@@ -212,9 +212,7 @@ public class JavaGeneratorOptions {
 
   public boolean isSortedContainers() { return sortedContainers; }
 
-  public void setSortedContainers(boolean sortedContainers) {
-    this.sortedContainers = sortedContainers;
-  }
+  public void setSortedContainers(boolean sortedContainers) { this.sortedContainers = sortedContainers; }
 
   public boolean isReuseObjects() { return reuseObjects; }
 
@@ -260,9 +258,7 @@ public class JavaGeneratorOptions {
 
   public boolean isJakartaAnnotations() { return jakartaAnnotations; }
 
-  public void setJakartaAnnotations(boolean jakartaAnnotations) {
-    this.jakartaAnnotations = jakartaAnnotations;
-  }
+  public void setJakartaAnnotations(boolean jakartaAnnotations) { this.jakartaAnnotations = jakartaAnnotations; }
 
   public boolean isAnnotationsAsMetadata() { return annotationsAsMetadata; }
 

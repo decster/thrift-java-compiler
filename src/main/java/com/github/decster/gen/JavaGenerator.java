@@ -50,14 +50,12 @@ public class JavaGenerator extends Generator {
 
     // Initialize Java keywords
     String[] keywords = {
-        "abstract", "assert", "boolean",    "break",     "byte",       "case",      "catch",
-        "char",     "class",  "const",      "continue",  "default",    "do",        "double",
-        "else",     "enum",   "extends",    "final",     "finally",    "float",     "for",
-        "goto",     "if",     "implements", "import",    "instanceof", "int",       "interface",
-        "long",     "native", "new",        "package",   "private",    "protected", "public",
-        "return",   "short",  "static",     "strictfp",  "super",      "switch",    "synchronized",
-        "this",     "throw",  "throws",     "transient", "try",        "void",      "volatile",
-        "while",    "true",   "false",      "null"};
+        "abstract",  "assert",   "boolean",  "break",    "byte",    "case",         "catch",     "char",       "class",
+        "const",     "continue", "default",  "do",       "double",  "else",         "enum",      "extends",    "final",
+        "finally",   "float",    "for",      "goto",     "if",      "implements",   "import",    "instanceof", "int",
+        "interface", "long",     "native",   "new",      "package", "private",      "protected", "public",     "return",
+        "short",     "static",   "strictfp", "super",    "switch",  "synchronized", "this",      "throw",      "throws",
+        "transient", "try",      "void",     "volatile", "while",   "true",         "false",     "null"};
     for (String keyword : keywords) {
       JAVA_KEYWORDS.add(keyword);
     }
@@ -141,8 +139,7 @@ public class JavaGenerator extends Generator {
     sb.append(indent()).append("java.lang.Object value = getFieldValue();\n");
     sb.append(indent()).append("if (value instanceof org.apache.thrift.TEnum) {\n");
     indent_up();
-    sb.append(indent()).append(
-        "list.add(((org.apache.thrift.TEnum)getFieldValue()).getValue());\n");
+    sb.append(indent()).append("list.add(((org.apache.thrift.TEnum)getFieldValue()).getValue());\n");
     indent_down();
     sb.append(indent()).append("} else {\n");
     indent_up();
@@ -169,8 +166,7 @@ public class JavaGenerator extends Generator {
     sb.append(javaSuppressions());
 
     // Annotations
-    boolean isFinal =
-        (tstruct.getAnnotations() != null && tstruct.getAnnotations().containsKey("final"));
+    boolean isFinal = (tstruct.getAnnotations() != null && tstruct.getAnnotations().containsKey("final"));
     boolean isDeprecated = isDeprecated(tstruct.getAnnotations());
 
     if (!options.isSuppressGeneratedAnnotations()) {
@@ -285,15 +281,9 @@ public class JavaGenerator extends Generator {
     sb.append(indent()).append("}\n\n"); // Added newline like C++
 
     sb.append(indent()).append(javaOverrideAnnotation()).append("\n");
-    sb.append(indent())
-        .append("public ")
-        .append(makeValidJavaIdentifier(tstruct.getName()))
-        .append(" deepCopy() {\n");
+    sb.append(indent()).append("public ").append(makeValidJavaIdentifier(tstruct.getName())).append(" deepCopy() {\n");
     indent_up();
-    sb.append(indent())
-        .append("return new ")
-        .append(makeValidJavaIdentifier(tstruct.getName()))
-        .append("(this);\n");
+    sb.append(indent()).append("return new ").append(makeValidJavaIdentifier(tstruct.getName())).append("(this);\n");
     indent_down();
     sb.append(indent()).append("}\n\n");
 
@@ -309,11 +299,7 @@ public class JavaGenerator extends Generator {
           .append(typeName(type))
           .append(" value) {\n");
       indent_up();
-      sb.append(indent())
-          .append(typeName(tstruct))
-          .append(" x = new ")
-          .append(typeName(tstruct))
-          .append("();\n");
+      sb.append(indent()).append(typeName(tstruct)).append(" x = new ").append(typeName(tstruct)).append("();\n");
       sb.append(indent()).append("x.set").append(getCapName(field.getName())).append("(value);\n");
       sb.append(indent()).append("return x;\n");
       indent_down();
@@ -327,11 +313,7 @@ public class JavaGenerator extends Generator {
             .append(fieldName)
             .append("(byte[] value) {\n");
         indent_up();
-        sb.append(indent())
-            .append(typeName(tstruct))
-            .append(" x = new ")
-            .append(typeName(tstruct))
-            .append("();\n");
+        sb.append(indent()).append(typeName(tstruct)).append(" x = new ").append(typeName(tstruct)).append("();\n");
         sb.append(indent()).append("x.set").append(getCapName(field.getName()));
         if (options.isUnsafeBinaries()) {
           sb.append("(java.nio.ByteBuffer.wrap(value));\n");
@@ -398,30 +380,21 @@ public class JavaGenerator extends Generator {
             .append("(org.apache.thrift.TBaseHelper.rightSize(bufferFor")
             .append(capName)
             .append("()));\n");
-        sb.append(indent())
-            .append("java.nio.ByteBuffer b = bufferFor")
-            .append(capName)
-            .append("();\n");
+        sb.append(indent()).append("java.nio.ByteBuffer b = bufferFor").append(capName).append("();\n");
         sb.append(indent()).append("return b == null ? null : b.array();\n");
         indent_down();
         sb.append(indent()).append("}\n\n");
 
-        sb.append(indent())
-            .append("public java.nio.ByteBuffer bufferFor")
-            .append(capName)
-            .append("() {\n");
+        sb.append(indent()).append("public java.nio.ByteBuffer bufferFor").append(capName).append("() {\n");
         indent_up();
-        sb.append(indent())
-            .append("if (getSetField() == _Fields.")
-            .append(constantName(fieldName))
-            .append(") {\n");
+        sb.append(indent()).append("if (getSetField() == _Fields.").append(constantName(fieldName)).append(") {\n");
         indent_up();
         if (options.isUnsafeBinaries()) {
           sb.append(indent()).append("return (java.nio.ByteBuffer)getFieldValue();\n");
         } else {
           sb.append(indent()).append(
-              "return " +
-              "org.apache.thrift.TBaseHelper.copyBinary((java.nio.ByteBuffer)getFieldValue());\n");
+              "return "
+              + "org.apache.thrift.TBaseHelper.copyBinary((java.nio.ByteBuffer)getFieldValue());\n");
         }
         indent_down();
         sb.append(indent()).append("} else {\n");
@@ -429,8 +402,7 @@ public class JavaGenerator extends Generator {
         sb.append(indent())
             .append("throw new java.lang.RuntimeException(\"Cannot get field '")
             .append(fieldName)
-            .append(
-                "' because union is currently set to \" + getFieldDesc(getSetField()).name);\n");
+            .append("' because union is currently set to \" + getFieldDesc(getSetField()).name);\n");
         indent_down();
         sb.append(indent()).append("}\n");
         indent_down();
@@ -439,30 +411,18 @@ public class JavaGenerator extends Generator {
         if (isDeprecatedField) {
           sb.append(indent()).append("@Deprecated\n");
         }
-        sb.append(indent())
-            .append("public ")
-            .append(typeName(type))
-            .append(" get")
-            .append(capName)
-            .append("() {\n");
+        sb.append(indent()).append("public ").append(typeName(type)).append(" get").append(capName).append("() {\n");
         indent_up();
-        sb.append(indent())
-            .append("if (getSetField() == _Fields.")
-            .append(constantName(fieldName))
-            .append(") {\n");
+        sb.append(indent()).append("if (getSetField() == _Fields.").append(constantName(fieldName)).append(") {\n");
         indent_up();
-        sb.append(indent())
-            .append("return (")
-            .append(typeName(type, true))
-            .append(")getFieldValue();\n");
+        sb.append(indent()).append("return (").append(typeName(type, true)).append(")getFieldValue();\n");
         indent_down();
         sb.append(indent()).append("} else {\n");
         indent_up();
         sb.append(indent())
             .append("throw new java.lang.RuntimeException(\"Cannot get field '")
             .append(fieldName)
-            .append(
-                "' because union is currently set to \" + getFieldDesc(getSetField()).name);\n");
+            .append("' because union is currently set to \" + getFieldDesc(getSetField()).name);\n");
         indent_down();
         sb.append(indent()).append("}\n");
         indent_down();
@@ -497,10 +457,7 @@ public class JavaGenerator extends Generator {
           .append(typeName(type))
           .append(" value) {\n");
       indent_up();
-      sb.append(indent())
-          .append("setField_ = _Fields.")
-          .append(constantName(fieldName))
-          .append(";\n");
+      sb.append(indent()).append("setField_ = _Fields.").append(constantName(fieldName)).append(";\n");
 
       if (typeCanBeNull(type)) {
         sb.append(indent())
@@ -546,8 +503,7 @@ public class JavaGenerator extends Generator {
 
     sb.append(indent()).append("default:\n");
     indent_up();
-    sb.append(indent()).append(
-        "throw new java.lang.IllegalArgumentException(\"Unknown field id \" + setField);\n");
+    sb.append(indent()).append("throw new java.lang.IllegalArgumentException(\"Unknown field id \" + setField);\n");
     indent_down();
 
     indent_down();
@@ -560,8 +516,7 @@ public class JavaGenerator extends Generator {
     sb.append(indent()).append(javaOverrideAnnotation()).append("\n");
     sb.append(indent()).append(
         "protected java.lang.Object standardSchemeReadValue(org.apache.thrift.protocol.TProtocol "
-        +
-        "iprot, org.apache.thrift.protocol.TField field) throws org.apache.thrift.TException {\n");
+        + "iprot, org.apache.thrift.protocol.TField field) throws org.apache.thrift.TException {\n");
     indent_up();
     sb.append(indent()).append("_Fields setField = _Fields.findByThriftId(field.id);\n");
     sb.append(indent()).append("if (setField != null) {\n");
@@ -584,15 +539,11 @@ public class JavaGenerator extends Generator {
           .append(makeValidJavaIdentifier(field.getName()))
           .append(";\n");
       generateDeserializeField(sb, field, "", true); // prefix is empty
-      sb.append(indent())
-          .append("return ")
-          .append(makeValidJavaIdentifier(field.getName()))
-          .append(";\n");
+      sb.append(indent()).append("return ").append(makeValidJavaIdentifier(field.getName())).append(";\n");
       indent_down();
       sb.append(indent()).append("} else {\n");
       indent_up();
-      sb.append(indent()).append(
-          "org.apache.thrift.protocol.TProtocolUtil.skip(iprot, field.type);\n");
+      sb.append(indent()).append("org.apache.thrift.protocol.TProtocolUtil.skip(iprot, field.type);\n");
       sb.append(indent()).append("return null;\n");
       indent_down();
       sb.append(indent()).append("}\n");
@@ -610,8 +561,7 @@ public class JavaGenerator extends Generator {
     indent_down();
     sb.append(indent()).append("} else {\n");
     indent_up();
-    sb.append(indent()).append(
-        "org.apache.thrift.protocol.TProtocolUtil.skip(iprot, field.type);\n");
+    sb.append(indent()).append("org.apache.thrift.protocol.TProtocolUtil.skip(iprot, field.type);\n");
     sb.append(indent()).append("return null;\n");
     indent_down();
     sb.append(indent()).append("}\n");
@@ -621,12 +571,10 @@ public class JavaGenerator extends Generator {
 
   private void generateStandardSchemeWriteValue(StringBuilder sb, TStruct tstruct) {
     sb.append(indent()).append(javaOverrideAnnotation()).append("\n");
-    sb.append(indent()).append(
-        "protected void standardSchemeWriteValue(org.apache.thrift.protocol.TProtocol oprot) "
-        + "throws org.apache.thrift.TException {\n");
+    sb.append(indent()).append("protected void standardSchemeWriteValue(org.apache.thrift.protocol.TProtocol oprot) "
+                               + "throws org.apache.thrift.TException {\n");
     indent_up();
-    sb.append(indent()).append(
-        "switch (setField_) {\n"); // Assumes setField_ is available from TUnion
+    sb.append(indent()).append("switch (setField_) {\n"); // Assumes setField_ is available from TUnion
     indent_up();
 
     for (TField field : tstruct.getMembers()) {
@@ -668,9 +616,8 @@ public class JavaGenerator extends Generator {
 
   private void generateTupleSchemeReadValue(StringBuilder sb, TStruct tstruct) {
     sb.append(indent()).append(javaOverrideAnnotation()).append("\n");
-    sb.append(indent()).append(
-        "protected java.lang.Object tupleSchemeReadValue(org.apache.thrift.protocol.TProtocol "
-        + "iprot, short fieldID) throws org.apache.thrift.TException {\n");
+    sb.append(indent()).append("protected java.lang.Object tupleSchemeReadValue(org.apache.thrift.protocol.TProtocol "
+                               + "iprot, short fieldID) throws org.apache.thrift.TException {\n");
     indent_up();
     sb.append(indent()).append("_Fields setField = _Fields.findByThriftId(fieldID);\n");
     sb.append(indent()).append("if (setField != null) {\n");
@@ -687,10 +634,7 @@ public class JavaGenerator extends Generator {
           .append(makeValidJavaIdentifier(field.getName()))
           .append(";\n");
       generateDeserializeField(sb, field, "", true); // hasMetaData = false for tuple
-      sb.append(indent())
-          .append("return ")
-          .append(makeValidJavaIdentifier(field.getName()))
-          .append(";\n");
+      sb.append(indent()).append("return ").append(makeValidJavaIdentifier(field.getName())).append(";\n");
       indent_down();
     }
 
@@ -705,9 +649,8 @@ public class JavaGenerator extends Generator {
     indent_down();
     sb.append(indent()).append("} else {\n");
     indent_up();
-    sb.append(indent()).append(
-        "throw new org.apache.thrift.protocol.TProtocolException(\"Couldn't find a field with "
-        + "field id \" + fieldID);\n");
+    sb.append(indent()).append("throw new org.apache.thrift.protocol.TProtocolException(\"Couldn't find a field with "
+                               + "field id \" + fieldID);\n");
     indent_down();
     sb.append(indent()).append("}\n");
     indent_down();
@@ -753,8 +696,7 @@ public class JavaGenerator extends Generator {
 
   private void generateGetFieldDesc(StringBuilder sb, TStruct tstruct) {
     sb.append(indent()).append(javaOverrideAnnotation()).append("\n");
-    sb.append(indent()).append(
-        "protected org.apache.thrift.protocol.TField getFieldDesc(_Fields setField) {\n");
+    sb.append(indent()).append("protected org.apache.thrift.protocol.TField getFieldDesc(_Fields setField) {\n");
     indent_up();
     sb.append(indent()).append("switch (setField) {\n");
     indent_up();
@@ -764,17 +706,13 @@ public class JavaGenerator extends Generator {
       String fieldName = field.getName();
       sb.append(indent()).append("case ").append(constantName(fieldName)).append(":\n");
       indent_up();
-      sb.append(indent())
-          .append("return ")
-          .append(constantName(fieldName))
-          .append("_FIELD_DESC;\n");
+      sb.append(indent()).append("return ").append(constantName(fieldName)).append("_FIELD_DESC;\n");
       indent_down();
     }
 
     sb.append(indent()).append("default:\n");
     indent_up();
-    sb.append(indent()).append(
-        "throw new java.lang.IllegalArgumentException(\"Unknown field id \" + setField);\n");
+    sb.append(indent()).append("throw new java.lang.IllegalArgumentException(\"Unknown field id \" + setField);\n");
     indent_down();
 
     indent_down();
@@ -802,15 +740,9 @@ public class JavaGenerator extends Generator {
         sb.append("\n");
       }
       String fieldName = field.getName();
-      sb.append(indent())
-          .append("public boolean isSet")
-          .append(getCapName(fieldName))
-          .append("() {\n");
+      sb.append(indent()).append("public boolean isSet").append(getCapName(fieldName)).append("() {\n");
       indent_up();
-      sb.append(indent())
-          .append("return setField_ == _Fields.")
-          .append(constantName(fieldName))
-          .append(";\n");
+      sb.append(indent()).append("return setField_ == _Fields.").append(constantName(fieldName)).append(";\n");
       indent_down();
       sb.append(indent()).append("}\n\n");
     }
@@ -836,25 +768,21 @@ public class JavaGenerator extends Generator {
     // equals(ThisType)
     sb.append(indent()).append("public boolean equals(").append(unionName).append(" other) {\n");
     indent_up();
-    sb.append(indent()).append("return other != null && getSetField() == other.getSetField() && " +
-                               "getFieldValue().equals(other.getFieldValue());\n");
+    sb.append(indent()).append("return other != null && getSetField() == other.getSetField() && "
+                               + "getFieldValue().equals(other.getFieldValue());\n");
     indent_down();
     sb.append(indent()).append("}\n\n");
 
     // compareTo
     sb.append(indent()).append("@Override\n");
-    sb.append(indent())
-        .append("public int compareTo(")
-        .append(typeName(tstruct))
-        .append(" other) {\n");
+    sb.append(indent()).append("public int compareTo(").append(typeName(tstruct)).append(" other) {\n");
     indent_up();
-    sb.append(indent()).append(
-        "int lastComparison = org.apache.thrift.TBaseHelper.compareTo(getSetField(), " +
-        "other.getSetField());\n");
+    sb.append(indent()).append("int lastComparison = org.apache.thrift.TBaseHelper.compareTo(getSetField(), "
+                               + "other.getSetField());\n");
     sb.append(indent()).append("if (lastComparison == 0) {\n");
     indent_up();
-    sb.append(indent()).append("return org.apache.thrift.TBaseHelper.compareTo(getFieldValue(), " +
-                               "other.getFieldValue());\n");
+    sb.append(indent()).append("return org.apache.thrift.TBaseHelper.compareTo(getFieldValue(), "
+                               + "other.getFieldValue());\n");
     indent_down();
     sb.append(indent()).append("}\n");
     sb.append(indent()).append("return lastComparison;\n");
@@ -875,8 +803,8 @@ public class JavaGenerator extends Generator {
 
   private boolean typeCanBeNull(TType type) {
     type = getTrueType(type);
-    return type.isContainer() || type.isStruct() || type.isXception() || type.isString() ||
-        type.isEnum() || type.isUUID();
+    return type.isContainer() || type.isStruct() || type.isXception() || type.isString() || type.isEnum() ||
+        type.isUUID();
   }
 
   private String javaNullableAnnotation() { return "@org.apache.thrift.annotation.Nullable"; }
@@ -890,9 +818,7 @@ public class JavaGenerator extends Generator {
       result.append(javaNullableAnnotation()).append(" ");
     }
 
-    result.append(typeName(field.getType()))
-        .append(" ")
-        .append(makeValidJavaIdentifier(field.getName()));
+    result.append(typeName(field.getType())).append(" ").append(makeValidJavaIdentifier(field.getName()));
 
     result.append(";");
 
@@ -912,8 +838,8 @@ public class JavaGenerator extends Generator {
     return "@SuppressWarnings({\"cast\", \"rawtypes\", \"serial\", \"unchecked\", \"unused\"})\n";
   }
 
-  private void generateJavaStructDefinition(StringBuilder sb, TStruct tstruct, boolean isException,
-                                            boolean inClass, boolean isResult) {
+  private void generateJavaStructDefinition(StringBuilder sb, TStruct tstruct, boolean isException, boolean inClass,
+                                            boolean isResult) {
     // Class JavaDoc
     generateJavaDoc(sb, tstruct);
     sb.append(javaSuppressions());
@@ -1022,10 +948,7 @@ public class JavaGenerator extends Generator {
       case ISSET_NONE:
         break;
       case ISSET_PRIMITIVE:
-        sb.append(indent())
-            .append("private ")
-            .append(primitiveTypeStr)
-            .append(" __isset_bitfield = 0;\n");
+        sb.append(indent()).append("private ").append(primitiveTypeStr).append(" __isset_bitfield = 0;\n");
         break;
       case ISSET_BITSET:
         sb.append(indent())
@@ -1050,10 +973,7 @@ public class JavaGenerator extends Generator {
     generateJavaMetaDataMap(sb, tstruct);
 
     // Default constructor
-    sb.append(indent())
-        .append("public ")
-        .append(makeValidJavaIdentifier(tstruct.getName()))
-        .append("() {\n");
+    sb.append(indent()).append("public ").append(makeValidJavaIdentifier(tstruct.getName())).append("() {\n");
     indent_up();
     for (TField field : members) {
       TType type = getTrueType(field.getType());
@@ -1078,10 +998,7 @@ public class JavaGenerator extends Generator {
 
     if (!members.isEmpty() && !allOptionalMembers) {
       // Full constructor for all fields
-      sb.append(indent())
-          .append("public ")
-          .append(makeValidJavaIdentifier(tstruct.getName()))
-          .append("(\n");
+      sb.append(indent()).append("public ").append(makeValidJavaIdentifier(tstruct.getName())).append("(\n");
       indent_up();
       boolean first = true;
       for (TField field : members) {
@@ -1180,12 +1097,8 @@ public class JavaGenerator extends Generator {
             .append(fieldName)
             .append(";\n");
       } else {
-        sb.append(indent())
-            .append("this.")
-            .append(makeValidJavaIdentifier(fieldName))
-            .append(" = ");
-        generateDeepCopyNonContainer(sb, "other." + makeValidJavaIdentifier(fieldName), fieldName,
-                                     type);
+        sb.append(indent()).append("this.").append(makeValidJavaIdentifier(fieldName)).append(" = ");
+        generateDeepCopyNonContainer(sb, "other." + makeValidJavaIdentifier(fieldName), fieldName, type);
         sb.append(";\n");
       }
 
@@ -1200,14 +1113,8 @@ public class JavaGenerator extends Generator {
 
     // DeepCopy method
     sb.append(indent()).append(javaOverrideAnnotation()).append("\n");
-    sb.append(indent())
-        .append("public ")
-        .append(makeValidJavaIdentifier(tstruct.getName()))
-        .append(" deepCopy() {\n");
-    sb.append(indent())
-        .append("  return new ")
-        .append(makeValidJavaIdentifier(tstruct.getName()))
-        .append("(this);\n");
+    sb.append(indent()).append("public ").append(makeValidJavaIdentifier(tstruct.getName())).append(" deepCopy() {\n");
+    sb.append(indent()).append("  return new ").append(makeValidJavaIdentifier(tstruct.getName())).append("(this);\n");
     sb.append(indent()).append("}\n\n");
 
     // Clear method
@@ -1271,17 +1178,9 @@ public class JavaGenerator extends Generator {
         .append('\n');
     indent_up();
     sb.append(indent()).append(javaOverrideAnnotation()).append('\n');
-    sb.append(indent())
-        .append("public ")
-        .append(tstruct.getName())
-        .append("TupleScheme getScheme() {")
-        .append('\n');
+    sb.append(indent()).append("public ").append(tstruct.getName()).append("TupleScheme getScheme() {").append('\n');
     indent_up();
-    sb.append(indent())
-        .append("return new ")
-        .append(tstruct.getName())
-        .append("TupleScheme();")
-        .append('\n');
+    sb.append(indent()).append("return new ").append(tstruct.getName()).append("TupleScheme();").append('\n');
     indent_down();
     sb.append(indent()).append("}").append('\n');
     indent_down();
@@ -1324,8 +1223,7 @@ public class JavaGenerator extends Generator {
 
     // First handle required fields
     for (TField field : fields) {
-      if (field.getReq() == TField.Requirement.OPTIONAL ||
-          field.getReq() == TField.Requirement.OPT_IN_REQ_OUT) {
+      if (field.getReq() == TField.Requirement.OPTIONAL || field.getReq() == TField.Requirement.OPT_IN_REQ_OUT) {
         optionalCount++;
       }
       if (field.getReq() == TField.Requirement.REQUIRED) {
@@ -1348,8 +1246,7 @@ public class JavaGenerator extends Generator {
           .append('\n');
       int i = 0;
       for (TField field : fields) {
-        if (field.getReq() == TField.Requirement.OPTIONAL ||
-            field.getReq() == TField.Requirement.OPT_IN_REQ_OUT) {
+        if (field.getReq() == TField.Requirement.OPTIONAL || field.getReq() == TField.Requirement.OPT_IN_REQ_OUT) {
           sb.append(indent()).append("if (incoming.get(").append(i).append(")) {").append('\n');
           indent_up();
           generateDeserializeField(sb, field, "struct.", false);
@@ -1389,8 +1286,7 @@ public class JavaGenerator extends Generator {
 
     // First write all required fields
     for (TField field : fields) {
-      if (field.getReq() == TField.Requirement.OPTIONAL ||
-          field.getReq() == TField.Requirement.OPT_IN_REQ_OUT) {
+      if (field.getReq() == TField.Requirement.OPTIONAL || field.getReq() == TField.Requirement.OPT_IN_REQ_OUT) {
         optionalCount++;
         hasOptional = true;
       }
@@ -1401,18 +1297,11 @@ public class JavaGenerator extends Generator {
 
     // Then write optional fields if any exist
     if (hasOptional) {
-      sb.append(indent())
-          .append("java.util.BitSet optionals = new java.util.BitSet();")
-          .append('\n');
+      sb.append(indent()).append("java.util.BitSet optionals = new java.util.BitSet();").append('\n');
       int i = 0;
       for (TField field : fields) {
-        if (field.getReq() == TField.Requirement.OPTIONAL ||
-            field.getReq() == TField.Requirement.OPT_IN_REQ_OUT) {
-          sb.append(indent())
-              .append("if (struct.")
-              .append(generateIssetCheck(field))
-              .append(") {")
-              .append('\n');
+        if (field.getReq() == TField.Requirement.OPTIONAL || field.getReq() == TField.Requirement.OPT_IN_REQ_OUT) {
+          sb.append(indent()).append("if (struct.").append(generateIssetCheck(field)).append(") {").append('\n');
           indent_up();
           sb.append(indent()).append("optionals.set(").append(i).append(");").append('\n');
           indent_down();
@@ -1421,20 +1310,11 @@ public class JavaGenerator extends Generator {
         }
       }
 
-      sb.append(indent())
-          .append("oprot.writeBitSet(optionals, ")
-          .append(optionalCount)
-          .append(");")
-          .append('\n');
+      sb.append(indent()).append("oprot.writeBitSet(optionals, ").append(optionalCount).append(");").append('\n');
 
       for (TField field : fields) {
-        if (field.getReq() == TField.Requirement.OPTIONAL ||
-            field.getReq() == TField.Requirement.OPT_IN_REQ_OUT) {
-          sb.append(indent())
-              .append("if (struct.")
-              .append(generateIssetCheck(field))
-              .append(") {")
-              .append('\n');
+        if (field.getReq() == TField.Requirement.OPTIONAL || field.getReq() == TField.Requirement.OPT_IN_REQ_OUT) {
+          sb.append(indent()).append("if (struct.").append(generateIssetCheck(field)).append(") {").append('\n');
           indent_up();
           generateSerializeField(sb, field, "struct.", "", false);
           indent_down();
@@ -1454,23 +1334,16 @@ public class JavaGenerator extends Generator {
     return members;
   }
 
-  private void generateJavaStructStandardScheme(StringBuilder sb, TStruct tstruct,
-                                                boolean isResult) {
+  private void generateJavaStructStandardScheme(StringBuilder sb, TStruct tstruct, boolean isResult) {
     sb.append(indent())
         .append("private static class ")
         .append(tstruct.getName())
         .append("StandardSchemeFactory implements org.apache.thrift.scheme.SchemeFactory {\n");
     indent_up();
     sb.append(indent()).append(javaOverrideAnnotation()).append("\n");
-    sb.append(indent())
-        .append("public ")
-        .append(tstruct.getName())
-        .append("StandardScheme getScheme() {\n");
+    sb.append(indent()).append("public ").append(tstruct.getName()).append("StandardScheme getScheme() {\n");
     indent_up();
-    sb.append(indent())
-        .append("return new ")
-        .append(tstruct.getName())
-        .append("StandardScheme();\n");
+    sb.append(indent()).append("return new ").append(tstruct.getName()).append("StandardScheme();\n");
     indent_down();
     sb.append(indent()).append("}\n");
     indent_down();
@@ -1507,8 +1380,7 @@ public class JavaGenerator extends Generator {
     scope_up(sb); // while loop
 
     sb.append(indent()).append("schemeField = iprot.readFieldBegin();\n");
-    sb.append(indent()).append(
-        "if (schemeField.type == org.apache.thrift.protocol.TType.STOP) { \n");
+    sb.append(indent()).append("if (schemeField.type == org.apache.thrift.protocol.TType.STOP) { \n");
     indent_up();
     sb.append(indent()).append("break;\n");
     indent_down();
@@ -1525,10 +1397,7 @@ public class JavaGenerator extends Generator {
           .append(constantName(field.getName()))
           .append("\n");
       indent_up(); // case
-      sb.append(indent())
-          .append("if (schemeField.type == ")
-          .append(typeToEnum(field.getType()))
-          .append(") {\n");
+      sb.append(indent()).append("if (schemeField.type == ").append(typeToEnum(field.getType())).append(") {\n");
       indent_up(); // if schemefield.type
       generateDeserializeField(sb, field, "struct.", true);
       sb.append(indent())
@@ -1538,16 +1407,14 @@ public class JavaGenerator extends Generator {
           .append("(true);\n");
       indent_down(); // if schemefield.type
       sb.append(indent()).append("} else { \n");
-      sb.append(indent()).append(
-          "  org.apache.thrift.protocol.TProtocolUtil.skip(iprot, schemeField.type);\n");
+      sb.append(indent()).append("  org.apache.thrift.protocol.TProtocolUtil.skip(iprot, schemeField.type);\n");
       sb.append(indent()).append("}\n");
       sb.append(indent()).append("break;\n");
       indent_down(); // case
     }
 
     sb.append(indent()).append("default:\n");
-    sb.append(indent()).append(
-        "  org.apache.thrift.protocol.TProtocolUtil.skip(iprot, schemeField.type);\n");
+    sb.append(indent()).append("  org.apache.thrift.protocol.TProtocolUtil.skip(iprot, schemeField.type);\n");
 
     indent_down();                     // switch
     sb.append(indent()).append("}\n"); // end switch
@@ -1563,13 +1430,9 @@ public class JavaGenerator extends Generator {
                                  + "checked in the validate method\n");
       for (TField field : fields) {
         if (field.getReq() == TField.Requirement.REQUIRED && !typeCanBeNull(field.getType())) {
+          sb.append(indent()).append("if (!struct.").append(generateIssetCheck(field)).append(") {\n");
           sb.append(indent())
-              .append("if (!struct.")
-              .append(generateIssetCheck(field))
-              .append(") {\n");
-          sb.append(indent())
-              .append(
-                  "  throw new org.apache.thrift.protocol.TProtocolException(\"Required field '")
+              .append("  throw new org.apache.thrift.protocol.TProtocolException(\"Required field '")
               .append(field.getName())
               .append("' was not found in serialized data! Struct: \" + toString());\n");
           sb.append(indent()).append("}\n");
@@ -1605,8 +1468,7 @@ public class JavaGenerator extends Generator {
         indent_up();
       }
 
-      boolean optional =
-          (field.getReq() == TField.Requirement.OPTIONAL) || (isResult && !nullAllowed);
+      boolean optional = (field.getReq() == TField.Requirement.OPTIONAL) || (isResult && !nullAllowed);
       if (optional) {
         sb.append(indent()).append("if (struct.").append(generateIssetCheck(field)).append(") {\n");
         indent_up();
@@ -1649,15 +1511,13 @@ public class JavaGenerator extends Generator {
       case ISSET_NONE:
         break;
       case ISSET_PRIMITIVE:
-        sb.append(indent()).append(
-            "// it doesn't seem like you should have to do this, but java serialization is "
-            + "wacky, and doesn't call the default constructor.\n");
+        sb.append(indent()).append("// it doesn't seem like you should have to do this, but java serialization is "
+                                   + "wacky, and doesn't call the default constructor.\n");
         sb.append(indent()).append("__isset_bitfield = 0;\n");
         break;
       case ISSET_BITSET:
-        sb.append(indent()).append(
-            "// it doesn't seem like you should have to do this, but java serialization is "
-            + "wacky, and doesn't call the default constructor.\n");
+        sb.append(indent()).append("// it doesn't seem like you should have to do this, but java serialization is "
+                                   + "wacky, and doesn't call the default constructor.\n");
         // The size of the BitSet should match the number of primitive fields that need isset
         // tracking. This calculation is done in generateJavaStructDefinition. For now, let's assume
         // it's correctly initialized by the default constructor or that this logic is sufficient.
@@ -1717,20 +1577,15 @@ public class JavaGenerator extends Generator {
         if (options.isBeans()) {
           sb.append(indent()).append("if (!").append(generateIssetCheck(field)).append(") {\n");
           sb.append(indent())
-              .append(
-                  "  throw new org.apache.thrift.protocol.TProtocolException(\"Required field '")
+              .append("  throw new org.apache.thrift.protocol.TProtocolException(\"Required field '")
               .append(field.getName())
               .append("' is unset! Struct:\" + toString());\n");
           sb.append(indent()).append("}\n\n");
         } else {
           if (typeCanBeNull(field.getType())) {
+            sb.append(indent()).append("if (").append(makeValidJavaIdentifier(field.getName())).append(" == null) {\n");
             sb.append(indent())
-                .append("if (")
-                .append(makeValidJavaIdentifier(field.getName()))
-                .append(" == null) {\n");
-            sb.append(indent())
-                .append(
-                    "  throw new org.apache.thrift.protocol.TProtocolException(\"Required field '")
+                .append("  throw new org.apache.thrift.protocol.TProtocolException(\"Required field '")
                 .append(field.getName())
                 .append("' was not present! Struct: \" + toString());\n");
             sb.append(indent()).append("}\n");
@@ -1748,14 +1603,8 @@ public class JavaGenerator extends Generator {
     for (TField field : fields) {
       TType type = getTrueType(field.getType());
       if (type.isStruct() && !((TStruct)type).isUnion()) {
-        sb.append(indent())
-            .append("if (")
-            .append(makeValidJavaIdentifier(field.getName()))
-            .append(" != null) {\n");
-        sb.append(indent())
-            .append("  ")
-            .append(makeValidJavaIdentifier(field.getName()))
-            .append(".validate();\n");
+        sb.append(indent()).append("if (").append(makeValidJavaIdentifier(field.getName())).append(" != null) {\n");
+        sb.append(indent()).append("  ").append(makeValidJavaIdentifier(field.getName())).append(".validate();\n");
         sb.append(indent()).append("}\n");
       }
     }
@@ -1802,12 +1651,8 @@ public class JavaGenerator extends Generator {
       TType fieldTrueType = getTrueType(field.getType());
       if (fieldTrueType.isBinary() ||
           (fieldTrueType.isSet() && getTrueType(((TSet)fieldTrueType).getElemType()).isBinary()) ||
-          (fieldTrueType.isList() &&
-           getTrueType(((TList)fieldTrueType).getElemType()).isBinary())) {
-        sb.append(indent())
-            .append("org.apache.thrift.TBaseHelper.toString(this.")
-            .append(fieldName)
-            .append(", sb);\n");
+          (fieldTrueType.isList() && getTrueType(((TList)fieldTrueType).getElemType()).isBinary())) {
+        sb.append(indent()).append("org.apache.thrift.TBaseHelper.toString(this.").append(fieldName).append(", sb);\n");
       } else {
         sb.append(indent()).append("sb.append(this.").append(fieldName).append(");\n");
       }
@@ -1872,16 +1717,12 @@ public class JavaGenerator extends Generator {
 
   private void generateJavaStructCompareTo(StringBuilder sb, TStruct tstruct) {
     sb.append(indent()).append(javaOverrideAnnotation()).append("\n");
-    sb.append(indent())
-        .append("public int compareTo(")
-        .append(typeName(tstruct))
-        .append(" other) {\n");
+    sb.append(indent()).append("public int compareTo(").append(typeName(tstruct)).append(" other) {\n");
     indent_up();
 
     sb.append(indent()).append("if (!getClass().equals(other.getClass())) {\n");
     indent_up();
-    sb.append(indent()).append(
-        "return getClass().getName().compareTo(other.getClass().getName());\n");
+    sb.append(indent()).append("return getClass().getName().compareTo(other.getClass().getName());\n");
     indent_down();
     sb.append(indent()).append("}\n\n");
 
@@ -1928,10 +1769,7 @@ public class JavaGenerator extends Generator {
     sb.append(indent()).append(javaOverrideAnnotation()).append("\n");
     sb.append(indent()).append("public boolean equals(java.lang.Object that) {\n");
     indent_up();
-    sb.append(indent())
-        .append("if (that instanceof ")
-        .append(makeValidJavaIdentifier(tstruct.getName()))
-        .append(")\n");
+    sb.append(indent()).append("if (that instanceof ").append(makeValidJavaIdentifier(tstruct.getName())).append(")\n");
     sb.append(indent())
         .append("  return this.equals((")
         .append(makeValidJavaIdentifier(tstruct.getName()))
@@ -1967,18 +1805,8 @@ public class JavaGenerator extends Generator {
         thatPresent += " && that." + generateIssetCheck(field);
       }
 
-      sb.append(indent())
-          .append("boolean this_present_")
-          .append(name)
-          .append(" = ")
-          .append(thisPresent)
-          .append(";\n");
-      sb.append(indent())
-          .append("boolean that_present_")
-          .append(name)
-          .append(" = ")
-          .append(thatPresent)
-          .append(";\n");
+      sb.append(indent()).append("boolean this_present_").append(name).append(" = ").append(thisPresent).append(";\n");
+      sb.append(indent()).append("boolean that_present_").append(name).append(" = ").append(thatPresent).append(";\n");
       sb.append(indent())
           .append("if (this_present_")
           .append(name)
@@ -1996,16 +1824,13 @@ public class JavaGenerator extends Generator {
 
       String unequal;
       if (type.isBinary()) {
-        unequal = "!this." + makeValidJavaIdentifier(name) + ".equals(that." +
-                  makeValidJavaIdentifier(name) + ")";
+        unequal = "!this." + makeValidJavaIdentifier(name) + ".equals(that." + makeValidJavaIdentifier(name) + ")";
       } else if (canBeNull) {
         // Use Objects.equals for nullable fields to handle nulls gracefully
-        unequal = "!this." + makeValidJavaIdentifier(name) + ".equals(that." +
-                  makeValidJavaIdentifier(name) + ")";
+        unequal = "!this." + makeValidJavaIdentifier(name) + ".equals(that." + makeValidJavaIdentifier(name) + ")";
       } else {
         // For primitive types
-        unequal =
-            "this." + makeValidJavaIdentifier(name) + " != that." + makeValidJavaIdentifier(name);
+        unequal = "this." + makeValidJavaIdentifier(name) + " != that." + makeValidJavaIdentifier(name);
       }
 
       sb.append(indent()).append("if (").append(unequal).append(")\n");
@@ -2098,12 +1923,7 @@ public class JavaGenerator extends Generator {
           break;
         case TYPE_I16:
         case TYPE_I32:
-          sb.append(indent())
-              .append("hashCode = hashCode * ")
-              .append(MUL)
-              .append(" + ")
-              .append(name)
-              .append(";\n");
+          sb.append(indent()).append("hashCode = hashCode * ").append(MUL).append(" + ").append(name).append(";\n");
           break;
         case TYPE_I64:
           sb.append(indent())
@@ -2124,8 +1944,7 @@ public class JavaGenerator extends Generator {
         case TYPE_VOID: // Should not happen for a field
           throw new RuntimeException("compiler error: a struct field cannot be void");
         default:
-          throw new RuntimeException(
-              "compiler error: the following base type has no hashcode generator: " + base);
+          throw new RuntimeException("compiler error: the following base type has no hashcode generator: " + base);
         }
       } else { // Containers, Structs, Exceptions (which are structs)
         sb.append(indent())
@@ -2178,20 +1997,14 @@ public class JavaGenerator extends Generator {
     sb.append(indent()).append("}\n\n");
   }
 
-  private void generateReflectionGetters(StringBuilder sb, TType type, String fieldName,
-                                         String capName) {
+  private void generateReflectionGetters(StringBuilder sb, TType type, String fieldName, String capName) {
     sb.append(indent()).append("case ").append(constantName(fieldName)).append(":\n");
     indent_up();
-    sb.append(indent())
-        .append("return ")
-        .append(type.isBool() ? "is" : "get")
-        .append(capName)
-        .append("();\n");
+    sb.append(indent()).append("return ").append(type.isBool() ? "is" : "get").append(capName).append("();\n");
     indent_down();
   }
 
-  private void generateReflectionSetters(StringBuilder sb, TType type, String fieldName,
-                                         String capName) {
+  private void generateReflectionSetters(StringBuilder sb, TType type, String fieldName, String capName) {
     boolean isBinary = type.isBinary(); // Assuming TType has an isBinary() method
     sb.append(indent()).append("case ").append(constantName(fieldName)).append(":\n");
     indent_up();
@@ -2272,8 +2085,7 @@ public class JavaGenerator extends Generator {
       TType type = getTrueType(field.getType());
       String fieldName = field.getName();
       String capName = getCapName(fieldName);
-      boolean optional =
-          options.getOptionType() != null && field.getReq() == TField.Requirement.OPTIONAL;
+      boolean optional = options.getOptionType() != null && field.getReq() == TField.Requirement.OPTIONAL;
       boolean isDeprecated = isDeprecated(field.getAnnotations());
 
       if (type.isContainer()) {
@@ -2283,13 +2095,10 @@ public class JavaGenerator extends Generator {
             sb.append(indent()).append("@Deprecated\n");
           }
 
-          String optionClass = "java.util.Optional".equals(options.getOptionType())
-                                   ? "java.util.Optional"
-                                   : "org.apache.thrift.Option";
-          String optionEmpty =
-              "java.util.Optional".equals(options.getOptionType()) ? ".empty()" : ".none()";
-          String optionOf =
-              "java.util.Optional".equals(options.getOptionType()) ? ".of(" : ".some(";
+          String optionClass = "java.util.Optional".equals(options.getOptionType()) ? "java.util.Optional"
+                                                                                      : "org.apache.thrift.Option";
+          String optionEmpty = "java.util.Optional".equals(options.getOptionType()) ? ".empty()" : ".none()";
+          String optionOf = "java.util.Optional".equals(options.getOptionType()) ? ".of(" : ".some(";
 
           sb.append(indent())
               .append("public ")
@@ -2298,16 +2107,9 @@ public class JavaGenerator extends Generator {
               .append(capName)
               .append(getCapName("Size() {\n")); // Corrected: Added () for method
           indent_up();
-          sb.append(indent())
-              .append("if (this.")
-              .append(makeValidJavaIdentifier(fieldName))
-              .append(" == null) {\n");
+          sb.append(indent()).append("if (this.").append(makeValidJavaIdentifier(fieldName)).append(" == null) {\n");
           indent_up();
-          sb.append(indent())
-              .append("return ")
-              .append(optionClass)
-              .append(optionEmpty)
-              .append(";\n");
+          sb.append(indent()).append("return ").append(optionClass).append(optionEmpty).append(";\n");
           indent_down();
           sb.append(indent()).append("} else {\n");
           indent_up();
@@ -2356,13 +2158,10 @@ public class JavaGenerator extends Generator {
           if (isDeprecated) {
             sb.append(indent()).append("@Deprecated\n");
           }
-          String optionClass = "java.util.Optional".equals(options.getOptionType())
-                                   ? "java.util.Optional"
-                                   : "org.apache.thrift.Option";
-          String optionEmpty =
-              "java.util.Optional".equals(options.getOptionType()) ? ".empty()" : ".none()";
-          String optionOf =
-              "java.util.Optional".equals(options.getOptionType()) ? ".of(" : ".some(";
+          String optionClass = "java.util.Optional".equals(options.getOptionType()) ? "java.util.Optional"
+                                                                                      : "org.apache.thrift.Option";
+          String optionEmpty = "java.util.Optional".equals(options.getOptionType()) ? ".empty()" : ".none()";
+          String optionOf = "java.util.Optional".equals(options.getOptionType()) ? ".of(" : ".some(";
 
           sb.append(indent())
               .append("public ")
@@ -2374,16 +2173,9 @@ public class JavaGenerator extends Generator {
               .append(capName)
               .append(getCapName("Iterator() {\n")); // Corrected: Added ()
           indent_up();
-          sb.append(indent())
-              .append("if (this.")
-              .append(makeValidJavaIdentifier(fieldName))
-              .append(" == null) {\n");
+          sb.append(indent()).append("if (this.").append(makeValidJavaIdentifier(fieldName)).append(" == null) {\n");
           indent_up();
-          sb.append(indent())
-              .append("return ")
-              .append(optionClass)
-              .append(optionEmpty)
-              .append(";\n");
+          sb.append(indent()).append("return ").append(optionClass).append(optionEmpty).append(";\n");
           indent_down();
           sb.append(indent()).append("} else {\n");
           indent_up();
@@ -2433,10 +2225,7 @@ public class JavaGenerator extends Generator {
             .append(typeName(elementType))
             .append(" elem) {\n");
         indent_up();
-        sb.append(indent())
-            .append("if (this.")
-            .append(makeValidJavaIdentifier(fieldName))
-            .append(" == null) {\n");
+        sb.append(indent()).append("if (this.").append(makeValidJavaIdentifier(fieldName)).append(" == null) {\n");
         indent_up();
         sb.append(indent()).append("this.").append(makeValidJavaIdentifier(fieldName));
         if (isEnumSet(type)) {
@@ -2450,10 +2239,7 @@ public class JavaGenerator extends Generator {
         }
         indent_down();
         sb.append(indent()).append("}\n");
-        sb.append(indent())
-            .append("this.")
-            .append(makeValidJavaIdentifier(fieldName))
-            .append(".add(elem);\n");
+        sb.append(indent()).append("this.").append(makeValidJavaIdentifier(fieldName)).append(".add(elem);\n");
         indent_down();
         sb.append(indent()).append("}\n\n");
 
@@ -2474,10 +2260,7 @@ public class JavaGenerator extends Generator {
             .append(typeName(valType))
             .append(" val) {\n");
         indent_up();
-        sb.append(indent())
-            .append("if (this.")
-            .append(makeValidJavaIdentifier(fieldName))
-            .append(" == null) {\n");
+        sb.append(indent()).append("if (this.").append(makeValidJavaIdentifier(fieldName)).append(" == null) {\n");
         indent_up();
         String constructorArgs = "";
         if (isEnumMap(type)) {
@@ -2493,10 +2276,7 @@ public class JavaGenerator extends Generator {
             .append(");\n");
         indent_down();
         sb.append(indent()).append("}\n");
-        sb.append(indent())
-            .append("this.")
-            .append(makeValidJavaIdentifier(fieldName))
-            .append(".put(key, val);\n");
+        sb.append(indent()).append("this.").append(makeValidJavaIdentifier(fieldName)).append(".put(key, val);\n");
         indent_down();
         sb.append(indent()).append("}\n\n");
       }
@@ -2531,10 +2311,7 @@ public class JavaGenerator extends Generator {
             .append("() {\n");
         indent_up();
         if (options.isUnsafeBinaries()) {
-          sb.append(indent())
-              .append("return ")
-              .append(makeValidJavaIdentifier(fieldName))
-              .append(";\n");
+          sb.append(indent()).append("return ").append(makeValidJavaIdentifier(fieldName)).append(";\n");
         } else {
           sb.append(indent())
               .append("return org.apache.thrift.TBaseHelper.copyBinary(")
@@ -2549,13 +2326,10 @@ public class JavaGenerator extends Generator {
           if (isDeprecated) {
             sb.append(indent()).append("@Deprecated\n");
           }
-          String optionClass = "java.util.Optional".equals(options.getOptionType())
-                                   ? "java.util.Optional"
-                                   : "org.apache.thrift.Option";
-          String optionEmpty =
-              "java.util.Optional".equals(options.getOptionType()) ? ".empty()" : ".none()";
-          String optionOf =
-              "java.util.Optional".equals(options.getOptionType()) ? ".of(" : ".some(";
+          String optionClass = "java.util.Optional".equals(options.getOptionType()) ? "java.util.Optional"
+                                                                                      : "org.apache.thrift.Option";
+          String optionEmpty = "java.util.Optional".equals(options.getOptionType()) ? ".empty()" : ".none()";
+          String optionOf = "java.util.Optional".equals(options.getOptionType()) ? ".of(" : ".some(";
 
           sb.append(indent())
               .append("public ")
@@ -2582,11 +2356,7 @@ public class JavaGenerator extends Generator {
           indent_down();
           sb.append(indent()).append("} else {\n");
           indent_up();
-          sb.append(indent())
-              .append("return ")
-              .append(optionClass)
-              .append(optionEmpty)
-              .append(";\n");
+          sb.append(indent()).append("return ").append(optionClass).append(optionEmpty).append(";\n");
           indent_down();
           sb.append(indent()).append("}\n");
           indent_down();
@@ -2606,10 +2376,7 @@ public class JavaGenerator extends Generator {
           }
           sb.append(capName).append("() {\n");
           indent_up();
-          sb.append(indent())
-              .append("return this.")
-              .append(makeValidJavaIdentifier(fieldName))
-              .append(";\n");
+          sb.append(indent()).append("return this.").append(makeValidJavaIdentifier(fieldName)).append(";\n");
           indent_down();
           sb.append(indent()).append("}\n\n");
         }
@@ -2627,11 +2394,7 @@ public class JavaGenerator extends Generator {
         } else {
           sb.append(typeName(tstruct));
         }
-        sb.append(" set")
-            .append(capName)
-            .append("(byte[] ")
-            .append(makeValidJavaIdentifier(fieldName))
-            .append(") {\n");
+        sb.append(" set").append(capName).append("(byte[] ").append(makeValidJavaIdentifier(fieldName)).append(") {\n");
 
         sb.append(indent())
             .append("this.")
@@ -2641,13 +2404,9 @@ public class JavaGenerator extends Generator {
             .append(" == null ? (java.nio.ByteBuffer)null");
         sb.append(indent());
         if (options.isUnsafeBinaries()) {
-          sb.append(" : java.nio.ByteBuffer.wrap(")
-              .append(makeValidJavaIdentifier(fieldName))
-              .append(");\n");
+          sb.append(" : java.nio.ByteBuffer.wrap(").append(makeValidJavaIdentifier(fieldName)).append(");\n");
         } else {
-          sb.append(" : java.nio.ByteBuffer.wrap(")
-              .append(makeValidJavaIdentifier(fieldName))
-              .append(".clone());\n");
+          sb.append(" : java.nio.ByteBuffer.wrap(").append(makeValidJavaIdentifier(fieldName)).append(".clone());\n");
         }
 
         if (!options.isBeans()) {
@@ -2671,14 +2430,9 @@ public class JavaGenerator extends Generator {
             .append(makeValidJavaIdentifier(fieldName))
             .append(") {\n");
         indent_up();
-        sb.append(indent())
-            .append("this.")
-            .append(makeValidJavaIdentifier(fieldName))
-            .append(" = ");
+        sb.append(indent()).append("this.").append(makeValidJavaIdentifier(fieldName)).append(" = ");
         if (!options.isUnsafeBinaries()) {
-          sb.append("org.apache.thrift.TBaseHelper.copyBinary(")
-              .append(makeValidJavaIdentifier(fieldName))
-              .append(")");
+          sb.append("org.apache.thrift.TBaseHelper.copyBinary(").append(makeValidJavaIdentifier(fieldName)).append(")");
         } else {
           sb.append(makeValidJavaIdentifier(fieldName));
         }
@@ -2729,24 +2483,17 @@ public class JavaGenerator extends Generator {
       sb.append(indent()).append("public void unset").append(capName).append("() {\n");
       indent_up();
       if (typeCanBeNull(type)) {
-        sb.append(indent())
-            .append("this.")
-            .append(makeValidJavaIdentifier(fieldName))
-            .append(" = null;\n");
+        sb.append(indent()).append("this.").append(makeValidJavaIdentifier(fieldName)).append(" = null;\n");
       } else { // Non-nullable primitive
         isset_type currentIssetType =
             needs_isset(tstruct, new StringBuilder()); // Check specific type for current field
         if (currentIssetType == isset_type.ISSET_PRIMITIVE) {
           sb.append(indent())
-              .append(
-                  "__isset_bitfield = org.apache.thrift.EncodingUtils.clearBit(__isset_bitfield, ")
+              .append("__isset_bitfield = org.apache.thrift.EncodingUtils.clearBit(__isset_bitfield, ")
               .append(isset_field_id(field))
               .append(");\n");
         } else if (currentIssetType == isset_type.ISSET_BITSET) {
-          sb.append(indent())
-              .append("__isset_bit_vector.clear(")
-              .append(isset_field_id(field))
-              .append(");\n");
+          sb.append(indent()).append("__isset_bit_vector.clear(").append(isset_field_id(field)).append(");\n");
         }
         // If ISSET_NONE, nothing to do for unsetting a primitive.
       }
@@ -2768,10 +2515,7 @@ public class JavaGenerator extends Generator {
           .append("() {\n"); // Corrected: Set -> Set
       indent_up();
       if (typeCanBeNull(type)) {
-        sb.append(indent())
-            .append("return this.")
-            .append(makeValidJavaIdentifier(fieldName))
-            .append(" != null;\n");
+        sb.append(indent()).append("return this.").append(makeValidJavaIdentifier(fieldName)).append(" != null;\n");
       } else {
         isset_type currentIssetType = needs_isset(tstruct, new StringBuilder());
         if (currentIssetType == isset_type.ISSET_PRIMITIVE) {
@@ -2780,13 +2524,9 @@ public class JavaGenerator extends Generator {
               .append(isset_field_id(field))
               .append(");\n");
         } else if (currentIssetType == isset_type.ISSET_BITSET) {
-          sb.append(indent())
-              .append("return __isset_bit_vector.get(")
-              .append(isset_field_id(field))
-              .append(");\n");
+          sb.append(indent()).append("return __isset_bit_vector.get(").append(isset_field_id(field)).append(");\n");
         } else { // ISSET_NONE - field is always "set" if it's a primitive and not part of a bitmask
-          sb.append(indent()).append(
-              "return true; // Primitive type without explicit isset tracking\n");
+          sb.append(indent()).append("return true; // Primitive type without explicit isset tracking\n");
         }
       }
       indent_down();
@@ -2804,25 +2544,18 @@ public class JavaGenerator extends Generator {
       if (typeCanBeNull(type)) {
         sb.append(indent()).append("if (!value) {\n");
         indent_up();
-        sb.append(indent())
-            .append("this.")
-            .append(makeValidJavaIdentifier(fieldName))
-            .append(" = null;\n");
+        sb.append(indent()).append("this.").append(makeValidJavaIdentifier(fieldName)).append(" = null;\n");
         indent_down();
         sb.append(indent()).append("}\n");
       } else {
         isset_type currentIssetType = needs_isset(tstruct, new StringBuilder());
         if (currentIssetType == isset_type.ISSET_PRIMITIVE) {
           sb.append(indent())
-              .append(
-                  "__isset_bitfield = org.apache.thrift.EncodingUtils.setBit(__isset_bitfield, ")
+              .append("__isset_bitfield = org.apache.thrift.EncodingUtils.setBit(__isset_bitfield, ")
               .append(isset_field_id(field))
               .append(", value);\n");
         } else if (currentIssetType == isset_type.ISSET_BITSET) {
-          sb.append(indent())
-              .append("__isset_bit_vector.set(")
-              .append(isset_field_id(field))
-              .append(", value);\n");
+          sb.append(indent()).append("__isset_bit_vector.set(").append(isset_field_id(field)).append(", value);\n");
         }
         // If ISSET_NONE, this method might be a no-op or throw an error for primitives.
         // C++ version just sets the bit; for ISSET_NONE this has no effect if no bitmask exists.
@@ -2862,11 +2595,7 @@ public class JavaGenerator extends Generator {
 
       // Must be a base type, needs explicit unsetting
       // Use the proper setter for "isSet" which handles the bitmask
-      sb.append(indent())
-          .append("set")
-          .append(getCapName(field.getName()))
-          .append("IsSet")
-          .append("(false);\n");
+      sb.append(indent()).append("set").append(getCapName(field.getName())).append("IsSet").append("(false);\n");
 
       TBaseType baseType = (TBaseType)type;
       switch (baseType.getBase()) {
@@ -2895,8 +2624,7 @@ public class JavaGenerator extends Generator {
     sb.append(indent()).append("}\n\n");
   }
 
-  private void generateDeepCopyNonContainer(StringBuilder sb, String sourceName, String destName,
-                                            TType type) {
+  private void generateDeepCopyNonContainer(StringBuilder sb, String sourceName, String destName, TType type) {
     // destName is not used in the C++ version, so it's omitted here too for directness.
     type = getTrueType(type);
     if (type.isBaseType() || type.isEnum()) { // Typedefs are resolved by getTrueType
@@ -2906,16 +2634,12 @@ public class JavaGenerator extends Generator {
         sb.append(sourceName); // Everything else can be copied directly
       }
     } else { // Structs, Xceptions
-      sb.append("new ")
-          .append(typeName(type, true, true))
-          .append("(")
-          .append(sourceName)
-          .append(")");
+      sb.append("new ").append(typeName(type, true, true)).append("(").append(sourceName).append(")");
     }
   }
 
-  private void generateDeepCopyContainer(StringBuilder sb, String sourceNameP1, String sourceNameP2,
-                                         String resultName, TType type) {
+  private void generateDeepCopyContainer(StringBuilder sb, String sourceNameP1, String sourceNameP2, String resultName,
+                                         TType type) {
 
     com.github.decster.ast.TContainer container = (com.github.decster.ast.TContainer)type;
     String sourceName;
@@ -3022,31 +2746,27 @@ public class JavaGenerator extends Generator {
       sb.append("\n"); // C++ code has a blank line here
 
       if (getTrueType(keyType).isContainer()) {
-        generateDeepCopyContainer(sb, iteratorElementName + "_key", "", resultElementName + "_key",
-                                  keyType);
+        generateDeepCopyContainer(sb, iteratorElementName + "_key", "", resultElementName + "_key", keyType);
       } else {
         sb.append(indent())
             .append(typeName(keyType, true, false))
             .append(" ")
             .append(resultElementName)
             .append("_key = ");
-        generateDeepCopyNonContainer(sb, iteratorElementName + "_key", resultElementName + "_key",
-                                     keyType);
+        generateDeepCopyNonContainer(sb, iteratorElementName + "_key", resultElementName + "_key", keyType);
         sb.append(";\n");
       }
       sb.append("\n"); // C++ code has a blank line here
 
       if (getTrueType(valType).isContainer()) {
-        generateDeepCopyContainer(sb, iteratorElementName + "_value", "",
-                                  resultElementName + "_value", valType);
+        generateDeepCopyContainer(sb, iteratorElementName + "_value", "", resultElementName + "_value", valType);
       } else {
         sb.append(indent())
             .append(typeName(valType, true, false))
             .append(" ")
             .append(resultElementName)
             .append("_value = ");
-        generateDeepCopyNonContainer(sb, iteratorElementName + "_value",
-                                     resultElementName + "_value", valType);
+        generateDeepCopyNonContainer(sb, iteratorElementName + "_value", resultElementName + "_value", valType);
         sb.append(";\n");
       }
       sb.append("\n"); // C++ code has a blank line here
@@ -3082,11 +2802,7 @@ public class JavaGenerator extends Generator {
 
       if (getTrueType(elemType).isContainer()) {
         generateDeepCopyContainer(sb, iteratorElementName, "", resultElementName, elemType);
-        sb.append(indent())
-            .append(resultName)
-            .append(".add(")
-            .append(resultElementName)
-            .append(");\n");
+        sb.append(indent()).append(resultName).append(".add(").append(resultElementName).append(");\n");
       } else {
         if (getTrueType(elemType).isBinary()) {
           sb.append(indent()).append("java.nio.ByteBuffer temp_binary_element = ");
@@ -3105,8 +2821,7 @@ public class JavaGenerator extends Generator {
   }
 
   private void generateJavaMetaDataMap(StringBuilder sb, TStruct tstruct) {
-    List<TField> fields =
-        tstruct.getMembers(); // Assuming getMembers returns them in declaration order
+    List<TField> fields = tstruct.getMembers(); // Assuming getMembers returns them in declaration order
 
     sb.append(indent()).append("public static final java.util.Map<_Fields, "
                                + "org.apache.thrift.meta_data.FieldMetaData> metaDataMap;\n");
@@ -3169,31 +2884,25 @@ public class JavaGenerator extends Generator {
     sb.append(indent()); // Actual content starts here
 
     if (ttype.isStruct() || ttype.isXception()) {
-      sb.append(
-            "new "
-            +
-            "org.apache.thrift.meta_data.StructMetaData(org.apache.thrift.protocol.TType.STRUCT, ")
+      sb.append("new "
+                + "org.apache.thrift.meta_data.StructMetaData(org.apache.thrift.protocol.TType.STRUCT, ")
           .append(typeName(ttype))
           .append(".class");
     } else if (ttype.isContainer()) {
       if (ttype.isList()) {
-        sb.append(
-            "new org.apache.thrift.meta_data.ListMetaData(org.apache.thrift.protocol.TType.LIST, ");
+        sb.append("new org.apache.thrift.meta_data.ListMetaData(org.apache.thrift.protocol.TType.LIST, ");
         generateFieldValueMetaData(sb, ((TList)ttype).getElemType());
       } else if (ttype.isSet()) {
-        sb.append(
-            "new org.apache.thrift.meta_data.SetMetaData(org.apache.thrift.protocol.TType.SET, ");
+        sb.append("new org.apache.thrift.meta_data.SetMetaData(org.apache.thrift.protocol.TType.SET, ");
         generateFieldValueMetaData(sb, ((TSet)ttype).getElemType());
       } else { // map
-        sb.append(
-            "new org.apache.thrift.meta_data.MapMetaData(org.apache.thrift.protocol.TType.MAP, ");
+        sb.append("new org.apache.thrift.meta_data.MapMetaData(org.apache.thrift.protocol.TType.MAP, ");
         generateFieldValueMetaData(sb, ((TMap)ttype).getKeyType());
         sb.append(", ");
         generateFieldValueMetaData(sb, ((TMap)ttype).getValType());
       }
     } else if (ttype.isEnum()) {
-      sb.append(
-            "new org.apache.thrift.meta_data.EnumMetaData(org.apache.thrift.protocol.TType.ENUM, ")
+      sb.append("new org.apache.thrift.meta_data.EnumMetaData(org.apache.thrift.protocol.TType.ENUM, ")
           .append(typeName(ttype))
           .append(".class");
     } else { // Base type
@@ -3204,10 +2913,7 @@ public class JavaGenerator extends Generator {
         // In Java AST, TTypedef holds symbolic name. `type` here is the original typedef, not the
         // resolved one. `ttype` is already resolved. We need original `type` if it was a typedef.
         if (type instanceof com.github.decster.ast.TTypedef) {
-          sb.append(indent())
-              .append(", \"")
-              .append(((com.github.decster.ast.TTypedef)type).getSymbolic())
-              .append("\"");
+          sb.append(indent()).append(", \"").append(((com.github.decster.ast.TTypedef)type).getSymbolic()).append("\"");
         }
       }
       // Note: The C++ version has an `else if (type->is_typedef())` clause, which is
@@ -3227,8 +2933,7 @@ public class JavaGenerator extends Generator {
     sb.append(",\n"); // Add comma separator from previous metadata argument
     indent_up();      // For alignment with previous argument
     indent_up();
-    sb.append(indent()).append(
-        "java.util.stream.Stream.<java.util.Map.Entry<String, String>>builder()\n");
+    sb.append(indent()).append("java.util.stream.Stream.<java.util.Map.Entry<String, String>>builder()\n");
     indent_up(); // For .add calls
     indent_up();
 
@@ -3285,9 +2990,7 @@ public class JavaGenerator extends Generator {
    * @param tstruct The struct to analyze
    * @return The type of isset implementation needed
    */
-  private isset_type needs_isset(TStruct tstruct) {
-    return needs_isset(tstruct, new StringBuilder());
-  }
+  private isset_type needs_isset(TStruct tstruct) { return needs_isset(tstruct, new StringBuilder()); }
 
   /**
    * Determines the type of isset implementation needed for a struct
@@ -3333,11 +3036,7 @@ public class JavaGenerator extends Generator {
    */
   private void generate_isset_set(StringBuilder sb, TField field, String prefix) {
     if (!typeCanBeNull(field.getType())) {
-      sb.append(indent())
-          .append(prefix)
-          .append("set")
-          .append(getCapName(field.getName()))
-          .append("IsSet(true);\n");
+      sb.append(indent()).append(prefix).append("set").append(getCapName(field.getName())).append("IsSet(true);\n");
     }
   }
 
@@ -3439,8 +3138,7 @@ public class JavaGenerator extends Generator {
 
     // Find by thrift id method
     sb.append(indent()).append("/**\n");
-    sb.append(indent()).append(
-        " * Find the _Fields constant that matches fieldId, or null if its not found.\n");
+    sb.append(indent()).append(" * Find the _Fields constant that matches fieldId, or null if its not found.\n");
     sb.append(indent()).append(" */\n");
     sb.append(indent()).append(javaNullableAnnotation()).append("\n");
     sb.append(indent()).append("public static _Fields findByThriftId(int fieldId) {\n");
@@ -3468,8 +3166,7 @@ public class JavaGenerator extends Generator {
 
     // Find by thrift id or throw method
     sb.append(indent()).append("/**\n");
-    sb.append(indent()).append(
-        " * Find the _Fields constant that matches fieldId, throwing an exception\n");
+    sb.append(indent()).append(" * Find the _Fields constant that matches fieldId, throwing an exception\n");
     sb.append(indent()).append(" * if it is not found.\n");
     sb.append(indent()).append(" */\n");
     sb.append(indent()).append("public static _Fields findByThriftIdOrThrow(int fieldId) {\n");
@@ -3484,8 +3181,7 @@ public class JavaGenerator extends Generator {
 
     // Find by name method
     sb.append(indent()).append("/**\n");
-    sb.append(indent()).append(
-        " * Find the _Fields constant that matches name, or null if its not found.\n");
+    sb.append(indent()).append(" * Find the _Fields constant that matches name, or null if its not found.\n");
     sb.append(indent()).append(" */\n");
     sb.append(indent()).append(javaNullableAnnotation()).append("\n");
     sb.append(indent()).append("public static _Fields findByName(java.lang.String name) {\n");
@@ -3561,13 +3257,10 @@ public class JavaGenerator extends Generator {
     sb.append(javaPackage());
 
     // Write suppressions
-    sb.append(
-        "@SuppressWarnings({\"cast\", \"rawtypes\", \"serial\", \"unchecked\", \"unused\"})\n");
+    sb.append("@SuppressWarnings({\"cast\", \"rawtypes\", \"serial\", \"unchecked\", \"unused\"})\n");
 
     // Define the constants class
-    sb.append("public class ")
-        .append(makeValidJavaIdentifier(program.getName()))
-        .append("Constants {\n\n");
+    sb.append("public class ").append(makeValidJavaIdentifier(program.getName())).append("Constants {\n\n");
 
     // Generate constants
     indent_level = 1;
@@ -3583,8 +3276,7 @@ public class JavaGenerator extends Generator {
     indent_down();
     sb.append("}\n");
 
-    return new GenResult(makeValidJavaFilename(program.getName()) + "Constants.java",
-                         sb.toString());
+    return new GenResult(makeValidJavaFilename(program.getName()) + "Constants.java", sb.toString());
   }
 
   /**
@@ -3597,8 +3289,8 @@ public class JavaGenerator extends Generator {
    * @param inStatic Whether the constant is in a static context
    * @param defval Whether this is a default value assignment
    */
-  private void printConstValue(StringBuilder sb, String name, TType type, TConstValue value,
-                               boolean inStatic, boolean defval) {
+  private void printConstValue(StringBuilder sb, String name, TType type, TConstValue value, boolean inStatic,
+                               boolean defval) {
     type = getTrueType(type);
 
     sb.append(indent());
@@ -3635,8 +3327,7 @@ public class JavaGenerator extends Generator {
         }
 
         if (fieldType == null) {
-          throw new RuntimeException("Type error: " + type.getName() + " has no field " +
-                                     fieldName);
+          throw new RuntimeException("Type error: " + type.getName() + " has no field " + fieldName);
         }
 
         String val = renderConstValue(sb, fieldType, fieldValue);
@@ -3680,13 +3371,7 @@ public class JavaGenerator extends Generator {
       for (Map.Entry<TConstValue, TConstValue> entry : valueMap.entrySet()) {
         String key = renderConstValue(sb, keyType, entry.getKey());
         String val = renderConstValue(sb, valueType, entry.getValue());
-        sb.append(indent())
-            .append(name)
-            .append(".put(")
-            .append(key)
-            .append(", ")
-            .append(val)
-            .append(");\n");
+        sb.append(indent()).append(name).append(".put(").append(key).append(", ").append(val).append(");\n");
       }
 
       if (!inStatic) {
@@ -3734,8 +3419,7 @@ public class JavaGenerator extends Generator {
   }
 
   /** Overloaded version of printConstValue that defaults defval to false */
-  private void printConstValue(StringBuilder out, String name, TType type, TConstValue value,
-                               boolean inStatic) {
+  private void printConstValue(StringBuilder out, String name, TType type, TConstValue value, boolean inStatic) {
     printConstValue(out, name, type, value, inStatic, false);
   }
 
@@ -3766,9 +3450,7 @@ public class JavaGenerator extends Generator {
         }
         break;
       case TYPE_UUID:
-        render.append("java.util.UUID.fromString(\"")
-            .append(getEscapedString(value.getString()))
-            .append("\")");
+        render.append("java.util.UUID.fromString(\"").append(getEscapedString(value.getString())).append("\")");
         break;
       case TYPE_BOOL:
         render.append(value.getInteger() > 0 ? "true" : "false");
@@ -3839,9 +3521,7 @@ public class JavaGenerator extends Generator {
     }
 
     // Enum declaration - implements TEnum interface
-    sb.append("public enum ")
-        .append(enumType.getName())
-        .append(" implements org.apache.thrift.TEnum {\n");
+    sb.append("public enum ").append(enumType.getName()).append(" implements org.apache.thrift.TEnum {\n");
 
     // Reset indentation level
     indent_level = 0;
@@ -3978,8 +3658,8 @@ public class JavaGenerator extends Generator {
 
   private void generateJavaDocField(StringBuilder sb, TField tfield) {
     if (tfield.getType().isEnum()) {
-      String combined = (tfield.getDoc() == null ? "" : (tfield.getDoc() + "\n")) + "\n@see " +
-                        getEnumClassName(tfield.getType());
+      String combined =
+          (tfield.getDoc() == null ? "" : (tfield.getDoc() + "\n")) + "\n@see " + getEnumClassName(tfield.getType());
       generateJavaStringComment(sb, combined);
     } else {
       if (tfield.hasDoc()) {
@@ -4048,8 +3728,7 @@ public class JavaGenerator extends Generator {
   private String getAutogenComment() {
     StringBuilder sb = new StringBuilder();
 
-    String annoClass = options.isJakartaAnnotations() ? "@jakarta.annotation.Generated"
-                                                      : "@javax.annotation.Generated";
+    String annoClass = options.isJakartaAnnotations() ? "@jakarta.annotation.Generated" : "@javax.annotation.Generated";
 
     sb.append(annoClass).append("(value = \"").append(getAutogenSummary()).append("\"");
 
@@ -4153,8 +3832,7 @@ public class JavaGenerator extends Generator {
       return "org.apache.thrift.protocol.TType.LIST";
     }
 
-    throw new IllegalArgumentException("INVALID TYPE IN typeToEnum: " +
-                                       type.getClass().getSimpleName());
+    throw new IllegalArgumentException("INVALID TYPE IN typeToEnum: " + type.getClass().getSimpleName());
   }
 
   private String toUpperCaseIdentifier(String identifier) { return identifier.toUpperCase(); }
@@ -4194,8 +3872,7 @@ public class JavaGenerator extends Generator {
     // Following chars: letter, number or underscore
     for (int i = 0; i < str.length(); i++) {
       c = str.charAt(i);
-      if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ||
-            c == '_')) {
+      if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_')) {
         str.setCharAt(i, '_');
       }
     }
@@ -4375,9 +4052,8 @@ public class JavaGenerator extends Generator {
       } else {
         prefix = "java.util.Map";
       }
-      return prefix + (skipGeneric ? ""
-                                   : "<" + typeName(tmap.getKeyType(), true) + "," +
-                                         typeName(tmap.getValType(), true) + ">");
+      return prefix +
+          (skipGeneric ? "" : "<" + typeName(tmap.getKeyType(), true) + "," + typeName(tmap.getValType(), true) + ">");
     } else if (ttype.isSet()) {
       TSet tset = (TSet)ttype;
       if (inInit) {
@@ -4423,9 +4099,7 @@ public class JavaGenerator extends Generator {
   }
 
   /** Simplified version of typeName that uses default parameters */
-  public String typeName(TType ttype, boolean inContainer) {
-    return typeName(ttype, inContainer, false, false, false);
-  }
+  public String typeName(TType ttype, boolean inContainer) { return typeName(ttype, inContainer, false, false, false); }
 
   /** Most basic version of typeName with default parameters */
   public String typeName(TType ttype) { return typeName(ttype, false, false, false, false); }
@@ -4487,8 +4161,7 @@ public class JavaGenerator extends Generator {
    * @param variableName The name of the variable holding the value
    * @param hasMetaData Whether protocol metadata is present
    */
-  private void generateSerializeFieldInternal(StringBuilder sb, TType type, String variableName,
-                                              boolean hasMetaData) {
+  private void generateSerializeFieldInternal(StringBuilder sb, TType type, String variableName, boolean hasMetaData) {
     type = getTrueType(type);
 
     if (type.isVoid()) {
@@ -4535,13 +4208,12 @@ public class JavaGenerator extends Generator {
         sb.append("writeDouble(").append(variableName).append(");");
         break;
       default:
-        throw new RuntimeException("Compiler error: no Java name for base type " + tbase + " for " +
-                                   variableName);
+        throw new RuntimeException("Compiler error: no Java name for base type " + tbase + " for " + variableName);
       }
       sb.append("\n");
     } else {
-      throw new RuntimeException("DO NOT KNOW HOW TO SERIALIZE FIELD '" + variableName +
-                                 "' TYPE '" + typeName(type) + "'");
+      throw new RuntimeException("DO NOT KNOW HOW TO SERIALIZE FIELD '" + variableName + "' TYPE '" + typeName(type) +
+                                 "'");
     }
   }
 
@@ -4564,8 +4236,7 @@ public class JavaGenerator extends Generator {
    * @param variableName String name of the container variable
    * @param hasMetaData Whether protocol metadata is present
    */
-  private void generateSerializeContainer(StringBuilder sb, TType ttype, String variableName,
-                                          boolean hasMetaData) {
+  private void generateSerializeContainer(StringBuilder sb, TType ttype, String variableName, boolean hasMetaData) {
     scope_up(sb);
 
     if (hasMetaData) { // Standard protocols usually have metadata
@@ -4660,19 +4331,16 @@ public class JavaGenerator extends Generator {
     scope_down(sb);
   }
 
-  private void generateSerializeMapElement(StringBuilder sb, TMap tmap, String iterVar,
-                                           boolean hasMetaData) {
+  private void generateSerializeMapElement(StringBuilder sb, TMap tmap, String iterVar, boolean hasMetaData) {
     generateSerializeFieldInternal(sb, tmap.getKeyType(), iterVar + ".getKey()", hasMetaData);
     generateSerializeFieldInternal(sb, tmap.getValType(), iterVar + ".getValue()", hasMetaData);
   }
 
-  private void generateSerializeSetElement(StringBuilder sb, TSet tset, String iterVar,
-                                           boolean hasMetaData) {
+  private void generateSerializeSetElement(StringBuilder sb, TSet tset, String iterVar, boolean hasMetaData) {
     generateSerializeFieldInternal(sb, tset.getElemType(), iterVar, hasMetaData);
   }
 
-  private void generateSerializeListElement(StringBuilder sb, TList tlist, String iterVar,
-                                            boolean hasMetaData) {
+  private void generateSerializeListElement(StringBuilder sb, TList tlist, String iterVar, boolean hasMetaData) {
     generateSerializeFieldInternal(sb, tlist.getElemType(), iterVar, hasMetaData);
   }
 
@@ -4684,8 +4352,7 @@ public class JavaGenerator extends Generator {
    * @param prefix The variable name or container for this field (e.g., "struct.")
    * @param hasMetaData Whether protocol metadata is present
    */
-  private void generateDeserializeField(StringBuilder sb, TField field, String prefix,
-                                        boolean hasMetaData) {
+  private void generateDeserializeField(StringBuilder sb, TField field, String prefix, boolean hasMetaData) {
     String variableName = prefix + makeValidJavaIdentifier(field.getName());
     // Declaration of variableName (e.g., struct.fieldName) is assumed to exist.
     // This method generates the assignment part: variableName = iprot.readXXX();
@@ -4746,8 +4413,7 @@ public class JavaGenerator extends Generator {
         sb.append("readDouble();");
         break;
       default:
-        throw new RuntimeException("compiler error: no Java name for base type " + tbase + " for " +
-                                   variableName);
+        throw new RuntimeException("compiler error: no Java name for base type " + tbase + " for " + variableName);
       }
       sb.append("\n");
     } else if (type.isEnum()) {
@@ -4757,8 +4423,8 @@ public class JavaGenerator extends Generator {
           .append(typeName(type, true, false, false, true)) // Use full type name for enum
           .append(".findByValue(iprot.readI32());\n");
     } else {
-      throw new RuntimeException("DO NOT KNOW HOW TO DESERIALIZE FIELD '" + variableName +
-                                 "' TYPE '" + typeName(type) + "'");
+      throw new RuntimeException("DO NOT KNOW HOW TO DESERIALIZE FIELD '" + variableName + "' TYPE '" + typeName(type) +
+                                 "'");
     }
   }
 
@@ -4773,19 +4439,11 @@ public class JavaGenerator extends Generator {
     if (options.isReuseObjects()) {
       sb.append(indent()).append("if (").append(variableName).append(" == null) {\n");
       indent_up();
-      sb.append(indent())
-          .append(variableName)
-          .append(" = new ")
-          .append(typeName(tstruct))
-          .append("();\n");
+      sb.append(indent()).append(variableName).append(" = new ").append(typeName(tstruct)).append("();\n");
       indent_down();
       sb.append(indent()).append("}\n");
     } else {
-      sb.append(indent())
-          .append(variableName)
-          .append(" = new ")
-          .append(typeName(tstruct))
-          .append("();\n");
+      sb.append(indent()).append(variableName).append(" = new ").append(typeName(tstruct)).append("();\n");
     }
     sb.append(indent()).append(variableName).append(".read(iprot);\n");
   }
@@ -4794,10 +4452,7 @@ public class JavaGenerator extends Generator {
                                                String sizeExpression) {
     sb.append(indent()).append(variableName).append(" = new ");
     if (isEnumSet(ttype)) {
-      sb.append(typeName(ttype, false, true, true))
-          .append(".noneOf(")
-          .append(innerEnumTypeName(ttype))
-          .append(");\n");
+      sb.append(typeName(ttype, false, true, true)).append(".noneOf(").append(innerEnumTypeName(ttype)).append(");\n");
     } else {
       sb.append(typeName(ttype, false, true));
       String constructorArgs = "";
@@ -4810,8 +4465,7 @@ public class JavaGenerator extends Generator {
       sb.append("(").append(constructorArgs).append(");\n");
     }
   }
-  private void generateDeserializeContainer(StringBuilder sb, TType ttype, String variableName,
-                                            boolean hasMetaData) {
+  private void generateDeserializeContainer(StringBuilder sb, TType ttype, String variableName, boolean hasMetaData) {
     scope_up(sb);
 
     String protoContainerVar; // e.g., _map, _set, _list from TProtocol
@@ -4958,8 +4612,8 @@ public class JavaGenerator extends Generator {
     scope_down(sb);
   }
 
-  private void generateDeserializeMapElement(StringBuilder sb, TMap tmap, String mapVarName,
-                                             boolean hasMetaData, String keyVar, String valVar) {
+  private void generateDeserializeMapElement(StringBuilder sb, TMap tmap, String mapVarName, boolean hasMetaData,
+                                             String keyVar, String valVar) {
     TType keyType = getTrueType(tmap.getKeyType());
     TType valType = getTrueType(tmap.getValType());
 
@@ -4973,13 +4627,7 @@ public class JavaGenerator extends Generator {
       sb.append(indent()).append("{\n");
       indent_up();
     }
-    sb.append(indent())
-        .append(mapVarName)
-        .append(".put(")
-        .append(keyVar)
-        .append(", ")
-        .append(valVar)
-        .append(");\n");
+    sb.append(indent()).append(mapVarName).append(".put(").append(keyVar).append(", ").append(valVar).append(");\n");
     if (keyType.isEnum()) {
       indent_down();
       sb.append(indent()).append("}\n");
@@ -4996,8 +4644,8 @@ public class JavaGenerator extends Generator {
     }
   }
 
-  private void generateDeserializeSetElement(StringBuilder sb, TSet tset, String setVarName,
-                                             boolean hasMetaData, String elemVar) {
+  private void generateDeserializeSetElement(StringBuilder sb, TSet tset, String setVarName, boolean hasMetaData,
+                                             String elemVar) {
     TType elemType = getTrueType(tset.getElemType());
 
     // Deserialize element
@@ -5021,8 +4669,8 @@ public class JavaGenerator extends Generator {
     }
   }
 
-  private void generateDeserializeListElement(StringBuilder sb, TList tlist, String listVarName,
-                                              boolean hasMetaData, String elemVar) {
+  private void generateDeserializeListElement(StringBuilder sb, TList tlist, String listVarName, boolean hasMetaData,
+                                              String elemVar) {
     TType elemType = getTrueType(tlist.getElemType());
 
     // Deserialize element
@@ -5106,10 +4754,7 @@ public class JavaGenerator extends Generator {
       extends_iface = " extends " + typeName(tservice.getExtends()) + ".AsyncIface";
     }
 
-    sb.append(indent())
-        .append("public interface AsyncIface")
-        .append(extends_iface)
-        .append(" {\n\n");
+    sb.append(indent()).append("public interface AsyncIface").append(extends_iface).append(" {\n\n");
     indent_up();
     for (TFunction function : tservice.getFunctions()) {
       sb.append(indent())
@@ -5127,10 +4772,7 @@ public class JavaGenerator extends Generator {
       extends_iface = " extends " + typeName(tservice.getExtends()) + ".FutureIface";
     }
 
-    sb.append(indent())
-        .append("public interface FutureIface")
-        .append(extends_iface)
-        .append(" {\n\n");
+    sb.append(indent()).append("public interface FutureIface").append(extends_iface).append(" {\n\n");
     indent_up();
     for (TFunction tfunc : tservice.getFunctions()) {
       sb.append(indent())
@@ -5177,8 +4819,7 @@ public class JavaGenerator extends Generator {
     indent_up();
     sb.append(indent()).append("public Factory() {}\n");
     sb.append(indent()).append(javaOverrideAnnotation()).append("\n");
-    sb.append(indent()).append(
-        "public Client getClient(org.apache.thrift.protocol.TProtocol prot) {\n");
+    sb.append(indent()).append("public Client getClient(org.apache.thrift.protocol.TProtocol prot) {\n");
     indent_up();
     sb.append(indent()).append("return new Client(prot);\n");
     indent_down();
@@ -5241,8 +4882,8 @@ public class JavaGenerator extends Generator {
       scope_down(sb);
       sb.append("\n");
 
-      TFunction send_function = new TFunction(new TBaseType("", TBaseType.Base.TYPE_VOID),
-                                              "send" + sep + javaname, function.getArglist());
+      TFunction send_function =
+          new TFunction(new TBaseType("", TBaseType.Base.TYPE_VOID), "send" + sep + javaname, function.getArglist());
 
       sb.append(indent()).append("public ").append(functionSignature(send_function)).append("\n");
       scope_up(sb);
@@ -5267,24 +4908,16 @@ public class JavaGenerator extends Generator {
 
       if (!function.isOneway()) {
         String resultname = function.getName() + "_result";
-        TFunction recv_function =
-            new TFunction(function.getReturnType(), "recv" + sep + javaname,
-                          new TStruct(tservice.getProgram()), function.getXceptions(), false);
+        TFunction recv_function = new TFunction(function.getReturnType(), "recv" + sep + javaname,
+                                                new TStruct(tservice.getProgram()), function.getXceptions(), false);
         sb.append(indent()).append("public ").append(functionSignature(recv_function)).append("\n");
         scope_up(sb);
 
-        sb.append(indent())
-            .append(resultname)
-            .append(" result = new ")
-            .append(resultname)
-            .append("();\n");
+        sb.append(indent()).append(resultname).append(" result = new ").append(resultname).append("();\n");
         sb.append(indent()).append("receiveBase(result, \"").append(funname).append("\");\n");
 
         if (!function.getReturnType().isVoid()) {
-          sb.append(indent())
-              .append("if (result.")
-              .append(generateIssetCheck("success"))
-              .append(") {\n");
+          sb.append(indent()).append("if (result.").append(generateIssetCheck("success")).append(") {\n");
           sb.append(indent()).append("  return result.success;\n");
           sb.append(indent()).append("}\n");
         }
@@ -5294,10 +4927,7 @@ public class JavaGenerator extends Generator {
               .append("if (result.")
               .append(makeValidJavaIdentifier(x_iter.getName()))
               .append(" != null) {\n");
-          sb.append(indent())
-              .append("  throw result.")
-              .append(makeValidJavaIdentifier(x_iter.getName()))
-              .append(";\n");
+          sb.append(indent()).append("  throw result.").append(makeValidJavaIdentifier(x_iter.getName())).append(";\n");
           sb.append(indent()).append("}\n");
         }
 
@@ -5391,29 +5021,23 @@ public class JavaGenerator extends Generator {
 
     sb.append(indent()).append("public static class Factory implements "
                                + "org.apache.thrift.async.TAsyncClientFactory<AsyncClient> {\n");
-    sb.append(indent()).append(
-        "  private org.apache.thrift.async.TAsyncClientManager clientManager;\n");
-    sb.append(indent()).append(
-        "  private org.apache.thrift.protocol.TProtocolFactory protocolFactory;\n");
-    sb.append(indent()).append(
-        "  public Factory(org.apache.thrift.async.TAsyncClientManager clientManager, "
-        + "org.apache.thrift.protocol.TProtocolFactory protocolFactory) {\n");
+    sb.append(indent()).append("  private org.apache.thrift.async.TAsyncClientManager clientManager;\n");
+    sb.append(indent()).append("  private org.apache.thrift.protocol.TProtocolFactory protocolFactory;\n");
+    sb.append(indent()).append("  public Factory(org.apache.thrift.async.TAsyncClientManager clientManager, "
+                               + "org.apache.thrift.protocol.TProtocolFactory protocolFactory) {\n");
     sb.append(indent()).append("    this.clientManager = clientManager;\n");
     sb.append(indent()).append("    this.protocolFactory = protocolFactory;\n");
     sb.append(indent()).append("  }\n");
     sb.append(indent()).append(javaOverrideAnnotation()).append("\n");
-    sb.append(indent()).append(
-        "  public AsyncClient getAsyncClient(org.apache.thrift.transport.TNonblockingTransport "
-        + "transport) {\n");
-    sb.append(indent()).append(
-        "    return new AsyncClient(protocolFactory, clientManager, transport);\n");
+    sb.append(indent()).append("  public AsyncClient getAsyncClient(org.apache.thrift.transport.TNonblockingTransport "
+                               + "transport) {\n");
+    sb.append(indent()).append("    return new AsyncClient(protocolFactory, clientManager, transport);\n");
     sb.append(indent()).append("  }\n");
     sb.append(indent()).append("}\n\n");
 
-    sb.append(indent()).append(
-        "public AsyncClient(org.apache.thrift.protocol.TProtocolFactory protocolFactory, "
-        + "org.apache.thrift.async.TAsyncClientManager clientManager, "
-        + "org.apache.thrift.transport.TNonblockingTransport transport) {\n");
+    sb.append(indent()).append("public AsyncClient(org.apache.thrift.protocol.TProtocolFactory protocolFactory, "
+                               + "org.apache.thrift.async.TAsyncClientManager clientManager, "
+                               + "org.apache.thrift.transport.TNonblockingTransport transport) {\n");
     sb.append(indent()).append("  super(protocolFactory, clientManager, transport);\n");
     sb.append(indent()).append("}\n\n");
 
@@ -5501,11 +5125,7 @@ public class JavaGenerator extends Generator {
           .append("\", org.apache.thrift.protocol.")
           .append(msgType)
           .append(", 0));\n");
-      sb.append(indent())
-          .append(args_name)
-          .append(" args = new ")
-          .append(args_name)
-          .append("();\n");
+      sb.append(indent()).append(args_name).append(" args = new ").append(args_name).append("();\n");
       for (TField field : fields) {
         sb.append(indent())
             .append("args.set")
@@ -5520,23 +5140,17 @@ public class JavaGenerator extends Generator {
       sb.append(indent()).append("}\n\n");
 
       sb.append(indent()).append(javaOverrideAnnotation()).append("\n");
-      sb.append(indent())
-          .append("public ")
-          .append(typeName(ret_type, true))
-          .append(" getResult() throws ");
+      sb.append(indent()).append("public ").append(typeName(ret_type, true)).append(" getResult() throws ");
       for (int i = 0; i < xceptions.size(); i++) {
         sb.append(typeName(xceptions.get(i).getType(), false, false)).append(", ");
       }
       sb.append("org.apache.thrift.TException {\n");
       indent_up();
-      sb.append(indent()).append(
-          "if (getState() != org.apache.thrift.async.TAsyncMethodCall.State.RESPONSE_READ) {\n");
-      sb.append(indent()).append(
-          "  throw new java.lang.IllegalStateException(\"Method call not finished!\");\n");
+      sb.append(indent()).append("if (getState() != org.apache.thrift.async.TAsyncMethodCall.State.RESPONSE_READ) {\n");
+      sb.append(indent()).append("  throw new java.lang.IllegalStateException(\"Method call not finished!\");\n");
       sb.append(indent()).append("}\n");
-      sb.append(indent()).append(
-          "org.apache.thrift.transport.TMemoryInputTransport memoryTransport = new "
-          + "org.apache.thrift.transport.TMemoryInputTransport(getFrameBuffer().array());\n");
+      sb.append(indent()).append("org.apache.thrift.transport.TMemoryInputTransport memoryTransport = new "
+                                 + "org.apache.thrift.transport.TMemoryInputTransport(getFrameBuffer().array());\n");
       sb.append(indent()).append("org.apache.thrift.protocol.TProtocol prot = "
                                  + "client.getProtocolFactory().getProtocol(memoryTransport);\n");
       sb.append(indent());
@@ -5577,21 +5191,18 @@ public class JavaGenerator extends Generator {
     sb.append(indent()).append("private static final org.slf4j.Logger _LOGGER = "
                                + "org.slf4j.LoggerFactory.getLogger(Processor.class.getName());\n");
     sb.append(indent()).append("public Processor(I iface) {\n");
-    sb.append(indent()).append(
-        "  super(iface, getProcessMap(new java.util.HashMap<java.lang.String, "
-        + "org.apache.thrift.ProcessFunction<I, ? extends org.apache.thrift.TBase>>()));\n");
+    sb.append(indent()).append("  super(iface, getProcessMap(new java.util.HashMap<java.lang.String, "
+                               + "org.apache.thrift.ProcessFunction<I, ? extends org.apache.thrift.TBase>>()));\n");
     sb.append(indent()).append("}\n\n");
     sb.append(indent()).append(
         "protected Processor(I iface, java.util.Map<java.lang.String, "
-        +
-        "org.apache.thrift.ProcessFunction<I, ? extends org.apache.thrift.TBase>> processMap) {\n");
+        + "org.apache.thrift.ProcessFunction<I, ? extends org.apache.thrift.TBase>> processMap) {\n");
     sb.append(indent()).append("  super(iface, getProcessMap(processMap));\n");
     sb.append(indent()).append("}\n\n");
-    sb.append(indent()).append(
-        "private static <I extends Iface> java.util.Map<java.lang.String,  "
-        + "org.apache.thrift.ProcessFunction<I, ? extends org.apache.thrift.TBase>> "
-        + "getProcessMap(java.util.Map<java.lang.String, org.apache.thrift.ProcessFunction<I, ? "
-        + "extends  org.apache.thrift.TBase>> processMap) {\n");
+    sb.append(indent()).append("private static <I extends Iface> java.util.Map<java.lang.String,  "
+                               + "org.apache.thrift.ProcessFunction<I, ? extends org.apache.thrift.TBase>> "
+                               + "getProcessMap(java.util.Map<java.lang.String, org.apache.thrift.ProcessFunction<I, ? "
+                               + "extends  org.apache.thrift.TBase>> processMap) {\n");
     indent_up();
     for (TFunction function : tservice.getFunctions()) {
       sb.append(indent())
@@ -5623,27 +5234,23 @@ public class JavaGenerator extends Generator {
         .append(extends_processor)
         .append(" {\n");
     indent_up();
-    sb.append(indent()).append(
-        "private static final org.slf4j.Logger _LOGGER = "
-        + "org.slf4j.LoggerFactory.getLogger(AsyncProcessor.class.getName());\n");
+    sb.append(indent()).append("private static final org.slf4j.Logger _LOGGER = "
+                               + "org.slf4j.LoggerFactory.getLogger(AsyncProcessor.class.getName());\n");
     sb.append(indent()).append("public AsyncProcessor(I iface) {\n");
     sb.append(indent()).append(
         "  super(iface, getProcessMap(new java.util.HashMap<java.lang.String, "
-        +
-        "org.apache.thrift.AsyncProcessFunction<I, ? extends org.apache.thrift.TBase, ?>>()));\n");
+        + "org.apache.thrift.AsyncProcessFunction<I, ? extends org.apache.thrift.TBase, ?>>()));\n");
     sb.append(indent()).append("}\n\n");
-    sb.append(indent()).append(
-        "protected AsyncProcessor(I iface, java.util.Map<java.lang.String,  "
-        + "org.apache.thrift.AsyncProcessFunction<I, ? extends  org.apache.thrift.TBase, ?>> "
-        + "processMap) {\n");
+    sb.append(indent()).append("protected AsyncProcessor(I iface, java.util.Map<java.lang.String,  "
+                               + "org.apache.thrift.AsyncProcessFunction<I, ? extends  org.apache.thrift.TBase, ?>> "
+                               + "processMap) {\n");
     sb.append(indent()).append("  super(iface, getProcessMap(processMap));\n");
     sb.append(indent()).append("}\n\n");
-    sb.append(indent()).append(
-        "private static <I extends AsyncIface> java.util.Map<java.lang.String,  "
-        + "org.apache.thrift.AsyncProcessFunction<I, ? extends  org.apache.thrift.TBase,?>> "
-        + "getProcessMap(java.util.Map<java.lang.String,  "
-        + "org.apache.thrift.AsyncProcessFunction<I, ? extends  org.apache.thrift.TBase, ?>> "
-        + "processMap) {\n");
+    sb.append(indent()).append("private static <I extends AsyncIface> java.util.Map<java.lang.String,  "
+                               + "org.apache.thrift.AsyncProcessFunction<I, ? extends  org.apache.thrift.TBase,?>> "
+                               + "getProcessMap(java.util.Map<java.lang.String,  "
+                               + "org.apache.thrift.AsyncProcessFunction<I, ? extends  org.apache.thrift.TBase, ?>> "
+                               + "processMap) {\n");
     indent_up();
     for (TFunction function : tservice.getFunctions()) {
       sb.append(indent())
@@ -5691,8 +5298,7 @@ public class JavaGenerator extends Generator {
    *
    * @param tfunction The function to write a dispatcher for
    */
-  protected void generateProcessAsyncFunction(StringBuilder sb, TService tservice,
-                                              TFunction tfunction) {
+  protected void generateProcessAsyncFunction(StringBuilder sb, TService tservice, TFunction tfunction) {
     String argsname = tfunction.getName() + "_args";
     String resultname = tfunction.getName() + "_result";
     if (tfunction.isOneway()) {
@@ -5746,18 +5352,11 @@ public class JavaGenerator extends Generator {
         .append(" o) {\n");
     indent_up();
     if (!tfunction.isOneway()) {
-      sb.append(indent())
-          .append(resultname)
-          .append(" result = new ")
-          .append(resultname)
-          .append("();\n");
+      sb.append(indent()).append(resultname).append(" result = new ").append(resultname).append("();\n");
       if (!tfunction.getReturnType().isVoid()) {
         sb.append(indent()).append("result.success = o;\n");
         if (!typeCanBeNull(tfunction.getReturnType())) {
-          sb.append(indent())
-              .append("result.set")
-              .append(getCapName("success"))
-              .append("IsSet(true);\n");
+          sb.append(indent()).append("result.set").append(getCapName("success")).append("IsSet(true);\n");
         }
       }
       sb.append(indent()).append("try {\n");
@@ -5781,9 +5380,7 @@ public class JavaGenerator extends Generator {
     indent_down();
     sb.append(indent()).append("}\n");
 
-    sb.append(indent())
-        .append(javaOverrideAnnotation())
-        .append("\npublic void onError(java.lang.Exception e) {\n");
+    sb.append(indent()).append(javaOverrideAnnotation()).append("\npublic void onError(java.lang.Exception e) {\n");
     indent_up();
     if (tfunction.isOneway()) {
       sb.append(indent())
@@ -5801,11 +5398,7 @@ public class JavaGenerator extends Generator {
     } else {
       sb.append(indent()).append("byte msgType = org.apache.thrift.protocol.TMessageType.REPLY;\n");
       sb.append(indent()).append("org.apache.thrift.TSerializable msg;\n");
-      sb.append(indent())
-          .append(resultname)
-          .append(" result = new ")
-          .append(resultname)
-          .append("();\n");
+      sb.append(indent()).append(resultname).append(" result = new ").append(resultname).append("();\n");
       List<TField> xceptions = tfunction.getXceptions().getMembers();
       if (!xceptions.isEmpty()) {
         boolean first = true;
@@ -5824,10 +5417,7 @@ public class JavaGenerator extends Generator {
               .append(" = (")
               .append(type)
               .append(") e;\n");
-          sb.append(indent())
-              .append("result.set")
-              .append(getCapName(name))
-              .append("IsSet(true);\n");
+          sb.append(indent()).append("result.set").append(getCapName(name)).append("IsSet(true);\n");
           sb.append(indent()).append("msg = result;\n");
           indent_down();
           sb.append(indent()).append("} else ");
@@ -5966,11 +5556,7 @@ public class JavaGenerator extends Generator {
       if (options.isReuseObjects()) {
         sb.append(indent()).append(resultname).append(" result = getEmptyResultInstance();\n");
       } else {
-        sb.append(indent())
-            .append(resultname)
-            .append(" result = new ")
-            .append(resultname)
-            .append("();\n");
+        sb.append(indent()).append(resultname).append(" result = new ").append(resultname).append("();\n");
       }
     }
     List<TField> xceptions = tfunction.getXceptions().getMembers();
@@ -5995,12 +5581,8 @@ public class JavaGenerator extends Generator {
     }
     sb.append(");\n");
 
-    if (!tfunction.isOneway() && !tfunction.getReturnType().isVoid() &&
-        !typeCanBeNull(tfunction.getReturnType())) {
-      sb.append(indent())
-          .append("result.set")
-          .append(getCapName("success"))
-          .append("IsSet(true);\n");
+    if (!tfunction.isOneway() && !tfunction.getReturnType().isVoid() && !typeCanBeNull(tfunction.getReturnType())) {
+      sb.append(indent()).append("result.set").append(getCapName("success")).append("IsSet(true);\n");
     }
     if (!xceptions.isEmpty()) {
       indent_down();
@@ -6037,9 +5619,7 @@ public class JavaGenerator extends Generator {
     sb.append(indent()).append("}\n\n");
   }
 
-  protected String functionSignature(TFunction tfunction) {
-    return functionSignature(tfunction, "");
-  }
+  protected String functionSignature(TFunction tfunction) { return functionSignature(tfunction, ""); }
   /**
    * Generates a synchronous function signature.
    *
@@ -6075,16 +5655,13 @@ public class JavaGenerator extends Generator {
    * @param prefix A prefix for the function name
    * @return String of rendered function definition
    */
-  protected String functionSignatureAsync(TFunction tfunction, boolean useBaseMethod,
-                                          String prefix) {
+  protected String functionSignatureAsync(TFunction tfunction, boolean useBaseMethod, String prefix) {
     String arglist = asyncFunctionCallArglist(tfunction, useBaseMethod, true);
     String fnName = getRpcMethodName(tfunction.getName());
     return prefix + "void " + fnName + "(" + arglist + ")";
   }
 
-  protected String functionSignatureFuture(TFunction tfunction) {
-    return functionSignatureFuture(tfunction, "");
-  }
+  protected String functionSignatureFuture(TFunction tfunction) { return functionSignatureFuture(tfunction, ""); }
 
   /**
    * Renders a function signature of the form 'CompletableFuture<R> name(args)'
@@ -6112,8 +5689,7 @@ public class JavaGenerator extends Generator {
    * @param includeTypes Whether to include types in the signature
    * @return The argument list string
    */
-  protected String asyncFunctionCallArglist(TFunction tfunc, boolean useBaseMethod,
-                                            boolean includeTypes) {
+  protected String asyncFunctionCallArglist(TFunction tfunc, boolean useBaseMethod, boolean includeTypes) {
     StringBuilder arglist = new StringBuilder();
     if (!tfunc.getArglist().getMembers().isEmpty()) {
       arglist.append(argumentList(tfunc.getArglist(), includeTypes));
@@ -6164,8 +5740,7 @@ public class JavaGenerator extends Generator {
    * @param includeTypes Whether to include types
    * @return The argument list string
    */
-  protected String asyncArgumentList(TFunction tfunct, TStruct tstruct, TType ttype,
-                                     boolean includeTypes) {
+  protected String asyncArgumentList(TFunction tfunct, TStruct tstruct, TType ttype, boolean includeTypes) {
     StringBuilder result = new StringBuilder();
     boolean first = true;
     for (TField field : tstruct.getMembers()) {

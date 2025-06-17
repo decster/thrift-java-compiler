@@ -49,8 +49,7 @@ public class TService extends TType {
     if (extends_ != null) {
       for (TFunction func : functions) {
         if (extends_.getFunctionByName(func.getName()) != null) {
-          throw new RuntimeException("Function " + func.getName() +
-                                     " conflicts with function in base service " +
+          throw new RuntimeException("Function " + func.getName() + " conflicts with function in base service " +
                                      extends_.getName());
         }
       }

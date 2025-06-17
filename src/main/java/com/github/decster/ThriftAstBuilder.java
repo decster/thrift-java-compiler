@@ -36,9 +36,7 @@ public class ThriftAstBuilder {
     return parseString(input, path.getFileName().toString(), parentScope);
   }
 
-  public static TProgram parseFile(String filePath) throws IOException {
-    return parseFile(filePath, null);
-  }
+  public static TProgram parseFile(String filePath) throws IOException { return parseFile(filePath, null); }
 
   /**
    * Parse a Thrift document from a string and build a TProgram object.
@@ -53,9 +51,7 @@ public class ThriftAstBuilder {
     return ret;
   }
 
-  public static TProgram parseString(String content, String name) {
-    return parseString(content, name, null);
-  }
+  public static TProgram parseString(String content, String name) { return parseString(content, name, null); }
 
   /**
    * Parse a Thrift document from a CharStream and build a TProgram object.
@@ -146,8 +142,7 @@ public class ThriftAstBuilder {
         return null;
       }
       int tokenIndexOfRuleStart = ctx.getStart().getTokenIndex();
-      List<Token> hiddenTokensToLeft =
-          tokens.getHiddenTokensToLeft(tokenIndexOfRuleStart, ThriftLexer.HIDDEN);
+      List<Token> hiddenTokensToLeft = tokens.getHiddenTokensToLeft(tokenIndexOfRuleStart, ThriftLexer.HIDDEN);
 
       if (hiddenTokensToLeft != null) {
         for (int i = hiddenTokensToLeft.size() - 1; i >= 0; i--) {
@@ -327,8 +322,7 @@ public class ThriftAstBuilder {
           enumValue.setDoc(enumValueDocText);
         }
         if (fieldCtx.type_annotations() != null) {
-          Map<String, List<String>> fieldAnnotations =
-              processTypeAnnotations(fieldCtx.type_annotations());
+          Map<String, List<String>> fieldAnnotations = processTypeAnnotations(fieldCtx.type_annotations());
           if (!fieldAnnotations.isEmpty()) {
             enumValue.setAnnotations(fieldAnnotations);
           }
@@ -736,8 +730,7 @@ public class ThriftAstBuilder {
     }
 
     @Override
-    public Map<String, List<String>>
-    visitType_annotations(ThriftParser.Type_annotationsContext ctx) {
+    public Map<String, List<String>> visitType_annotations(ThriftParser.Type_annotationsContext ctx) {
       if (ctx == null) {
         return new HashMap<>();
       }
@@ -764,8 +757,7 @@ public class ThriftAstBuilder {
      * @param ctx The type annotations context
      * @return A map of annotation names to their values
      */
-    private Map<String, List<String>>
-    processTypeAnnotations(ThriftParser.Type_annotationsContext ctx) {
+    private Map<String, List<String>> processTypeAnnotations(ThriftParser.Type_annotationsContext ctx) {
       if (ctx != null) {
         return visitType_annotations(ctx);
       }

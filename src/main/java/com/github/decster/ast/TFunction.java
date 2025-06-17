@@ -19,9 +19,7 @@ public class TFunction extends TDoc {
   private boolean ownXceptions;
   private boolean oneway;
 
-  public TFunction(TType returnType, String name, TStruct arglist) {
-    this(returnType, name, arglist, false);
-  }
+  public TFunction(TType returnType, String name, TStruct arglist) { this(returnType, name, arglist, false); }
 
   public TFunction(TType returnType, String name, TStruct arglist, boolean oneway) {
     this.returnType = returnType;
@@ -37,8 +35,7 @@ public class TFunction extends TDoc {
     }
   }
 
-  public TFunction(TType returnType, String name, TStruct arglist, TStruct xceptions,
-                   boolean oneway) {
+  public TFunction(TType returnType, String name, TStruct arglist, TStruct xceptions, boolean oneway) {
     this.returnType = returnType;
     this.name = name;
     this.arglist = arglist;
@@ -69,9 +66,7 @@ public class TFunction extends TDoc {
 
   private Map<String, List<String>> annotations;
 
-  public void setAnnotations(Map<String, List<String>> annotations) {
-    this.annotations = annotations;
-  }
+  public void setAnnotations(Map<String, List<String>> annotations) { this.annotations = annotations; }
 
   public Map<String, List<String>> getAnnotations() { return annotations; }
 
