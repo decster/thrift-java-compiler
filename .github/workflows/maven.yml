@@ -33,7 +33,7 @@ jobs:
         cache: maven
     - name: Build with Maven
       run: |
-        mvn verify | grep -v -E '^(Downloading|Downloaded|Progress|^\[INFO\] Downloading|^\[INFO\] Downloaded)'
+        mvn verify -Dgpg.skip=true | grep -v -E '^(Downloading|Downloaded|Progress|^\[INFO\] Downloading|^\[INFO\] Downloaded)'
         exit ${PIPESTATUS[0]}
 
     - name: Upload coverage to Codecov
