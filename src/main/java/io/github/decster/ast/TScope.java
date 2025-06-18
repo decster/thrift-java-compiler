@@ -114,11 +114,14 @@ public class TScope {
         } else if (constType.isMap()) {
           constValue.setMap();
           for (Map.Entry<TConstValue, TConstValue> entry : constant.getValue().getMap().entrySet()) {
+            resolveConstValue(entry.getKey(), ((TMap)ttype).getKeyType());
+            resolveConstValue(entry.getValue(), ((TMap)ttype).getValType());
             constValue.addMap(entry.getKey(), entry.getValue());
           }
         } else if (constType.isList()) {
           constValue.setList();
           for (TConstValue element : constant.getValue().getList()) {
+            resolveConstValue(element, ((TList)ttype).getElemType());
             constValue.addList(element);
           }
         }
@@ -142,3 +145,5 @@ public class TScope {
     public TDuplicateDefinitionException(String type, String name) { super(type + " " + name + " already defined"); }
   }
 }
+
+

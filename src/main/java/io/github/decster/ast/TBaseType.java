@@ -19,6 +19,12 @@ public class TBaseType extends TType {
     this.binary = false;
   }
 
+  public TBaseType(Base base) {
+    this.setName(base.name().substring(5));
+    this.base = base;
+    this.binary = false;
+  }
+
   public Base getBase() { return base; }
 
   public void setBase(Base base) { this.base = base; }

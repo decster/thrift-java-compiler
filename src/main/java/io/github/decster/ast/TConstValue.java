@@ -230,12 +230,10 @@ public class TConstValue implements Comparable<TConstValue> {
   private void validateUuid(String uuid) {
     final String HEXCHARS = "0123456789ABCDEFabcdef";
 
-    // 也允许Windows GUID格式"{01234567-9012-4567-9012-456789012345}"
     if ((uuid.length() == 38) && ('{' == uuid.charAt(0)) && ('}' == uuid.charAt(37))) {
       uuid = uuid.substring(1, 37);
     }
 
-    // 期望标准格式为"01234567-9012-4567-9012-456789012345"
     boolean valid = (uuid.length() == 36);
     for (int i = 0; valid && (i < uuid.length()); ++i) {
       switch (i) {
@@ -260,3 +258,4 @@ public class TConstValue implements Comparable<TConstValue> {
     }
   }
 }
+

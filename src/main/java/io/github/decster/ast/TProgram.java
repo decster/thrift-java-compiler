@@ -24,7 +24,7 @@ public class TProgram extends TDoc {
   private List<TConst> consts;
   private List<TStruct> structs;
   private List<TStruct> xceptions;
-  private List<TStruct> objects; // Combined list of structs and exceptions
+  private List<TDoc> objects; // Combined list of structs and exceptions
   private List<TService> services;
   private Map<String, String> namespaces;
   private List<TProgram> includes;
@@ -97,7 +97,7 @@ public class TProgram extends TDoc {
 
   public List<TStruct> getXceptions() { return xceptions; }
 
-  public List<TStruct> getObjects() { return objects; }
+  public List<TDoc> getObjects() { return objects; }
 
   public List<TService> getServices() { return services; }
 
@@ -122,7 +122,9 @@ public class TProgram extends TDoc {
 
   public void addEnum(TEnum tenum) { enums.add(tenum); }
 
-  public void addConst(TConst tconst) { consts.add(tconst); }
+  public void addConst(TConst tconst) {
+    consts.add(tconst);
+  objects.add(tconst);}
 
   public void addStruct(TStruct tstruct) {
     structs.add(tstruct);
@@ -189,24 +191,20 @@ public class TProgram extends TDoc {
   }
 
   public void resolveConstValues() {
-    for (TStruct struct : structs) {
-      for (TField field : struct.getMembers()) {
-        if (field.hasValue()) {
-          scope.resolveConstValue(field.getValue(), field.getType().getTrueType());
+    for (TDoc tobj : objects) {
+      if (tobj instanceof TStruct) {
+        TStruct struct = (TStruct) tobj;
+        for (TField field : struct.getMembers()) {
+          if (field.hasValue()) {
+            scope.resolveConstValue(field.getValue(), field.getType().getTrueType());
+          }
         }
+      } else if (tobj instanceof TConst) {
+        TConst constant = (TConst) tobj;
+        scope.resolveConstValue(constant.getValue(), constant.getType());
       }
     }
-
-    // Resolve exceptions
-    for (TStruct exception : xceptions) {
-      for (TField field : exception.getMembers()) {
-        if (field.hasValue()) {
-          scope.resolveConstValue(field.getValue(), field.getType().getTrueType());
-        }
-      }
-    }
-
-    scope.resolveAllConsts();
+    //scope.resolveAllConsts();
   }
 
   private void resolveStructTypeRefs(TStruct struct) {

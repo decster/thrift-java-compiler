@@ -50,84 +50,6 @@ public class JavaGeneratorOptions {
   }
 
   /**
-   * Parse generator options from a string array of "key:value" pairs.
-   *
-   * @param options Array of options in "key:value" format
-   * @return Configured JavaGeneratorOptions instance
-   */
-  public static JavaGeneratorOptions fromStringArray(String[] options) {
-    JavaGeneratorOptions result = new JavaGeneratorOptions();
-
-    if (options == null) {
-      return result;
-    }
-
-    for (String option : options) {
-      String[] parts = option.split(":", 2);
-      String key = parts[0].trim();
-      String value = parts.length > 1 ? parts[1].trim() : "true";
-
-      switch (key) {
-      case "beans":
-        result.setBeans(Boolean.parseBoolean(value));
-        break;
-      case "private_members":
-        result.setPrivateMembers(Boolean.parseBoolean(value));
-        break;
-      case "java5":
-        result.setJava5(Boolean.parseBoolean(value));
-        break;
-      case "android":
-      case "android_legacy":
-        result.setAndroidStyle(Boolean.parseBoolean(value));
-        break;
-      case "sorted_containers":
-        result.setSortedContainers(Boolean.parseBoolean(value));
-        break;
-      case "reuse_objects":
-        result.setReuseObjects(Boolean.parseBoolean(value));
-        break;
-      case "option_type":
-        result.setOptionType(value);
-        break;
-      case "future_iface":
-        result.setFutureIface(Boolean.parseBoolean(value));
-        break;
-      case "undated_generated_annotations":
-        result.setUndatedGeneratedAnnotations(Boolean.parseBoolean(value));
-        break;
-      case "suppress_generated_annotations":
-        result.setSuppressGeneratedAnnotations(Boolean.parseBoolean(value));
-        break;
-      case "rethrow_unhandled_exceptions":
-        result.setRethrowUnhandledExceptions(Boolean.parseBoolean(value));
-        break;
-      case "unsafe_binaries":
-        result.setUnsafeBinaries(Boolean.parseBoolean(value));
-        break;
-      case "nocamel":
-        result.setNocamel(Boolean.parseBoolean(value));
-        break;
-      case "fullcamel":
-        result.setFullcamel(Boolean.parseBoolean(value));
-        break;
-      case "jakarta_annotations":
-        result.setJakartaAnnotations(Boolean.parseBoolean(value));
-        break;
-      case "annotations_as_metadata":
-        result.setAnnotationsAsMetadata(Boolean.parseBoolean(value));
-        break;
-      default:
-        // Store unknown options in custom map for future extensibility
-        result.customOptions.put(key, value);
-        break;
-      }
-    }
-
-    return result;
-  }
-
-  /**
    * Parse generator options from a map.
    *
    * @param options Map of option key/values
@@ -181,6 +103,18 @@ public class JavaGeneratorOptions {
         break;
       case "unsafe_binaries":
         result.setUnsafeBinaries(Boolean.parseBoolean(value));
+        break;
+      case "nocamel":
+        result.setNocamel(Boolean.parseBoolean(value));
+        break;
+      case "fullcamel":
+        result.setFullcamel(Boolean.parseBoolean(value));
+        break;
+      case "jakarta_annotations":
+        result.setJakartaAnnotations(Boolean.parseBoolean(value));
+        break;
+      case "annotations_as_metadata":
+        result.setAnnotationsAsMetadata(Boolean.parseBoolean(value));
         break;
       default:
         // Store unknown options in custom map for future extensibility

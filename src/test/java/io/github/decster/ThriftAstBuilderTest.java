@@ -252,9 +252,12 @@ class ThriftAstBuilderTest {
   }
 
   private TStruct findUnion(TProgram program, String name) {
-    for (TStruct tStruct : program.getObjects()) {
-      if (tStruct.getName().equals(name) && tStruct.isUnion()) {
-        return tStruct;
+    for (TDoc tobj : program.getObjects()) {
+      if(tobj instanceof TStruct){
+        TStruct tStruct = (TStruct) tobj;
+        if (tStruct.getName().equals(name) && tStruct.isUnion()) {
+          return tStruct;
+        }
       }
     }
     return null;

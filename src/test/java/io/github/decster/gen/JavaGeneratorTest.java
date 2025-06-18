@@ -19,6 +19,7 @@ public class JavaGeneratorTest {
     String idl = loadResourceFile("single_file_tests/DemoEnum.thrift");
     String genJava = loadResourceFile("single_file_tests/com/example/thrift/DemoEnum.java");
     TProgram program = ThriftAstBuilder.parseString(idl, "DemoEnum.thrift");
+    program.resolveTypeRefsAndConsts();
     JavaGenerator generator = new JavaGenerator(program, "", null);
     generator.setTimestamp("2025-06-06");
     JavaGenerator.GenResult result = generator.generateEnum(program.getEnums().get(0));
@@ -30,6 +31,7 @@ public class JavaGeneratorTest {
     String idl = loadResourceFile("single_file_tests/someConst.thrift");
     String genJava = loadResourceFile("single_file_tests/com/example/thrift/someConstConstants.java");
     TProgram program = ThriftAstBuilder.parseString(idl, "someConst.thrift");
+    program.resolveTypeRefsAndConsts();
     JavaGenerator generator = new JavaGenerator(program, "", null);
     generator.setTimestamp("2025-06-06");
     JavaGenerator.GenResult result = generator.generateConstants();
@@ -59,6 +61,7 @@ public class JavaGeneratorTest {
     String idl = loadResourceFile("single_file_tests/" + structName + ".thrift");
     String genJava = loadResourceFile("single_file_tests/com/example/thrift/" + structName + ".java");
     TProgram program = ThriftAstBuilder.parseString(idl, structName + ".thrift");
+    program.resolveTypeRefsAndConsts();
     JavaGenerator generator = new JavaGenerator(program, "", null);
     generator.setTimestamp("2025-06-06");
     JavaGenerator.GenResult result = generator.generateStruct(program.getStructs().get(0), false);
@@ -69,6 +72,7 @@ public class JavaGeneratorTest {
     String idl = loadResourceFile("single_file_tests/" + xceptionName + ".thrift");
     String genJava = loadResourceFile("single_file_tests/com/example/thrift/" + xceptionName + ".java");
     TProgram program = ThriftAstBuilder.parseString(idl, xceptionName + ".thrift");
+    program.resolveTypeRefsAndConsts();
     JavaGenerator generator = new JavaGenerator(program, "", null);
     generator.setTimestamp("2025-06-06");
     JavaGenerator.GenResult result = generator.generateStruct(program.getXceptions().get(0), true);
@@ -80,6 +84,7 @@ public class JavaGeneratorTest {
                                   + "/" + serviceName + ".thrift");
     String genJava = loadResourceFile("single_file_tests/com/example/thrift/" + serviceName + ".java");
     TProgram program = ThriftAstBuilder.parseString(idl, serviceName + ".thrift");
+    program.resolveTypeRefsAndConsts();
     JavaGenerator generator = new JavaGenerator(program, "", null);
     generator.setTimestamp("2025-06-06");
     JavaGenerator.GenResult result = generator.generateService(program.getServices().get(0));

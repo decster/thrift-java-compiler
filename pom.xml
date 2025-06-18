@@ -174,7 +174,7 @@
                 <version>${antlr4.version}</version>
                 <configuration>
                     <sourceDirectory>src/main/antlr4</sourceDirectory>
-                    <outputDirectory>${project.build.directory}/generated-sources/antlr4/com/github/decster/parser</outputDirectory>
+                    <outputDirectory>${project.build.directory}/generated-sources/antlr4/io/github/decster/parser</outputDirectory>
                     <visitor>true</visitor>
                 </configuration>
                 <executions>
@@ -272,6 +272,12 @@
                         <goals>
                             <goal>report</goal>
                         </goals>
+                        <configuration>
+                            <excludes>
+                                <exclude>io/github/decster/parser/**</exclude>
+                                <exclude>io/github/decster/thrift_java_maven_plugin/**</exclude>
+                            </excludes>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>

@@ -13,7 +13,7 @@ public class someConstConstants {
 
   public static final java.lang.String constMyString = "Hello, world!";
 
-  public static final double constMyDouble = 3.1415900000000000;
+  public static final double constMyDouble = 3.1415000000000000;
 
   public static final java.util.List<java.lang.Long> constMyList = new java.util.ArrayList<java.lang.Long>();
   static {
@@ -42,7 +42,7 @@ public class someConstConstants {
     java.util.List<java.lang.Long> tmp1 = new java.util.ArrayList<java.lang.Long>();
     tmp1.add(4L);
     tmp1.add(5L);
-    tmp1.add(6L);
+    tmp1.add(1245738738L);
 
     constMyNestedMap.put("nestedKey2", tmp1);
   }

@@ -8,13 +8,156 @@ import io.github.decster.gen.JavaGenerator;
 import io.github.decster.gen.JavaGeneratorOptions;
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class ThriftCompilerTest {
+
+  @Test
+  void testCompileThriftFilesWithNullLogger(@TempDir Path tempDir) throws IOException {
+    // Create a simple thrift file
+    Path thriftFile = createSimpleThriftFile(tempDir);
+
+    List<String> filesToParse = new ArrayList<>();
+    filesToParse.add(thriftFile.toString());
+
+    List<String> includeDirs = new ArrayList<>();
+    includeDirs.add(tempDir.toString());
+
+    // Test with null logger
+    int result =
+        ThriftCompiler.compileThriftFiles(
+            filesToParse, tempDir.resolve("output").toString(), includeDirs, "beans", null);
+
+    assertTrue(result > 0, "Should generate at least one file");
+    assertTrue(Files.exists(tempDir.resolve("output")), "Output directory should be created");
+  }
+
+  @Test
+  void testCompileThriftFilesWithCustomLogger(@TempDir Path tempDir) throws IOException {
+    // Create a simple thrift file
+    Path thriftFile = createSimpleThriftFile(tempDir);
+
+    List<String> filesToParse = new ArrayList<>();
+    filesToParse.add(thriftFile.toString());
+
+    List<String> includeDirs = new ArrayList<>();
+    includeDirs.add(tempDir.toString());
+
+    List<String> logMessages = new ArrayList<>();
+    Function<String, Void> logger =
+        s -> {
+          logMessages.add(s);
+          return null;
+        };
+
+    int result =
+        ThriftCompiler.compileThriftFiles(
+            filesToParse,
+            tempDir.resolve("output").toString(),
+            includeDirs,
+            "beans,private_members",
+            logger);
+
+    assertTrue(result > 0, "Should generate at least one file");
+    assertFalse(logMessages.isEmpty(), "Logger should have received messages");
+    assertTrue(
+        logMessages.stream().anyMatch(s -> s.contains("Output directory:")),
+        "Should log output directory");
+    assertTrue(
+        logMessages.stream().anyMatch(s -> s.contains("Include directories:")),
+        "Should log include directories");
+    assertTrue(
+        logMessages.stream().anyMatch(s -> s.contains("Generator options:")),
+        "Should log generator options");
+    assertTrue(
+        logMessages.stream().anyMatch(s -> s.contains("Total generated files:")),
+        "Should log total files");
+  }
+
+  @Test
+  void testCompileThriftFilesWithInvalidInput(@TempDir Path tempDir) {
+    // Test with non-existent input file
+    List<String> filesToParse = new ArrayList<>();
+    filesToParse.add(tempDir.resolve("nonexistent.thrift").toString());
+
+    List<String> includeDirs = new ArrayList<>();
+    includeDirs.add(tempDir.toString());
+
+    IOException exception =
+        assertThrows(
+            IOException.class,
+            () -> {
+              ThriftCompiler.compileThriftFiles(
+                  filesToParse, tempDir.resolve("output").toString(), includeDirs, "", s -> null);
+            });
+
+    assertTrue(
+        exception.getMessage().contains("Input file does not exist"),
+        "Should throw appropriate exception for non-existent file");
+  }
+
+  @Test
+  void testMainMethod(@TempDir Path tempDir) throws IOException {
+    // Create a simple thrift file
+    Path thriftFile = createSimpleThriftFile(tempDir);
+    Path outputDir = tempDir.resolve("output");
+
+    // Test with valid arguments
+    String[] args = {
+      "-o",
+      outputDir.toString(),
+      "-I",
+      tempDir.toString(),
+      "-g",
+      "beans,private_members",
+      thriftFile.toString()
+    };
+
+    // redirect System.out to avoid cluttering test output
+    PrintStream originalOut = System.out;
+    try {
+      System.setOut(
+          new java.io.PrintStream(
+              new java.io.OutputStream() {
+                @Override
+                public void write(int b) {
+                  // Do nothing, suppress output
+                }
+              }));
+      ThriftCompiler.main(args);
+      assertTrue(Files.exists(outputDir), "Output directory should be created");
+
+      // Test help command
+      String[] helpArgs = {"--help"};
+      ThriftCompiler.main(helpArgs);
+    } finally {
+      // reset System.out to default
+      System.setOut(originalOut);
+    }
+  }
+
+  // Helper method to create a simple Thrift file for testing
+  private Path createSimpleThriftFile(Path dir) throws IOException {
+    Path file = dir.resolve("Simple.thrift");
+    String content =
+        "namespace java io.github.decster.test\n\n"
+            + "struct SimpleStruct {\n"
+            + "  1: string name\n"
+            + "  2: i32 id\n"
+            + "}\n\n"
+            + "service SimpleService {\n"
+            + "  SimpleStruct getSimple(1: i32 id)\n"
+            + "}\n";
+
+    Files.writeString(file, content);
+    return file;
+  }
 
   static String getResourcePath(String relPath) {
     String path = ThriftCompilerTest.class.getResource(relPath).getPath();
@@ -100,18 +243,11 @@ class ThriftCompilerTest {
     includeDirs.add(getResourcePath("/include_tests"));
     String filePath = getResourcePath("/include_tests/Status.thrift");
 
-    // Capture System.err for testing warnings
-    java.io.ByteArrayOutputStream errContent = new java.io.ByteArrayOutputStream();
-    System.setErr(new java.io.PrintStream(errContent));
-
     // Parse a file that may have an include that doesn't exist (or test warning behavior)
     TProgram program = ThriftCompiler.recursiveParse(filePath, null, new HashSet<>(), includeDirs);
 
     // Verify the program was parsed successfully despite possible missing includes
     assertNotNull(program, "Program should be parsed successfully even with missing includes");
-
-    // Restore System.err
-    System.setErr(System.err);
   }
 
   @Test

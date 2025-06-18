@@ -103,13 +103,16 @@ public class JavaGenerator extends Generator {
     // Generate typedefs (skip for java)
 
     // Generate structs
-    for (TStruct struct : program.getObjects()) {
-      if (struct.isXception()) {
-        results.add(generateStruct(struct, true));
-      } else if (struct.isUnion()) {
-        results.add(generateUnion(struct));
-      } else {
-        results.add(generateStruct(struct, false));
+    for (TDoc obj : program.getObjects()) {
+      if (obj instanceof TStruct) {
+        TStruct struct = (TStruct) obj;
+        if (struct.isXception()) {
+          results.add(generateStruct(struct, true));
+        } else if (struct.isUnion()) {
+          results.add(generateUnion(struct));
+        } else if (struct.isStruct()) {
+          results.add(generateStruct(struct, false));
+        }
       }
     }
 
@@ -4029,7 +4032,8 @@ public class JavaGenerator extends Generator {
    * @param inInit Is the type being used in an initialization context?
    * @param skipGeneric Whether to skip adding generic type parameters
    * @param forceNamespace Whether to force including the namespace
-   * @return Java type name, i.e. java.util.HashMap<Key,Value>
+   *
+   * @return Java type name
    */
   public String typeName(TType ttype, boolean inContainer, boolean inInit, boolean skipGeneric,
                          boolean forceNamespace) {
