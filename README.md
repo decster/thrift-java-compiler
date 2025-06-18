@@ -1,4 +1,5 @@
 ![Build](https://github.com/decster/thrift-java-compiler/actions/workflows/maven.yml/badge.svg)
+[![codecov](https://codecov.io/gh/decster/thrift-java-compiler/branch/main/graph/badge.svg)](https://codecov.io/gh/decster/thrift-java-compiler)
 
 # Java Thrift Compiler (Experimental)
 
