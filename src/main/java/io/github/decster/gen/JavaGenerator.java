@@ -30,6 +30,7 @@ public class JavaGenerator extends Generator {
   private final TProgram program;
   private final JavaGeneratorOptions options;
   private final String outputDir;
+  private final boolean incrementalCompilation; // Added
   private String packageDir;
 
   // Map of Thrift types to Java types
@@ -67,11 +68,17 @@ public class JavaGenerator extends Generator {
    * @param program The Thrift program AST
    * @param outputDir The output directory for generated code
    * @param options Generation options
+   * @param incrementalCompilation Flag for incremental compilation
    */
-  public JavaGenerator(TProgram program, String outputDir, JavaGeneratorOptions options) {
+  public JavaGenerator(TProgram program, String outputDir, JavaGeneratorOptions options, boolean incrementalCompilation) {
     this.program = program;
     this.outputDir = outputDir;
     this.options = options != null ? options : new JavaGeneratorOptions();
+    this.incrementalCompilation = incrementalCompilation; // Added
+  }
+
+  public JavaGenerator(TProgram program, String outputDir, JavaGeneratorOptions options) {
+    this(program, outputDir, options, false);
   }
 
   public void setTimestamp(String timestamp) { this.timestamp = timestamp; }
@@ -85,11 +92,22 @@ public class JavaGenerator extends Generator {
   public int generateAndWriteToFile() throws IOException {
     prepareOutputDirectoryStructure();
     List<GenResult> results = generate();
+    int filesWritten = 0;
     // Write all generated files to disk
     for (GenResult result : results) {
+      if (this.incrementalCompilation) {
+        Path potentialPath = Paths.get(this.packageDir, result.filename);
+        if (Files.exists(potentialPath)) {
+          String existingContent = new String(Files.readAllBytes(potentialPath));
+          if (existingContent.equals(result.content)) {
+            continue;
+          }
+        }
+      }
       writeToFile(result.filename, result.content);
+      filesWritten++;
     }
-    return results.size();
+    return filesWritten;
   }
 
   public List<GenResult> generate() throws IOException {
