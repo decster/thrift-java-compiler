@@ -6,7 +6,7 @@
 
     <groupId>io.github.decster</groupId>
     <artifactId>thrift-java-maven-plugin</artifactId>
-    <version>0.1.1</version>
+    <version>0.1.2-SNAPSHOT</version>
     <packaging>maven-plugin</packaging>
 
     <name>Thrift Java Compiler Maven Plugin</name>
@@ -14,7 +14,7 @@
         Maven plugin for generating Java code from Thrift files,
         pure java implementation without thrift binary dependency.
     </description>
-    <url>https://github.com/decster/thrift-java-compiler</url>
+    <url>https://github.com/decster/thrift-java-maven-plugin</url>
 
     <licenses>
         <license>
@@ -32,9 +32,9 @@
     </developers>
 
     <scm>
-        <connection>scm:git:git://github.com/decster/thrift-java-compiler.git</connection>
-        <developerConnection>scm:git:ssh://github.com:decster/thrift-java-compiler.git</developerConnection>
-        <url>https://github.com/decster/thrift-java-compiler</url>
+        <connection>scm:git:git://github.com/decster/thrift-java-maven-plugin.git</connection>
+        <developerConnection>scm:git:ssh://github.com:decster/thrift-java-maven-plugin.git</developerConnection>
+        <url>https://github.com/decster/thrift-java-maven-plugin</url>
     </scm>
 
     <properties>

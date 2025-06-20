@@ -56,6 +56,16 @@ public class ThriftCompiler {
     return program;
   }
 
+  public static int compileThriftFiles(
+          List<String> filesToParse,
+          String outputDirectory,
+          List<String> includeDirs,
+          String genOptionsStr,
+          Function<String, Void> logger)
+          throws IOException {
+    return compileThriftFiles(filesToParse, outputDirectory, includeDirs, genOptionsStr, logger, false);
+  }
+
   /**
    * @return total number of files generated
    */
@@ -64,7 +74,8 @@ public class ThriftCompiler {
       String outputDirectory,
       List<String> includeDirs,
       String genOptionsStr,
-      Function<String, Void> logger)
+      Function<String, Void> logger,
+      boolean incrementalCompilation)
       throws IOException {
     if (logger==null) {
       logger = s -> {
@@ -121,7 +132,7 @@ public class ThriftCompiler {
       TProgram program = recursiveParse(filePath, null, new HashSet<>(), allIncludeDirs);
 
       // Generate code for this file
-      JavaGenerator generator = new JavaGenerator(program, outputDirectory, javaGenOptions);
+      JavaGenerator generator = new JavaGenerator(program, outputDirectory, javaGenOptions, incrementalCompilation);
       int filesGenerated = generator.generateAndWriteToFile();
 
       // Output a single line per file with the number of files generated
@@ -162,7 +173,8 @@ public class ThriftCompiler {
           s -> {
             System.out.println(s);
             return null;
-          });
+          },
+          false); // Pass false for incrementalCompilation in main, or add CLI arg
 
     } catch (ParameterException e) {
       System.err.println("Error parsing command-line arguments: " + e.getMessage());

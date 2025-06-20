@@ -57,6 +57,12 @@ public class ThriftCompilerMojo extends AbstractMojo {
     private boolean skip;
 
     /**
+     * Flag to enable incremental compilation.
+     */
+    @Parameter(defaultValue = "false", property = "thrift.incrementalCompilation")
+    private boolean incrementalCompilation;
+
+    /**
      * Maven project.
      */
     @Parameter(defaultValue = "${project}", readonly = true, required = true)
@@ -94,8 +100,8 @@ public class ThriftCompilerMojo extends AbstractMojo {
 
         try {
             getLog().info("Compiling " + thriftFiles.size() + " Thrift files to " + outputDirectory);
-            int numFiles = ThriftCompiler.compileThriftFiles(thriftFiles, outputDirectory.getAbsolutePath(), includeDirPaths, generatorOptions, null);
-            getLog().info("Thrift compilation completed, generated files: " + numFiles);
+            int numFiles = ThriftCompiler.compileThriftFiles(thriftFiles, outputDirectory.getAbsolutePath(), includeDirPaths, generatorOptions, null, incrementalCompilation);
+            getLog().info("Thrift compilation completed, incremental: "+ incrementalCompilation+ " generatedFiles: " + numFiles);
 
             // Add the output directory to the project's sources
             project.addCompileSourceRoot(outputDirectory.getAbsolutePath());
