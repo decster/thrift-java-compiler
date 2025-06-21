@@ -1,0 +1,61 @@
+plugins {
+    id 'java-gradle-plugin'
+    id 'groovy'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation localGroovy() // Or specific Groovy version if needed, e.g., 'org.apache.groovy:groovy:3.0.10'
+    testImplementation 'org.spockframework:spock-core:2.1-groovy-3.0' // Check for latest compatible version
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+gradlePlugin {
+    plugins {
+        thriftCompilerPlugin { // A name for this plugin definition
+            id = 'com.linecorp.thrift.gradle'
+            implementationClass = 'com.linecorp.thrift.ThriftCompilerPlugin'
+        }
+    }
+}
+
+// Functional Test Setup
+sourceSets {
+    functionalTest {
+        // groovy.srcDir file('src/functionalTest/groovy') // Not needed if using standard layout
+        // resources.srcDir file('src/functionalTest/resources')
+    }
+}
+
+configurations {
+    functionalTestImplementation.extendsFrom testImplementation
+    functionalTestRuntimeOnly.extendsFrom testRuntimeOnly
+}
+
+tasks.register('functionalTest', Test) {
+    description = 'Runs the functional tests.'
+    group = 'verification'
+
+    testClassesDirs = sourceSets.functionalTest.output.classesDirs
+    classpath = sourceSets.functionalTest.runtimeClasspath
+    mustRunAfter tasks.named('test')
+    useJUnitPlatform()
+}
+
+tasks.named('check') {
+    dependsOn tasks.functionalTest
+}
+
+// Ensure Java compatibility if generating Java code or using Java in tests
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+// Ensure tests use JUnit Platform (for Spock)
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+}
